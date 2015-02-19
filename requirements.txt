@@ -1,0 +1,8 @@
+twisted
+pyOpenSSL
+pymongo
+mogo==0.2.4
+factory_boy
+dnspython==1.12.0
+Jinja2
+fabric
