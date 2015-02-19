@@ -6,3 +6,5 @@ factory_boy
 dnspython==1.12.0
 Jinja2
 fabric
+sphinx
+sphinx-autobuild
