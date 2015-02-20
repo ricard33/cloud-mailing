@@ -845,8 +845,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                             list of acceptable statuses. By default, the filter contains all statuses except READY.
         @param max_results: How many results do you want ? There is a default and hard limit to 1000 results.
         @return: Returns a struct with following fields:
-            - the cursor string
-            - an array of recipient status.
+            - cursor: the cursor string
+            - recipients: an array of recipient status.
             A status is a structure containing following keys:
                 - id: recipient id
                 - status: global status ('READY', 'FINISHED', 'TIMEOUT', 'GENERAL_ERROR', 'ERROR', 'WARNING', 'IN PROGRESS')
