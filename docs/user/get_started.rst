@@ -40,11 +40,11 @@ This function returns you the mailing ID. This ID is unique and allows you to ma
 Then you should want to change/add more properties to your mailing. The function `set_mailing_properties()` is made
 for this::
 
-        cm_master.set_mailing_properties(mailing_id, {
-            'scheduled_start': datetime.now() + timedelta(hours=3),
-            'scheduled_duration': 1440,  # in minutes
-            'click_tracking': True,
-        })
+    cm_master.set_mailing_properties(mailing_id, {
+        'scheduled_start': datetime.now() + timedelta(hours=3),
+        'scheduled_duration': 1440,  # in minutes
+        'click_tracking': True,
+    })
 
 Add some recipients
 -------------------
@@ -71,7 +71,7 @@ Start a mailing
 ---------------
 The start of a mailing is very simple::
 
-        cm_master.start_mailing(mailing_id)
+    cm_master.start_mailing(mailing_id)
 
 After this call, the mailing will be immediately eligible for adding its recipients to a sending queue, on condition
 you didn't define a scheduled_start date in the future of course.

@@ -6,20 +6,48 @@
 Welcome to Cloud Mailing's documentation!
 =========================================
 
-$project will solve your problem of where to start with documentation,
-by providing a basic explanation of how to do it easily.
+Cloud Mailing is an e-mailing engine designed for simplicity and performance thanks to its cloud (= *distributed*)
+architecture.
 
-Look how easy it is to use:
+Look how easy it is to use::
 
-    import project
-    # Get your stuff done
-    project.do_stuff()
+    import xmlrpclib
+
+    config = {
+        'ip': '192.168.1.150',
+        'api_key': "xXXxxxXxxX",
+    }
+
+    cm_master = xmlrpclib.ServerProxy("https://admin:%(api_key)s@%(ip)s:33610/CloudMailing" % config)
+
+    mailing_id = cm_master.create_mailing(
+        "my-mailing@example.org",          # Sender email
+        "My Mailing",                      # Sender name
+        "The great newsletter",            # Subject
+        "<h1>Title</h1><p>Coucou</p>",     # HTML content
+        "Title\nCoucou\n",                 # Plain text content
+        "UTF-8"                            # Text encoding (for both HTML and plain text content)
+    )
+
+    cm_master.set_mailing_properties(mailing_id, {
+        'scheduled_start': datetime.now() + timedelta(hours=3),
+        'scheduled_duration': 1440,  # in minutes
+        'click_tracking': True,
+    })
+
+    cm_master.add_recipients(mailing_id, [
+        {'email': 'john.doe@example.org', 'firstname': 'John', 'lastname': 'DOE', 'another_custom_field': 'blabla'},
+        {'email': 'wilfred.smith@example.org'},
+        [...]
+    ])
+
+    cm_master.start_mailing(mailing_id)
 
 Table of content
 ----------------
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 3
 
    user/index
    dev/index
@@ -27,33 +55,31 @@ Table of content
 Features
 --------
 
-- Be awesome
-- Make things faster
+- Simple to use
+- Scalable
 
 Installation
 ------------
 
-Install $project by running:
-
-    install project
+TODO
 
 Contribute
 ----------
 
-- Issue Tracker: github.com/$project/$project/issues
-- Source Code: github.com/$project/$project
-- Developer guide: :ref:`dev-guide`
+- Issue Tracker: github.com/ricard33/cloud-mailing/issues
+- Source Code: github.com/ricard33/cloud-mailing
+.. - Developer guide: :ref:`dev-guide`
 
 Support
 -------
 
-If you are having issues, please let us know.
-We have a mailing list located at: project@google-groups.com
+.. If you are having issues, please let us know.
+   We have a mailing list located at: project@google-groups.com
 
 License
 -------
 
-The project is licensed under the BSD license.
+The project is licensed under the GNU Affero General Public License v3.
 
 
 

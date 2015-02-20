@@ -6,9 +6,3 @@ Developer guide
    :maxdepth: 2
 
    mongodb
-
-Test
-----
-
-.. automodule:: master.xmlrpc_api
-   :members:
