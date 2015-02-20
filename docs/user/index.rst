@@ -9,4 +9,5 @@ The goal of this guide is to help you to use Cloud Mailing API to send e-mailing
    :maxdepth: 2
 
    get_started
+   mailing_creation
    api
