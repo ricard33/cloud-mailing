@@ -328,23 +328,26 @@ class CloudMailingsTestCase(unittest.TestCase):
                                                                   'dont_close_if_empty': True})
         self.cloudMailingsRpc.start_mailing(mailing_id)
 
-        TOTAL_RECIPIENTS = 100000
+        TOTAL_RECIPIENTS = 1000000
         recipients_list = self._generate_recipients_list(TOTAL_RECIPIENTS)
         rcpts_list2 = []
 
-        def _add_recipeints(rcpts_list):
+        def _add_recipients(rcpts_list):
             results = self.cloudMailingsRpc.add_recipients(mailing_id, rcpts_list)
             for r1, r2 in zip(rcpts_list, results):
                 self.assertDictContainsSubset({'email': r1['email']}, r2)
                 self.assertNotIn('error', r2)
 
+        count = 0
         for recipient in recipients_list:
             rcpts_list2.append(recipient)
             if len(rcpts_list2) >= 1000:
-                _add_recipeints(rcpts_list2)
+                _add_recipients(rcpts_list2)
+                count += len(rcpts_list2)
+                print("Sent %d recipients over %d" % (count, TOTAL_RECIPIENTS))
                 rcpts_list2 = []
         if len(rcpts_list2):
-            _add_recipeints(rcpts_list2)
+            _add_recipients(rcpts_list2)
 
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
         self.assertEqual(mailing['total_recipient'], TOTAL_RECIPIENTS)
