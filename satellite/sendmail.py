@@ -273,7 +273,7 @@ class RelayerMixin:
         
         if hasattr(self, 'file') and self.file:
             self.file.close()
-            self.result.errback(exc)
+        self.result.errback(exc)
 
     def sentMail(self, code, resp, numOk, addresses, log):
         """Called when an attempt to send an email is completed.
