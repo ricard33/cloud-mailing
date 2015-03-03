@@ -16,7 +16,7 @@ The *regular* type is for mailings for which the number of recipients is known (
 This is the *default* type.
 
 The simplest workflow is:
- - create mailing
+- create mailing
  - add recipients
  - start mailing
  - wait for the automatic end when all recipients have been handled
@@ -28,6 +28,7 @@ closes itself too early.
 
 That why it is possible to set a mailing property (`dont_close_if_empty`) that explicitly tells Cloud Mailing to not close this mailing because
 we are still filling its recipients queue. So the workflow become:
+
  - create mailing
  - set `dont_close_if_empty` property to `True`
  - start mailing
@@ -42,4 +43,3 @@ any time and handled immediately.
 
 An example of opened mailing usage can be the confirmation email of an online store when a customer completes a
 purchase. The email is always the same, only content (purchased items) change and is handled by advanced customization.
-  

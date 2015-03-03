@@ -100,7 +100,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_cloud_list_satellites(self):
         """
         List all cloud mailing satellites
-        @return: Array of satellite descriptions. Each satellite is described by a properties dictionary.
+
+        :return: Array of satellite descriptions. Each satellite is described by a properties dictionary.
         Fields are:
          - id: internal id of this satellite
          - serial: CM serial number of the satellite
@@ -148,14 +149,16 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     @doc_signature('<i>string</i> serial', '<i>struct</i> properties', 'id')
     def xmlrpc_cloud_add_satellite(self, serial, properties):
         """
-        Add a new satellite. Satellite properties can be set by a struct with following valid keys:
+        Add a new satellite.
+         
+         Satellite properties can be set by a struct with following valid keys:
          - enabled: can be used or not
          - shared_key:
          - domain_affinity:
 
-        @param serial: Serial number of the Satellite to add
-        @param properties: struct containing properties for this new satellite
-        @return: Satellite ID
+        :param serial: Serial number of the Satellite to add
+        :param properties: struct containing properties for this new satellite
+        :return: Satellite ID
         """
         log_api.debug("XMLRPC: cloud_add_satellite(%s, %s)", serial, repr(properties))
         self.check_satellite_properties(properties, valid_keys=('enabled', 'shared_key', 'domain_affinity'))
@@ -172,9 +175,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
          - shared_key:
          - domain_affinity:
 
-        @param id: ID of the Satellite to change
-        @param properties: struct containing properties to change for this satellite
-        @return: id
+        :param id: ID of the Satellite to change
+        :param properties: struct containing properties to change for this satellite
+        :return: id
         """
         log_api.debug("XMLRPC: cloud_set_satellite_properties(%s, %s)", id, repr(properties))
         self.check_satellite_properties(properties, valid_keys=('serial', 'enabled', 'shared_key', 'domain_affinity'))
@@ -191,8 +194,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_cloud_delete_satellite(self, id):
         """
         Delete a satellite.
-        @param id: ID of the Satellite to delete
-        @return: 0
+        :param id: ID of the Satellite to delete
+        :return: 0
         """
         log_api.debug("XMLRPC: cloud_delete_satellite(%s)", id)
         s = CloudClient.grab(id)
@@ -207,13 +210,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_list_mailings(self, request, filters=None):
         """
         List all mailings for the logged user
-        @param filters: if present, should be a struct containing filters.
+        :param filters: if present, should be a struct containing filters.
                         Available filters are:
                             - 'domain': list of mailing sender domain name
                             - 'id': will only returns mailing which id are in this list.
                             - 'status': will only returns mailing which status are in this list.
                             - 'owner_guid': list of owner GUID to use as filter
-        @return: Array of mailings descriptions. Each mailing is described by a properties dictionary.
+        :return: Array of mailings descriptions. Each mailing is described by a properties dictionary.
         Fields are:
          - id: internal id of this mailing
          - domain_name: Related domain name = mailing sender identity
@@ -291,13 +294,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         Creates a new mailing.
 
-        @param mail_from: Sender email address
-        @param sender_name: Sender name (used to compose the From header : "Sender Name <sender-email@domain.tdl>")
-        @param subject: Mailing subject
-        @param html_content: HTML message
-        @param plain_content: Plain text message
-        @param charset: Encoding of both HTML and plain text messages
-        @return: Returns the mailing internal id
+        :param mail_from: Sender email address
+        :param sender_name: Sender name (used to compose the From header : "Sender Name <sender-email@domain.tdl>")
+        :param subject: Mailing subject
+        :param html_content: HTML message
+        :param plain_content: Plain text message
+        :param charset: Encoding of both HTML and plain text messages
+        :return: Returns the mailing internal id
         """
         log_api.debug("XMLRPC: create_mailing(%s, %s, %s, ...)", mail_from, sender_name, subject)
         msg = email.mime.multipart.MIMEMultipart("alternative")
@@ -531,29 +534,31 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_add_recipients(self, request, mailing_id, recipients):
         """Adds multiple recipients to a mailing.
 
-        Recipients are passed as an array of struct, each struct containing fields for one recipient.
-        Predefined fields are:
-          - email     -- MANDATORY. Without it, recipient can't be added
-          - tracking_id -- if set, will be used as tracking or unsubscribe id instead of an auto-generated one
-          - attachments -- optional: Array of struct, each one describes an attachment
+        :param mailing_id: Target mailing id
+        :param recipients: Array of recipient description.
+            Recipients are passed as an array of struct, each struct containing fields for one recipient.
+            Predefined fields are:
+              - email     -- MANDATORY. Without it, recipient can't be added
+              - tracking_id -- if set, will be used as tracking or unsubscribe id instead of an auto-generated one
+              - attachments -- optional: Array of struct, each one describes an attachment
 
-        Attachment struct contains following fields:
-          - filename : (optional)attachment file name
-          - content-type : attachment mime type
-          - content-id: (optional, not yet supported) content id. If present, attachment will be added in a multipart/related
-                        and without 'disposition: attachment' header.
-          - charset: (only for text/*) charset of the encoded text
-          - data: (*)base64 encoded attachment data
-          - url: (*)URL where attachment file can be downloaded (in its original format, i.e. not base64 encoded)
-                 (Not yet supported)
+            Attachment struct contains following fields:
+              - filename : (optional)attachment file name
+              - content-type : attachment mime type
+              - content-id: (optional, not yet supported) content id. If present, attachment will be added in a multipart/related
+                            and without 'disposition: attachment' header.
+              - charset: (only for text/*) charset of the encoded text
+              - data: (*)base64 encoded attachment data
+              - url: (*)URL where attachment file can be downloaded (in its original format, i.e. not base64 encoded)
+                     (Not yet supported)
 
-        (*) 'data' and 'url' fields are mutually exclusive. But at least one of them has to be present.
+            (*) 'data' and 'url' fields are mutually exclusive. But at least one of them has to be present.
 
-        WARNING: while there is no hard-coded limit for the number of recipients passed at the
-        same time, passing a huge number of recipients can take a very long time and block all
-        services...
+            WARNING: while there is no hard-coded limit for the number of recipients passed at the
+            same time, passing a huge number of recipients can take a very long time and block all
+            services...
 
-        @return: A list of structures, one for each recipient in input.
+        :return: A list of structures, one for each recipient in input.
             The structure contains following fields:
                 - email: recipient email. Can be missing if recipient doesn't contains email field.
                 - id: recipient internal id only if recipient has been successfully added.
@@ -672,7 +677,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_start_mailing(self, request, mailing_id, when=None):
         """
         Activate a mailing: its recipients will be available to be handled by mailing queues.
-        @return: new mailing status
+        :return: new mailing status
         """
         log_api.debug("XMLRPC: start_mailing(%s, %s)", mailing_id, when)
         mailing = Mailing.grab(mailing_id)
@@ -698,7 +703,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_pause_mailing(self, request, mailing_id):
         """
         Temporary stop a mailing (mailing is paused).
-        @return: new mailing status
+        :return: new mailing status
         """
         log_api.debug("XMLRPC: pause_mailing(%s)", mailing_id)
         mailing = Mailing.grab(mailing_id)
@@ -724,7 +729,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         DEPRECATED as useless. Statistics are in real time now.
         Ask CloudMailing to update its mailings statistics now. Warning, this is a synchronous call
         and this operation may take some time.
-        @return: 0
+        :return: 0
         """
         log_api.debug("XMLRPC: update_statistics()")
         log_api.warn("XMLRPC: update_statistics() is deprecated because it became useless since statistics are updated in real time.")
@@ -778,8 +783,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_get_recipients_status(self, request, recipient_ids):
         """
         Returns the status of a list of recipients.
-        @param recipient_ids: Array of recipient ids
-        @return: Returns an array of recipient status.
+        :param recipient_ids: Array of recipient ids
+        :return: Returns an array of recipient status.
             A status is a structure containing following keys:
                 - id: recipient id
                 - status: global status ('READY', 'FINISHED', 'TIMEOUT', 'GENERAL_ERROR', 'ERROR', 'WARNING', 'IN PROGRESS')
@@ -839,12 +844,12 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         should not be interpreted nor manually generated. It change after every call, so it have to be stored by
         client.
 
-        @param request:
-        @param cursor: Obscure string allowing to get next results.
-        @param only_status: allows to filter results by recipient status. If specified, this parameter should contains a
+        :param request:
+        :param cursor: Obscure string allowing to get next results.
+        :param only_status: allows to filter results by recipient status. If specified, this parameter should contains a
                             list of acceptable statuses. By default, the filter contains all statuses except READY.
-        @param max_results: How many results do you want ? There is a default and hard limit to 1000 results.
-        @return: Returns a struct with following fields:
+        :param max_results: How many results do you want ? There is a default and hard limit to 1000 results.
+        :return: Returns a struct with following fields:
             - cursor: the cursor string
             - recipients: an array of recipient status.
             A status is a structure containing following keys:
@@ -951,7 +956,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_reset_recipients_status(self, request, recipient_ids):
         """
         Reset the status of a list of recipients. This allows recipients to be include again in mailing.
-        @param recipient_ids: Array of recipient ids
+        :param recipient_ids: Array of recipient ids
         """
         log_api.debug("XMLRPC: reset_recipients_status(%s)", repr(recipient_ids))
         def _reset_recipients_status(recipient_ids):
@@ -967,9 +972,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def xmlrpc_get_hourly_statistics(self, request, from_date):
         """
         Returns the status of a list of recipients.
-        @param request:
-        @param from_date: Only returns statistics since this date
-        @return: Returns an array of structs containing following fields:
+        :param request:
+        :param from_date: Only returns statistics since this date
+        :return: Returns an array of structs containing following fields:
                 - sender: satellite serial number
                 - date:
                 - epoch_hour:
