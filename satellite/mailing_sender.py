@@ -877,6 +877,7 @@ class RecipientManager(object):
             uid, path = MailCustomizer(self.recipient, True,
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking).customize()
+            self.temp_filename = path
             self.factory.send_email(self.email_from, (self.email_to,), file(path, 'rt'))\
                 .addCallbacks(self.onSuccess, self.onFailure)
 
