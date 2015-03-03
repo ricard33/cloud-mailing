@@ -497,7 +497,7 @@ class CloudRealm:
                 if serial and serial != item.client.serial:
                     break
                 serial = item.client.serial
-                recipients.append(item.recipient.id)
+                recipients.append(item.recipient['_id'])
             if serial and recipients:
                 try:
                     avatar = self.avatars[serial]
