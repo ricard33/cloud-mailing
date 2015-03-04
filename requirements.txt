@@ -8,3 +8,4 @@ Jinja2
 fabric
 sphinx
 sphinx-autobuild
+watchdog
