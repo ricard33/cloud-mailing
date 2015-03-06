@@ -10,4 +10,5 @@ The goal of this guide is to help you to use Cloud Mailing API to send e-mailing
 
    get_started
    mailing_creation
+   template
    api
