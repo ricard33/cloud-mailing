@@ -28,6 +28,11 @@ from common import settings
 from common.cm_logging import configure_logging
 configure_logging(settings.config, "master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
 
+##Twisted logs
+from twisted.python.log import PythonLoggingObserver
+observer = PythonLoggingObserver()
+observer.start()
+
 log = logging.getLogger("cm")
 
 log.info("****************************************************************")
