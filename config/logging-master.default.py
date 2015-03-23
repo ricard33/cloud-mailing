@@ -16,8 +16,9 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'ricard'
-import sys
+import sys, os
 
+LOG_FOLDER = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', 'log'))
 LOGGING = {
     'version': 1,
     'disable_existing_loggers': True,
@@ -46,7 +47,7 @@ LOGGING = {
             'level': 'NOTSET',
             'class': 'logging.handlers.RotatingFileHandler',
             'formatter': 'verbose',
-            'filename': 'log/master.log',
+            'filename': os.path.join(LOG_FOLDER, 'master.log'),
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 10,
         },
