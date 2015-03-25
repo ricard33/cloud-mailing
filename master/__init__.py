@@ -28,7 +28,7 @@ from master.xmlrpc_api import make_xmlrpc_server
 service_master = None
 service_manager = None
 
-def get_api_service(ssl_context_factory=None):
+def get_api_service(application=None, ssl_context_factory=None):
     """
     Return a service suitable for creating an application object.
 
@@ -39,9 +39,14 @@ def get_api_service(ssl_context_factory=None):
         ssl_context_factory = make_SSL_context()
 
     webServer = server.Site( make_xmlrpc_server() )
-    service = internet.SSLServer(33610, webServer, ssl_context_factory)
+    if application:
+        apiService = internet.SSLServer(33610, webServer, ssl_context_factory)
+        apiService.setServiceParent(application)
+    else:
+        apiService = reactor.listenSSL(33610, webServer, ssl_context_factory)
+
     logging.info("Supervisor XMLRPC SSL server started on port %d", 33610)
-    return service
+    return apiService
 
 
 def start_master_service(application=None, master_port=33620, ssl_context_factory=None):

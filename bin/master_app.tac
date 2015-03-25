@@ -69,6 +69,5 @@ db_conn = connect(settings.MASTER_DATABASE)
 
 
 # attach the service to its parent application
-apiService = get_api_service(ssl_context_factory=ssl_context_factory)
-apiService.setServiceParent(application)
+apiService = get_api_service(application, ssl_context_factory=ssl_context_factory)
 start_master_service(application, ssl_context_factory=ssl_context_factory)

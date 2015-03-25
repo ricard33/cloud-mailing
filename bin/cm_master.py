@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright 2015 Cedric RICARD
 #
 # This file is part of CloudMailing.
@@ -15,6 +16,10 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
+import sys, os
+
+sys.path.append(os.path.normpath(os.path.join(os.path.dirname(__file__), '..')))
+
 import logging
 from mogo import connect
 import twisted
@@ -26,6 +31,7 @@ from master import get_api_service, start_master_service
 from common import settings
 
 from common.cm_logging import configure_logging
+from common import colored_log
 configure_logging(settings.config, "master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
 
 ##Twisted logs
