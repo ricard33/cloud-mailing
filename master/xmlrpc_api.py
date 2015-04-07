@@ -234,8 +234,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
          - total_pending: Number of recipients not yet handled (including soft bounces)
          - total_error: Number of hard bounces
          - total_softbounce: Number of soft bounces
-         - read_tracking: True is tracking for reads is activated
-         - click_tracking: True is tracking for clicks is activated
+         - read_tracking: True if tracking for reads is activated
+         - click_tracking: True if tracking for clicks is activated
         """
         log_api.debug("XMLRPC: list_mailings(%s)", filters or {})
 
@@ -709,6 +709,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         mailing = Mailing.grab(mailing_id)
         if not mailing:
             request.setResponseCode(http.NOT_FOUND)
+            log_api.error("Mailing [%d] not found!", mailing_id)
             raise Fault(http.NOT_FOUND, 'Mailing not found!')
 
         if mailing.status in (MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED):
@@ -718,6 +719,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             assert(isinstance(manager, MailingManager))
             deferToThread(manager.pause_mailing, mailing)
         else:
+            log_api.error("Bad mailing status: '%s' for [%d]. Can't pause it!", mailing.status, mailing_id)
             request.setResponseCode(http.NOT_ACCEPTABLE)
             raise Fault(http.NOT_ACCEPTABLE, "Bad mailing status: '%s'. Can't pause it!" % mailing.status)
 
