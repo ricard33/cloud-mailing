@@ -17,12 +17,10 @@
 
 from random import random, randint
 from datetime import datetime
+import factory
+from ..models import Mailing, MailingRecipient
 
 __author__ = 'ricard'
-
-import factory
-from satellite.models import Mailing, MailingRecipient
-
 
 class MailingFactory(factory.MogoFactory):
     FACTORY_FOR = Mailing

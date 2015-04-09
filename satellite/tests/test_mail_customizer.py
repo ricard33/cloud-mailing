@@ -16,9 +16,9 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import factory
-from common.unittest_mixins import DatabaseMixin
-from satellite.mail_customizer import MailCustomizer
-from satellite.models import MailingRecipient, Mailing
+from ...common.unittest_mixins import DatabaseMixin
+from ..mail_customizer import MailCustomizer
+from ..models import MailingRecipient, Mailing
 from twisted.trial.unittest import TestCase
 import factories
 import os

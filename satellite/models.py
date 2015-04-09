@@ -19,7 +19,7 @@ from mogo import Model, Field, EnumField, ReferenceField
 
 from datetime import datetime, timedelta
 import time
-from common.models import Sequence
+from ..common.models import Sequence
 
 
 class RECIPIENT_STATUS:

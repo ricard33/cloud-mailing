@@ -24,10 +24,10 @@ import traceback
 from twisted.application import internet
 from twisted.internet.threads import deferToThread
 
-import settings_vars
-from common import settings
-from master.models import Mailing, MailingTempQueue, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
-from common.singletonmixin import Singleton
+from . import settings_vars
+from ..common import settings
+from .models import Mailing, MailingTempQueue, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
+from ..common.singletonmixin import Singleton
 
 
 class MailingManager(Singleton):
@@ -287,7 +287,7 @@ class MailingManager(Singleton):
         mailing.save()
         MailingTempQueue.remove({'mailing.$id': mailing.id})
 
-        from master.cloud_master import mailing_portal
+        from .cloud_master import mailing_portal
 
         if mailing_portal:
             mailing_master = mailing_portal.realm
@@ -305,7 +305,7 @@ class MailingManager(Singleton):
         MailingTempQueue.remove({'mailing.$id': mailing.id})
         self.log.debug("close_mailing(%d): mailing_temp_queue cleaned", mailing.id)
 
-        from master.cloud_master import mailing_portal
+        from .cloud_master import mailing_portal
 
         if mailing_portal:
             mailing_master = mailing_portal.realm
@@ -316,7 +316,7 @@ class MailingManager(Singleton):
             def _set_next_time(result, delay):
                 self.next_time_for_check_orphan_recipients = time.time() + delay
 
-            from master.cloud_master import mailing_portal
+            from .cloud_master import mailing_portal
 
             if mailing_portal:
                 mailing_master = mailing_portal.realm

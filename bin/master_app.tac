@@ -36,14 +36,14 @@ import twisted
 from twisted.application import service, internet
 from twisted.web import server, resource, xmlrpc, static
 
-from common import __version__ as VERSION
-from common.ssl_tools import make_SSL_context
-from master import get_api_service, start_master_service
-from master.xmlrpc_api import make_xmlrpc_server
-from common import settings
+from cloud_mailing.common import __version__ as VERSION
+from cloud_mailing.common.ssl_tools import make_SSL_context
+from cloud_mailing.master import get_api_service, start_master_service
+from cloud_mailing.master.xmlrpc_api import make_xmlrpc_server
+from cloud_mailing.common import settings
 
-from common.cm_logging import configure_logging
-from common import colored_log
+from cloud_mailing.common.cm_logging import configure_logging
+from cloud_mailing.common import colored_log
 
 configure_logging(settings.config, "master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
 

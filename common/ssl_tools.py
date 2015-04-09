@@ -18,7 +18,7 @@
 """SSL management module"""
 import logging
 import os
-from common import settings
+from . import settings
 
 __author__ = 'ricard'
 

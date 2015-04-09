@@ -24,8 +24,8 @@ from cStringIO import StringIO
 import pymongo
 from mogo import Model, Field, EnumField, ReferenceField
 
-from common import settings
-from common.models import Sequence
+from ..common import settings
+from ..common.models import Sequence
 
 DATABASE = "cm_master"
 

@@ -51,12 +51,12 @@ from twisted.internet import reactor
 from twisted.spread import pb
 from twisted.spread.util import CallbackPageCollector
 
-from satellite.mx import MXCalculator, FakedMXCalculator
+from .mx import MXCalculator, FakedMXCalculator
 from sendmail import SMTPRelayerFactory
-from common import settings
-from common.config_file import ConfigFile
+from ..common import settings
+from ..common.config_file import ConfigFile
 import settings_vars
-from satellite.mail_customizer import MailCustomizer
+from .mail_customizer import MailCustomizer
 from models import Mailing, MailingRecipient, RECIPIENT_STATUS, HourlyStats, DomainStats, DomainConfiguration, \
     ActiveQueue
 

@@ -36,14 +36,14 @@ import twisted
 from twisted.application import service, internet
 from twisted.web import server, resource, xmlrpc, static
 
-from common import __version__ as VERSION
+from cloud_mailing.common import __version__ as VERSION
 from twisted.internet import ssl
-from common.ssl_tools import make_SSL_context
-from satellite import start_satellite_service
-from common import settings
+from cloud_mailing.common.ssl_tools import make_SSL_context
+from cloud_mailing.satellite import start_satellite_service
+from cloud_mailing.common import settings
 
-from common.cm_logging import configure_logging
-from common import colored_log
+from cloud_mailing.common.cm_logging import configure_logging
+from cloud_mailing.common import colored_log
 
 configure_logging(settings.config, "satellite", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
 

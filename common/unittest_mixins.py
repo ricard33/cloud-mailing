@@ -17,7 +17,7 @@
 
 from mogo import connect
 from mogo.connection import Connection
-from common import settings
+from . import settings
 
 __author__ = 'ricard'
 

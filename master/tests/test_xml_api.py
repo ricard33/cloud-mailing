@@ -20,17 +20,17 @@ import email
 import logging
 import sys
 from bson import ObjectId
-from common.unittest_mixins import DatabaseMixin
-from master.cloud_master import MailingManagerView
+from ...common.unittest_mixins import DatabaseMixin
+from ..cloud_master import MailingManagerView
 from factories import MailingFactory, RecipientFactory, CloudClientFactory
 from twisted.internet import reactor
 from twisted.trial.unittest import TestCase
 from twisted.web import server, xmlrpc
-from common.models import Settings
-from master.xmlrpc_api import CloudMailingRpc
-from master.models import Mailing, MAILING_STATUS, RECIPIENT_STATUS, MailingHourlyStats, MailingTempQueue, MailingRecipient
-from common import settings
-from common.config_file import ConfigFile
+from ...common.models import Settings
+from ..xmlrpc_api import CloudMailingRpc
+from ..models import Mailing, MAILING_STATUS, RECIPIENT_STATUS, MailingHourlyStats, MailingTempQueue, MailingRecipient
+from ...common import settings
+from ...common.config_file import ConfigFile
 from datetime import datetime, timedelta
 import os
 from mogo import connect

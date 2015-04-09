@@ -32,10 +32,10 @@ from twisted.cred import checkers, portal, error as cred_error, credentials
 from twisted.internet.threads import deferToThread, deferToThreadPool
 from twisted.python import threadpool
 
-from common import settings
+from ..common import settings
 
-from models import RECIPIENT_STATUS, MAILING_STATUS, MailingTempQueue
-from models import CloudClient, MailingRecipient, Mailing
+from .models import RECIPIENT_STATUS, MAILING_STATUS, MailingTempQueue
+from .models import CloudClient, MailingRecipient, Mailing
 
 mailing_portal = None
 unit_test_mode = False   # used to make delays shorter
@@ -122,7 +122,7 @@ class ClientAvatar(pb.Avatar):
     def get_recipients_list(self):
         """
         Ask the client to returns the list of currently handled recipient ids.
-        @returns: a Deferred which will be fired when the result of
+        :returns: a Deferred which will be fired when the result of
                   this remote call is received.
         """
         l = []
@@ -137,6 +137,28 @@ class ClientAvatar(pb.Avatar):
             return ids
         return defer.DeferredList(l, fireOnOneErrback=True, consumeErrors=True)\
                     .addCallback(_get_recipients_list_cb)
+
+    def check_recipients(self, recipients):
+        """
+        Ask the client to returns a dictionary mapping for each input id the corresponding recipient object, nor None is not found.
+
+        :param recipients: array of recipient_id
+        :type recipients: list
+        :returns: a Deferred which will be fired when the result of
+                  this remote call is received.
+        """
+        l = []
+        for c in self.clients:
+            l.append(c.callRemote("check_recipients", recipients))
+
+        def _check_recipients_cb(results, *args):
+            recipients_dict = {}
+            for result in results:
+                if result[0]:
+                    recipients_dict.update(result[1])
+            return recipients_dict
+        return defer.DeferredList(l, fireOnOneErrback=True, consumeErrors=True)\
+                    .addCallback(_check_recipients_cb)
 
     def force_check_for_new_recipients(self):
         for c in self.clients:
@@ -497,7 +519,7 @@ class CloudRealm:
                 if serial and serial != item.client.serial:
                     break
                 serial = item.client.serial
-                recipients.append(item.recipient['_id'])
+                recipients.append(str(item.recipient['_id']))
             if serial and recipients:
                 try:
                     avatar = self.avatars[serial]

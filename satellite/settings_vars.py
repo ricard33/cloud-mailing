@@ -49,7 +49,7 @@ default = {
 }
 
 # Helpers
-from common.models import Settings
+from ..common.models import Settings
 
 
 def get(name):

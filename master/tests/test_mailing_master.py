@@ -16,6 +16,7 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import unittest
+from bson import ObjectId
 from twisted.trial.unittest import TestCase
 from twisted.test import proto_helpers
 from twisted.internet import reactor, defer, task
@@ -23,14 +24,16 @@ from twisted.spread import pb, util
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.cred import credentials
 
-from common import settings
-from common.html_tools import strip_tags
-from common.unittest_mixins import DatabaseMixin
-from master import start_master_service, stop_master_service
-from master.cloud_master import MailingManagerView
+from ...common import settings
+from ...common.html_tools import strip_tags
+from ...common.unittest_mixins import DatabaseMixin
+from ..master_main import start_master_service, stop_master_service
+from ..cloud_master import stop_all_threadpools
+from ..cloud_master import MailingManagerView
 from factories import MailingFactory, RecipientFactory
+from ..mailing_manager import MailingManager
 
-from master.models import Mailing, MailingRecipient, MailingTempQueue, MAILING_STATUS, MailingHourlyStats, RECIPIENT_STATUS
+from ..models import Mailing, MailingRecipient, MailingTempQueue, MAILING_STATUS, MailingHourlyStats, RECIPIENT_STATUS
 
 import logging
 import email
@@ -108,6 +111,21 @@ class CloudClient(pb.Referenceable):
         """
         return self.recipients
 
+    def remote_check_recipients(self, recipient_ids):
+        """
+        Returns a dictionary mapping for each input id the corresponding recipient object, nor None is not found.
+        """
+        recipients_dict = {}
+        for _id in recipient_ids:
+            recipients_dict[_id] = None
+        for recipient in MailingRecipient._get_collection().find({'_id': {'$in': map(lambda x: ObjectId(x), recipient_ids)}}):
+            for field in ('contact_data', 'unsubscribe_id'):
+                recipient.pop(field, None)
+            recipient['_id'] = str(recipient['_id'])
+            recipient['mailing'] = recipient['mailing'].id
+            recipients_dict[recipient['_id']] = recipient
+        return recipients_dict
+
 
 class CloudClientFactory(pb.PBClientFactory):
 
@@ -158,7 +176,6 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         # Mailing.drop()
         # MailingHourlyStats.drop()
         self.cloud_client = None
-        from master.cloud_master import stop_all_threadpools
         return defer.maybeDeferred(stop_all_threadpools)
 
     def connect_client(self, disconnectedDeferred = None):
@@ -266,7 +283,6 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         d.addCallback(self.do_disconnect, d2)
         d.addErrback(self.do_disconnect_on_error, d2)
 
-        from master.mailing_manager import MailingManager
         manager = MailingManager.getInstance()
         manager.forceToCheck()
         manager.checkState()
@@ -299,7 +315,6 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         self.fill_database(recipients_count)
 
         # need to force Temp queue filling
-        from master.mailing_manager import MailingManager
         manager = MailingManager.getInstance()
         manager.forceToCheck()
         manager.checkState()
@@ -320,7 +335,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
 
         d.addCallback(check_handled_recipients, recipients_count)
 
-        from master.cloud_master import mailing_portal
+        from ..cloud_master import mailing_portal
         mailing_master = mailing_portal.realm
         d.addCallback(lambda x: mailing_master.check_recipients_in_clients(since_hours=0))
 
@@ -350,7 +365,6 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         d.addCallback(self.do_disconnect, d2)
         d.addErrback(self.do_disconnect_on_error, d2)
 
-        from master.mailing_manager import MailingManager
         manager = MailingManager.getInstance()
         manager.forceToCheck()
         manager.checkState()
@@ -375,7 +389,6 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         d.addCallback(self.do_disconnect, d2)
         d.addErrback(self.do_disconnect_on_error, d2)
 
-        from master.mailing_manager import MailingManager
         manager = MailingManager.getInstance()
         manager.forceToCheck()
         manager.checkState()
@@ -400,7 +413,6 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         d.addCallback(self.do_disconnect, d2)
         d.addErrback(self.do_disconnect_on_error, d2)
 
-        from master.mailing_manager import MailingManager
         manager = MailingManager.getInstance()
         manager.startTime = 0  # hack to authorize the check of finished mailings
         manager.forceToCheck()
@@ -450,8 +462,6 @@ class SendReportTest(DatabaseMixin, TestCase):
         self.assertEquals(30, ml2.total_error)
 
 
-
-
 class MailingManagerQueries(DatabaseMixin, TestCase):
 
     def setUp(self):
@@ -487,14 +497,12 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
         self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
         mq.activate()
         self.assertEquals(MAILING_STATUS.READY, mq.status)
-        from master.mailing_manager import MailingManager
         qs = Mailing.find(MailingManager.make_mailings_queryset())
         self.assertEqual(1, qs.count())
 
     def test_make_mailing_queryset_with_scheduled_duration(self):
         mq = MailingFactory(scheduled_duration=14400)
         mq.activate()
-        from master.mailing_manager import MailingManager
         qs = Mailing.find(MailingManager.make_mailings_queryset())
         self.assertEqual(1, qs.count())
 
@@ -504,13 +512,11 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
 
         mq = MailingFactory()
         self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
-        from master.mailing_manager import MailingManager
         qs = Mailing.find(MailingManager.make_mailings_queryset())
         self.assertEqual(0, qs.count())
 
     def test_make_recipients_queryset(self):
         mq = self._fill_database(10)
-        from master.mailing_manager import MailingManager
         mailing = Mailing.find_one(MailingManager.make_mailings_queryset())
         qs = MailingRecipient.find(MailingManager.make_recipients_queryset(mailing))
         self.assertEqual(10, qs.count())
@@ -518,12 +524,11 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
     def test_make_recipients_queryset_on_greylisted_entries(self):
         mq = self._fill_database(10, real_start=datetime.now() - timedelta(hours=10))
         MailingRecipient.update({'email': 'rcpt1@free.fr'}, {'$set': {'first_try': datetime.now() - timedelta(hours=10),
-                                                           'next_try': datetime.now() - timedelta(hours=1),
+                                                           'next_try': datetime.utcnow() - timedelta(hours=1),
                                                            'send_status': RECIPIENT_STATUS.WARNING}})
         MailingRecipient.update({'email': 'rcpt2@free.fr'}, {'$set': {'first_try': datetime.now() - timedelta(hours=10),
-                                                           'next_try': datetime.now() + timedelta(hours=1),
+                                                           'next_try': datetime.utcnow() + timedelta(hours=1),
                                                            'send_status': RECIPIENT_STATUS.WARNING}})
-        from master.mailing_manager import MailingManager
         mailing = Mailing.find_one(MailingManager.make_mailings_queryset())
         qs = MailingRecipient.find(MailingManager.make_recipients_queryset(mailing))
         self.assertEqual(9, qs.count())

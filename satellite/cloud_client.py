@@ -27,14 +27,13 @@ from twisted.spread import pb
 from twisted.internet import reactor
 from twisted.cred import credentials
 from twisted.internet.protocol import ReconnectingClientFactory
-from satellite.mail_customizer import MailCustomizer
-from satellite.models import MailingRecipient, Mailing
-from common.config_file import ConfigFile
+from .mail_customizer import MailCustomizer
+from .models import MailingRecipient, Mailing
+from ..common.config_file import ConfigFile
+from ..common import settings
+from mailing_sender import MailingSender
 
 log = logging.getLogger("cloud")
-
-from common import settings
-from mailing_sender import MailingSender
 
 #pylint: disable-msg=W0404
 

@@ -19,6 +19,7 @@ import StringIO
 import base64
 import cPickle
 import email
+import email.parser
 import email.generator
 from email.header import Header
 from email.message import Message
@@ -27,8 +28,8 @@ import os
 import re
 import threading
 import urllib
-from common import settings
-from satellite.models import MailingRecipient
+from ..common import settings
+from .models import MailingRecipient
 
 try:
     import jinja2

@@ -16,3 +16,10 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 __author__ = 'ricard'
+
+from cloud_mailing.satellite import satellite_main
+from twisted.internet import reactor
+
+if __name__ == '__main__':
+    satellite_main.main()
+    reactor.run()

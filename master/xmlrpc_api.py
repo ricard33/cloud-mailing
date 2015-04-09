@@ -32,18 +32,19 @@ from bson import ObjectId
 import pymongo
 from twisted.internet.threads import deferToThread
 
-from common import settings
+from ..common import settings
 from twisted.web import xmlrpc, resource, http, server, static
 # from cxm.mail.tools import convert_email_charset
-from master.mailing_manager import MailingManager
+from .mailing_manager import MailingManager
 
-from common.config_file import ConfigFile
-from common.xml_api_common import withRequest, doc_signature, XmlRcpError, BasicHttpAuthXMLRPC, ServerHTMLDoc, \
+from ..common.html_tools import strip_tags
+from ..common.config_file import ConfigFile
+from ..common.xml_api_common import withRequest, doc_signature, XmlRcpError, BasicHttpAuthXMLRPC, ServerHTMLDoc, \
     XMLRPCDocGenerator, doc_hide
 
 import xmlrpclib
 import re
-from master.models import CloudClient, Mailing, relay_status, MAILING_STATUS, MailingRecipient, RECIPIENT_STATUS, \
+from .models import CloudClient, Mailing, relay_status, MAILING_STATUS, MailingRecipient, RECIPIENT_STATUS, \
     MailingTempQueue, recipient_status, MailingHourlyStats
 
 Fault = xmlrpclib.Fault
@@ -307,7 +308,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         if not plain_content:
             # TODO MAILING improve this too simple conversion...
-            from common.html_tools import strip_tags
             plain_content = strip_tags(html_content)
 
         msg.attach(email.mime.text.MIMEText(plain_content.encode('utf-8'), 'plain', 'utf-8'))
@@ -482,7 +482,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             mailing.body = text[p+2:]
 
         mailing.save()
-        from master.cloud_master import mailing_portal
+        from .cloud_master import mailing_portal
         if mailing_portal:
             mailing_master = mailing_portal.realm
             mailing_master.invalidate_mailing_content_on_satellites(mailing)
@@ -587,7 +587,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         def _send_test(request, mailing_id, recipients):
             rcpts = self._add_recipients(request, mailing_id, recipients, immediate=True)
 
-            from master.cloud_master import mailing_portal
+            from .cloud_master import mailing_portal
             if mailing_portal:
                 mailing_master = mailing_portal.realm
                 for avatar in mailing_master.avatars.values():
@@ -749,7 +749,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         assert(isinstance(manager, MailingManager))
         manager.forceToCheck()
 
-        from master.cloud_master import mailing_portal
+        from .cloud_master import mailing_portal
         if mailing_portal:
             mailing_master = mailing_portal.realm
             for avatar in mailing_master.avatars.values():
@@ -1017,7 +1017,7 @@ class HomePage(resource.Resource):
         self.putChild(folder, rpc)
 
     def make_home_page(self):
-        from common import __version__ as VERSION
+        from ..common import __version__ as VERSION
         s = StringIO()
         s.write("""<html lang="en"><head>
         <title>CloudMailing XML-RPC</title>

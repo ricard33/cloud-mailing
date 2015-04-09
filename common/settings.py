@@ -17,7 +17,7 @@
 
 import os
 import sys
-from common.config_file import ConfigFile
+from .config_file import ConfigFile
 
 __author__ = 'ricard'
 

@@ -120,7 +120,6 @@ class CloudMailingsTestCase(unittest.TestCase):
         )
         return [{'email': "email%d@%s" % (i, domains[random.randint(0, len(domains)-1)])} for i in range(count)]
 
-
     def test_get_mailings(self):
         self.assertEquals(self.cloudMailingsRpc.list_mailings(self.domain_name), [])
 
@@ -187,11 +186,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.assertEqual(mailing['total_recipient'], 6)
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 3, 'testing': True})
 
-        # supervisor = xmlrpclib.ServerProxy("https://admin:password@%(ip)s:33610/Supervisor" % CONFIG)
-        # supervisor.mailing_manager_do_filling_recipients()
         self.cloudMailingsRpc.start_mailing(mailing_id)
         self.cloudMailingsRpc.mailing_manager_force_check()
-        #time.sleep(6)
         self.cloudMailingsRpc.update_statistics()
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
         self.assertEquals(len(mailings), 1)
@@ -202,10 +198,8 @@ class CloudMailingsTestCase(unittest.TestCase):
             self.assertLess(time.time() - t0, 60) # 1 minutes max
             self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(2)
-            self.cloudMailingsRpc.update_statistics()
             mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
         # stats not up to date
-        self.cloudMailingsRpc.update_statistics()
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
         #self.assertEqual(mailing['status'], 'FINISHED')
         #print repr(mailing)

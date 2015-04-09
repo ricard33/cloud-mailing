@@ -15,13 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-from common.unittest_mixins import DatabaseMixin
-from master.models import Mailing
+from ...common.unittest_mixins import DatabaseMixin
+from ..models import Mailing
 from twisted.trial import unittest
 import email.parser
 import email.message
 from mogo import connect
-from common import settings
+from ...common import settings
 
 
 class MailingTestCase(DatabaseMixin, unittest.TestCase):

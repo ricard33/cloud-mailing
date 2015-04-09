@@ -18,7 +18,7 @@
 # from django.contrib.auth import get_user_model
 from datetime import datetime
 import factory
-from master.models import Mailing, MailingRecipient, CloudClient
+from ..models import Mailing, MailingRecipient, CloudClient
 
 
 class CloudClientFactory(factory.MogoFactory):

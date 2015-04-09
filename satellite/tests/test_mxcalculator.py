@@ -16,14 +16,14 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
-from common.unittest_mixins import DatabaseMixin
+from ...common.unittest_mixins import DatabaseMixin
 
 __author__ = 'ricard'
 
 from twisted.trial import unittest
 from twisted.internet import reactor
 
-from satellite.mx import MXCalculator
+from ..mx import MXCalculator
 
 #noinspection PyUnresolvedReferences
 from zope.interface import Interface, implements
