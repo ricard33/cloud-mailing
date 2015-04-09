@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-from ..common import __version__ as VERSION
+from .. import __version__ as VERSION
 
 from master_main import start_master_service, stop_master_service, \
     get_api_service, main

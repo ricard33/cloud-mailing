@@ -23,7 +23,7 @@ from twisted.application.service import IService
 from twisted.internet import reactor, ssl
 from twisted.python.log import PythonLoggingObserver
 
-from ..common import __version__ as VERSION
+from .. import __version__ as VERSION
 from ..common import settings
 from ..common.cm_logging import configure_logging
 from ..common import colored_log

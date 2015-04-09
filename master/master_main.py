@@ -25,7 +25,7 @@ from twisted.internet import reactor
 from twisted.python.log import PythonLoggingObserver
 from twisted.web import server
 
-from ..common import __version__ as VERSION
+from .. import __version__ as VERSION
 from ..common.ssl_tools import make_SSL_context
 from ..common import settings
 from ..common.cm_logging import configure_logging

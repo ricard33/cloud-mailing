@@ -14,23 +14,3 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-
-__author__ = 'ricard'
-
-__product_version__ = "0.1.0"
-
-def __read_version_from_properties_file():
-    import os
-    filename = os.path.join(os.path.dirname(__file__), 'version.properties')
-    if os.path.exists(filename):
-        with open(filename, 'rt') as f:
-            for line in f:
-                try:
-                    name, value = line.split('=')
-                    if name == 'VERSION':
-                        return value.strip()
-                except:
-                    pass
-    return __product_version__
-
-__version__ = __read_version_from_properties_file()
