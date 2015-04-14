@@ -75,7 +75,7 @@ def make_SSL_context():
             logging.warn("SSL certificate not found!")
             if not os.path.exists(settings.SSL_CERTIFICATE_PATH):
                 os.makedirs(settings.SSL_CERTIFICATE_PATH)
-            from common import ssl_tools
+            from cloud_mailing.common import ssl_tools
             logging.info("Generating self signed SSL certificate...")
             ssl_tools.create_self_signed_cert(settings.SSL_CERTIFICATE_PATH,
                                               settings.SSL_CERTIFICATE_NAME)

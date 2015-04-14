@@ -1017,7 +1017,7 @@ class HomePage(resource.Resource):
         self.putChild(folder, rpc)
 
     def make_home_page(self):
-        from ..common import __version__ as VERSION
+        from .. import __version__ as VERSION
         s = StringIO()
         s.write("""<html lang="en"><head>
         <title>CloudMailing XML-RPC</title>
