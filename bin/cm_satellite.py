@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 # Copyright 2015 Cedric RICARD
 #
 # This file is part of CloudMailing.
@@ -15,7 +16,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-__author__ = 'ricard'
+import sys, os
+sys.path.append(os.path.normpath(os.path.join(os.path.dirname(__file__), '..')))
 
 from cloud_mailing.satellite import satellite_main
 from twisted.internet import reactor

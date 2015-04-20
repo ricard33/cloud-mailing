@@ -36,6 +36,7 @@ import os
 import re
 import sys
 
+encoding_re = re.compile(r"coding[:=]\s*([-\w.]+)")
 
 def writeheader(filename, header, skip=None):
     """
@@ -52,6 +53,10 @@ def writeheader(filename, header, skip=None):
 
     # comment out the next 3 lines if you don't wish to preserve shebangs
     if len(input_lines) > 0 and input_lines[0].startswith("#!"):
+        output.append(input_lines[0])
+        input_lines = input_lines[1:]
+
+    if len(input_lines) > 0 and encoding_re.search(input_lines[0]):
         output.append(input_lines[0])
         input_lines = input_lines[1:]
 

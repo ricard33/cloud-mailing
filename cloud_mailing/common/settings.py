@@ -24,7 +24,7 @@ __author__ = 'ricard'
 
 RUNNING_UNITTEST = sys.argv[0].endswith('trial') or os.environ.get('RUNNING_UNITTEST', False) == "True"
 
-PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
+PROJECT_ROOT = os.path.normpath(os.getcwd())
 if RUNNING_UNITTEST:
     PROJECT_ROOT = os.path.join(PROJECT_ROOT, 'UT')
     if not os.path.exists(PROJECT_ROOT):

@@ -22,7 +22,8 @@ from ..models import Mailing, MailingRecipient, CloudClient
 
 
 class CloudClientFactory(factory.MogoFactory):
-    FACTORY_FOR = CloudClient
+    class Meta:
+        model = CloudClient
 
     serial = "CXM_SERIAL"
     shared_key = "ThisIsTheKey"
@@ -30,7 +31,8 @@ class CloudClientFactory(factory.MogoFactory):
 
 
 class MailingFactory(factory.MogoFactory):
-    FACTORY_FOR = Mailing
+    class Meta:
+        model = Mailing
 
     mail_from = "sender@my-company.biz"
     sender_name = "Mailing Sender"
@@ -39,7 +41,8 @@ class MailingFactory(factory.MogoFactory):
 
 
 class RecipientFactory(factory.MogoFactory):
-    FACTORY_FOR = MailingRecipient
+    class Meta:
+        model = MailingRecipient
 
     mailing = factory.SubFactory(MailingFactory)
     email = "firstname.lastname@domain.com"

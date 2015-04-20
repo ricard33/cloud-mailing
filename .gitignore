@@ -65,5 +65,6 @@ config/logging-master.py
 config/logging-satellite.py
 deployment/acceptance_tests/test_config.ini
 temp
+_trial_temp
 *.pid
 local_settings.py

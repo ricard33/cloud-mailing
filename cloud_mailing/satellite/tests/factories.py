@@ -23,7 +23,8 @@ from ..models import Mailing, MailingRecipient
 __author__ = 'ricard'
 
 class MailingFactory(factory.MogoFactory):
-    FACTORY_FOR = Mailing
+    class Meta:
+        model = Mailing
 
     _id = factory.Sequence(lambda n: n+1)
     tracking_url = 'http://localhost/ml/'
@@ -35,7 +36,8 @@ class MailingFactory(factory.MogoFactory):
 
 
 class RecipientFactory(factory.MogoFactory):
-    FACTORY_FOR = MailingRecipient
+    class Meta:
+        model = MailingRecipient
 
     # id = factory.Sequence(lambda n: n+1)
     mailing = factory.SubFactory(MailingFactory)
