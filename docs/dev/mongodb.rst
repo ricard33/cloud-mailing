@@ -20,4 +20,3 @@ Then to load mongodb now:
 Or, if you don't want/need launchctl, you can just run:
 
     mongod --config /usr/local/etc/mongod.conf
-    

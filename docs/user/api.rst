@@ -1,5 +1,5 @@
 API reference
 =============
 
-.. automodule:: master.xmlrpc_api
+.. automodule:: cloud_mailing.master.xmlrpc_api
    :members:
