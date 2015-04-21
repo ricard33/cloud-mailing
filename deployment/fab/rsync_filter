@@ -1,11 +1,10 @@
 + /bin/
-+ /common/
-+ /master/
-+ /satellite/
++ /cloud_mailing/
 + /config/
 + /config/logging-*.default.py
 - /config/*
 - /config/config.ini
++ /deployment/requirements/
 - /deployment/
 - /log/
 - /temp/

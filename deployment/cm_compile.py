@@ -19,7 +19,7 @@ import os, sys, re
 from os.path import getsize, join
 import py_compile
 
-base_dirs = map(lambda x: join(".", x), ('bin', 'common', 'master', 'satellite', ))
+base_dirs = map(lambda x: join(".", x), ('bin', 'cloud_mailing', ))
 verbose = '-v' in sys.argv
 delete_py = '--delete-py' in sys.argv
 excludes = []  # don't visit .svn directories

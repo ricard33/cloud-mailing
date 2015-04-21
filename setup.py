@@ -84,5 +84,6 @@ setup(
         ],
     extras_require={
         'testing': ['pytest'],
-    }
+    },
+    scripts=['bin/cm_master.py', 'bin/cm_satellite.py']
 )
