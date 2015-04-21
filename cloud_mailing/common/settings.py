@@ -30,7 +30,7 @@ if RUNNING_UNITTEST:
     if not os.path.exists(PROJECT_ROOT):
         os.makedirs(PROJECT_ROOT)
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config")
-CONFIG_FILE = os.path.join(CONFIG_PATH, "config.ini")
+CONFIG_FILE = os.path.join(CONFIG_PATH, "cloud-mailing.ini")
 LOG_PATH = os.path.join(PROJECT_ROOT, "log")
 
 config = ConfigFile()
