@@ -16,7 +16,7 @@ The *regular* type is for mailings for which the number of recipients is known (
 This is the *default* type.
 
 The simplest workflow is:
-- create mailing
+ - create mailing
  - add recipients
  - start mailing
  - wait for the automatic end when all recipients have been handled

@@ -83,7 +83,7 @@ of recipients, it won't be efficient to request continuously for each ones.
 
 So Cloud Mailing API provides a more sophisticated function which will only return recipients for which the sending
 status has changed since the last call. And for security, the maximum amount of results is limited.
- ::
+::
 
     mailing_is_running = True
     cursor = ''

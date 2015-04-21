@@ -36,6 +36,8 @@ import os
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #sys.path.insert(0, os.path.abspath('.'))
+sys.path.insert(0, os.path.dirname(__file__))
+sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 # -- General configuration ------------------------------------------------
 
@@ -47,8 +49,10 @@ import os
 # ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.autosummary',
     'sphinx.ext.todo',
     # 'sphinx.ext.viewcode',
+    # 'xmlrpc_api_doc',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -277,5 +281,3 @@ texinfo_documents = [
 
 # If true, do not generate a @detailmenu in the "Top" node's menu.
 #texinfo_no_detailmenu = False
-
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
