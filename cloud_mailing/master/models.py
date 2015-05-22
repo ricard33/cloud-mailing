@@ -40,6 +40,7 @@ class CloudClient(Model):
     date_paired     = Field(datetime)       # Date of the last successful pairing
     shared_key      = Field()
     domain_affinity = Field()
+    group           = Field()  # group name, empty for default
 
     _id_type = int
 
@@ -105,6 +106,7 @@ class Mailing(Model):
     # id              = AutoField(primary_key=True)
     type            = EnumField(mailing_types, default=MAILING_TYPE.REGULAR, required=True)
     owner_guid      = Field()       # Free GUID used to identify mailings created by API user.
+    satellite_group = Field()       # group name, empty for default
     # TODO Should we keep this?
     domain_name     = Field()       # Related domain name = identity of sender.
     mail_from       = Field(required=True)

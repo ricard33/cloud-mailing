@@ -222,7 +222,7 @@ class MailingManagerView(pb.Viewable):
         #self.log.debug("get_mailing(%d) finished", mailing_id)
 
     @staticmethod
-    def _make_get_recipients_queryset(count, domain_affinity, log):
+    def _make_get_recipients_queryset(count, satellite_group, domain_affinity, log):
         """Return a pymongo cursor"""
         included = []
         excluded = []
@@ -248,11 +248,15 @@ class MailingManagerView(pb.Viewable):
                             excluded.append(domain)
         except Exception:
             log.exception("Error in Affinity format")
-        mailing_ids = map(lambda x: x['_id'], Mailing._get_collection().find({
+        mailing_filter = {
             'status': {'$in': [MAILING_STATUS.FILLING_RECIPIENTS,  # For Test recipients
                                MAILING_STATUS.READY,  # For Test recipients
-                               MAILING_STATUS.RUNNING]}},
-                                                                             fields=[]))
+                               MAILING_STATUS.RUNNING]},
+            'satellite_group': satellite_group
+        }
+        # if satellite_group:
+        # mailing_filter['satellite_group'] = satellite_group
+        mailing_ids = map(lambda x: x['_id'], Mailing._get_collection().find(mailing_filter, fields=[]))
         query = {
             '$and': [{'$or': [{'in_progress': False}, {'in_progress': {'$exists': False}}]},
                      {'$or': [{'client': False}, {'client': {'$exists': False}}]},
@@ -292,7 +296,8 @@ class MailingManagerView(pb.Viewable):
                 self.log.warn("get_recipients() refused for disabled client [%s]", self.cloud_client.serial)
                 raise pb.Error("Not allowed!")
             domain_affinity = self.cloud_client.domain_affinity
-            queue = MailingManagerView._make_get_recipients_queryset(_count, domain_affinity, self.log)
+            satellite_group = self.cloud_client.group
+            queue = MailingManagerView._make_get_recipients_queryset(_count, satellite_group, domain_affinity, self.log)
 
             recipients = []
             for item in queue:

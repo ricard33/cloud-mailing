@@ -450,7 +450,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         # Test emails should already be in queue
         d.addCallback(lambda x: self.assertEquals(3, MailingTempQueue.find({'recipient._id': {'$in': [ObjectId(r['id']) for r in x]}}).count()) and x)
         # Test emails should be available for Satellites
-        d.addCallback(lambda x: self.assertEquals(3, MailingManagerView._make_get_recipients_queryset(10, None, logging.getLogger()).count()) and x)
+        d.addCallback(lambda x: self.assertEquals(3, MailingManagerView._make_get_recipients_queryset(10, None, None, logging.getLogger()).count()) and x)
 
         return d
 

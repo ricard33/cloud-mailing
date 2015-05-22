@@ -30,10 +30,11 @@ from ...common.unittest_mixins import DatabaseMixin
 from ..master_main import start_master_service, stop_master_service
 from ..cloud_master import stop_all_threadpools
 from ..cloud_master import MailingManagerView
-from factories import MailingFactory, RecipientFactory
+from . import factories
 from ..mailing_manager import MailingManager
 
 from ..models import Mailing, MailingRecipient, MailingTempQueue, MAILING_STATUS, MailingHourlyStats, RECIPIENT_STATUS
+from .. import models
 
 import logging
 import email
@@ -46,10 +47,10 @@ from mogo import connect
 
 def make_email():
     msg = email.mime.multipart.MIMEMultipart("alternative")
-        
+
     html_content = u"<h1>Hi %%FIRST_NAME%%</h1>\n<p>This is the body of message.</p>\n<a href=\"%%UNSUBSCRIBE%%\">Click here to be removed</a>"
     plain_content = strip_tags(html_content)
-    
+
     msg.attach(email.mime.text.MIMEText(plain_content.encode('utf-8'), 'plain', 'utf-8'))
     msg.attach(email.mime.text.MIMEText(html_content.encode('utf-8'), 'html', 'utf-8'))
 
@@ -58,7 +59,8 @@ def make_email():
     msg['From'] = 'user1@my-domain.com'
     msg['To'] = 'mailing@my-domain.com'
     msg['Date'] = email.utils.formatdate()
-    msg['Message-ID'] = email.utils.make_msgid()
+    # msg['Message-ID'] = email.utils.make_msgid()  # can be very slow !!!
+    msg['Message-ID'] = "UT"
     return msg
 
 log = logging.getLogger("ut")
@@ -245,8 +247,8 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         return err
 
     def fill_database(self, recipients_count, scheduled_start=None, scheduled_end=None, scheduled_duration=None,
-                      real_start=None):
-        mq = MailingFactory()
+                      real_start=None, satellite_group=None):
+        mq = factories.MailingFactory(satellite_group=satellite_group)
         for i in range(recipients_count):
             email = 'rcpt%d@free.fr' % i
             MailingRecipient.create(mailing=mq, email=email, contact=repr({'email': email, 'firstname': 'Cedric%d' % i}),
@@ -272,6 +274,62 @@ class MailingMasterTest(DatabaseMixin, TestCase):
 
         self.assertEquals(Mailing.count(), 1)
         self.assertEquals(MailingRecipient.count(), recipients_count)
+
+        t0 = time.time()
+
+        d2 = defer.Deferred()
+        d = self.connect_client(disconnectedDeferred=d2)
+        d.addCallback(self.cb_connected)
+        d.addCallback(self.do_get_recipients, recipients_count, t0)
+        d.addCallback(self.cb_get_recipients, recipients_count)
+        d.addCallback(self.do_disconnect, d2)
+        d.addErrback(self.do_disconnect_on_error, d2)
+
+        manager = MailingManager.getInstance()
+        manager.forceToCheck()
+        manager.checkState()
+
+        return d
+
+    def test_get_recipients_with_satellite_group(self):
+        msg = make_email()
+        recipients_count = 10
+        self.fill_database(recipients_count, satellite_group='my-group')
+        self.fill_database(recipients_count/2)    # another but with default group
+        self.fill_database(recipients_count*2, satellite_group='not-my-group')    # third but with other group name
+
+        client = models.CloudClient.first()
+        client.group = 'my-group'
+        client.save()
+
+        self.assertEquals(Mailing.count(), 3)
+        self.assertEquals(MailingRecipient.count(), recipients_count * 3.5)
+
+        t0 = time.time()
+
+        d2 = defer.Deferred()
+        d = self.connect_client(disconnectedDeferred=d2)
+        d.addCallback(self.cb_connected)
+        d.addCallback(self.do_get_recipients, recipients_count, t0)
+        d.addCallback(self.cb_get_recipients, recipients_count)
+        d.addCallback(self.do_disconnect, d2)
+        d.addErrback(self.do_disconnect_on_error, d2)
+
+        manager = MailingManager.getInstance()
+        manager.forceToCheck()
+        manager.checkState()
+
+        return d
+
+    def test_get_recipients_for_default_group(self):
+        msg = make_email()
+        recipients_count = 10
+        self.fill_database(recipients_count/2, satellite_group='my-group')
+        self.fill_database(recipients_count)    # another but with default group
+        self.fill_database(recipients_count*2, satellite_group='not-my-group')    # third but with other group name
+
+        self.assertEquals(Mailing.count(), 3)
+        self.assertEquals(MailingRecipient.count(), recipients_count * 3.5)
 
         t0 = time.time()
 
@@ -430,8 +488,8 @@ class SendReportTest(DatabaseMixin, TestCase):
         self.disconnect_from_db()
 
     def test_store_reports(self):
-        ml = MailingFactory()
-        ids = [RecipientFactory(mailing=ml, email='email%d@domain.tld' % i).id for i in range(100)]
+        ml = factories.MailingFactory()
+        ids = [factories.RecipientFactory(mailing=ml, email='email%d@domain.tld' % i).id for i in range(100)]
 
         recipients = [
             {
@@ -472,7 +530,7 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
 
     def _fill_database(self, recipients_count, scheduled_start=None, scheduled_end=None, scheduled_duration=None,
                       real_start=None):
-        mq = MailingFactory()
+        mq = factories.MailingFactory()
         for i in range(recipients_count):
             email = 'rcpt%d@free.fr' % i
             MailingRecipient.create( mailing=mq, email=email, contact=repr({'email': email, 'firstname': 'Cedric%d' % i}),
@@ -493,7 +551,7 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
         return mq
 
     def test_make_mailing_queryset(self):
-        mq = MailingFactory()
+        mq = factories.MailingFactory()
         self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
         mq.activate()
         self.assertEquals(MAILING_STATUS.READY, mq.status)
@@ -501,7 +559,7 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
         self.assertEqual(1, qs.count())
 
     def test_make_mailing_queryset_with_scheduled_duration(self):
-        mq = MailingFactory(scheduled_duration=14400)
+        mq = factories.MailingFactory(scheduled_duration=14400)
         mq.activate()
         qs = Mailing.find(MailingManager.make_mailings_queryset())
         self.assertEqual(1, qs.count())
@@ -510,7 +568,7 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
     def test_make_mailing_queryset_on_filling_recipients_mailing(self):
         logging.getLogger('django.db_conn.backends').setLevel(logging.DEBUG)
 
-        mq = MailingFactory()
+        mq = factories.MailingFactory()
         self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
         qs = Mailing.find(MailingManager.make_mailings_queryset())
         self.assertEqual(0, qs.count())

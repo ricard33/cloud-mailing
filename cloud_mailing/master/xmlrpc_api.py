@@ -17,9 +17,7 @@
 
 # coding=utf-8
 from StringIO import StringIO
-import hashlib
 import inspect
-import os
 import logging
 import email
 import base64
@@ -27,20 +25,21 @@ import email.mime
 import email.header
 import email.mime.text
 import email.mime.multipart
-from datetime import datetime, timedelta
+from datetime import datetime
+
 from bson import ObjectId
 import pymongo
 from twisted.internet.threads import deferToThread
+from twisted.web import xmlrpc, resource, http, static
 
 from ..common import settings
-from twisted.web import xmlrpc, resource, http, server, static
+
 # from cxm.mail.tools import convert_email_charset
 from .mailing_manager import MailingManager
 
 from ..common.html_tools import strip_tags
 from ..common.config_file import ConfigFile
-from ..common.xml_api_common import withRequest, doc_signature, XmlRcpError, BasicHttpAuthXMLRPC, ServerHTMLDoc, \
-    XMLRPCDocGenerator, doc_hide
+from ..common.xml_api_common import withRequest, doc_signature, BasicHttpAuthXMLRPC, XMLRPCDocGenerator, doc_hide
 
 import xmlrpclib
 import re
@@ -217,10 +216,12 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                             - 'id': will only returns mailing which id are in this list.
                             - 'status': will only returns mailing which status are in this list.
                             - 'owner_guid': list of owner GUID to use as filter
+                            - 'satellite_group': list of groups to use as filter
         :return: Array of mailings descriptions. Each mailing is described by a properties dictionary.
         Fields are:
          - id: internal id of this mailing
          - domain_name: Related domain name = mailing sender identity
+         - satellite_group: group name for satellites allowed to handle this mailing
          - mail_from: email address displayed in sender field
          - sender_name: Full name displayed in sender field
          - status: Mailing status
@@ -267,19 +268,27 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                     if isinstance(owners, basestring):
                         mailings_filter['owner_guid'] = owners
                     else:
-                        mailings_filter['owner_guid'] = {'$in': filters['owner_guid']}
+                        mailings_filter['owner_guid'] = {'$in': owners}
+                if 'satellite_group' in filters:
+                    satellite_groups = filters['satellite_group']
+                    if isinstance(satellite_groups, basestring):
+                        mailings_filter['satellite_group'] = satellite_groups
+                    else:
+                        mailings_filter['satellite_group'] = {'$in': satellite_groups}
 
         l = []
 
-        for mailing in Mailing._get_collection().find(mailings_filter, fields=('_id', 'domain_name', 'mail_from', 'sender_name', 'status',
-                                       'type', 'tracking_url',
-                                       'header',
-                                       'dont_close_if_empty',
-                                       'submit_time', 'scheduled_start', 'scheduled_end', 'scheduled_duration',
-                                       'start_time', 'end_time',
-                                       'total_recipient', 'total_sent', 'total_pending', 'total_error',
-                                       'total_softbounce',
-                                       'read_tracking', 'click_tracking')):
+        for mailing in Mailing._get_collection().find(mailings_filter, fields=(
+                '_id', 'domain_name', 'satellite_group',
+                'mail_from', 'sender_name', 'status',
+                'type', 'tracking_url',
+                'header',
+                'dont_close_if_empty',
+                'submit_time', 'scheduled_start', 'scheduled_end', 'scheduled_duration',
+                'start_time', 'end_time',
+                'total_recipient', 'total_sent', 'total_pending', 'total_error',
+                'total_softbounce',
+                'read_tracking', 'click_tracking')):
             mailing['id'] = mailing.pop('_id')
             ensure_no_null_values(mailing)
             #print mailing
@@ -351,6 +360,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             Properties are passed as a dictionary with property names as keys, and properties values as values.
             Available properties are:
                 - type: the Mailing Type to create - one of "REGULAR", "OPENED"
+                - satellite_group
                 - mail_from
                 - sender_name
                 - shown_name (DEPRECATED: use 'sender_name' instead)
@@ -393,7 +403,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                     raise Fault(http.NOT_ACCEPTABLE, "Bad value '%s' for Property type. Acceptable values are (%s)"
                                                      % (value, ', '.join(mailing_types)))
                 mailing.type = value
-            elif key in ('sender_name', 'tracking_url', 'testing', 'owner_guid'):
+            elif key in ('sender_name', 'tracking_url', 'testing', 'owner_guid', 'satellite_group'):
                 setattr(mailing, key, value)
             elif key == 'shown_name':
                 mailing.sender_name = value

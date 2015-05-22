@@ -365,7 +365,8 @@ class MailCustomizer:
             message['Date'] = email.utils.formatdate()
             if 'Message-ID' in message:
                 del message['Message-ID']
-            message['Message-ID'] = email.utils.make_msgid()
+            # message['Message-ID'] = email.utils.make_msgid()  # very very slow on certain circumstance
+            message['Message-ID'] = "<%s.%d@cm.%s>" % (self.recipient.id, self.recipient.mailing.id, self.recipient.domain_name )
             message['List-Unsubscribe'] = self.unsubscribe_url
 
             fp = open(fullpath+'.tmp', 'wt')
