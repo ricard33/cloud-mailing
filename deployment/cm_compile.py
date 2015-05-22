@@ -34,7 +34,7 @@ def clean_pyc_files(base_dir):
                 print "Deleting '%s'... " % fullpath,
                 os.remove(fullpath)
                 print "Ok"
-        for name in ('.svn', '.git', '.hg'):
+        for name in ('.svn', '.git', '.hg', '.env'):
             if name in dirs:
                 dirs.remove(name)  # don't visit .svn, .git and .hg directories
 

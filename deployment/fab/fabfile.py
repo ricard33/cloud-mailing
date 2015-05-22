@@ -78,20 +78,20 @@ def start_satellite():
 
 @task
 def test():
-    with cd('/usr/local/cm'):
+    with cd(TARGET_PATH):
         print 'exist:', os.path.exists('/Users')
 
 
 def clean_compiled_files():
     # cleanup *.pyc / *.pyo files
-    put(os.path.join(WORKSPACE, "cm_compile.py"), TARGET_PATH)
+    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH)
     with cd(TARGET_PATH):
         run("python cm_compile.py -c")
 
 
 def compile_python_files():
     # create *.pyc / *.pyo files
-    put(os.path.join(WORKSPACE, "cm_compile.py"), TARGET_PATH)
+    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH)
     with cd(TARGET_PATH):
         run("python -O cm_compile.py")
 
@@ -150,9 +150,9 @@ def create_user():
     """
     remote_system = get_system_name()
     if remote_system == "Linux":
-        run("adduser --home /usr/local/cm --shell /bin/tcsh --disabled-password --disabled-login cm")
+        run("adduser --home %(TARGET_PATH)s --shell /bin/tcsh --disabled-password --disabled-login cm" % {'TARGET_PATH': TARGET_PATH})
     elif remote_system == "FreeBSD":
-        run("pw useradd cm -d /usr/local/cm -m -s /bin/tcsh -w no")
+        run("pw useradd cm -d %(TARGET_PATH)s -m -s /bin/tcsh -w no" % {'TARGET_PATH': TARGET_PATH})
     else:
         print("create_user: Unsupported remote system '%s'" % remote_system)
 
@@ -195,8 +195,8 @@ def create_supervisord_config():
 programs=cm_master,cm_satellite
 
 [program:cm_master]
-command=/usr/local/cm/.env/bin/python -O /usr/local/cm/.env/bin/twistd -noy bin/master_app.tac --pidfile=master.pid --logfile=log/twistd_master.log
-directory=/usr/local/cm
+command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_master.py
+directory=%(TARGET_PATH)s
 numprocs=1
 stdout_logfile=/var/log/cm_master.supervisor.log
 autostart=true
@@ -204,14 +204,14 @@ autorestart=true
 user=cm
 
 [program:cm_satellite]
-command=/usr/local/cm/.env/bin/python -O /usr/local/cm/.env/bin/twistd -noy bin/satellite_app.tac --pidfile=satellite.pid --logfile=log/twistd_satellite.log
-directory=/usr/local/cm
+command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_satellite.py
+directory=%(TARGET_PATH)s
 numprocs=1
 stdout_logfile=/var/log/cm_satellite.supervisor.log
 autostart=true
 autorestart=true
 user=cm
-"""
+""" % {'TARGET_PATH': TARGET_PATH}
     with tempfile.NamedTemporaryFile('w+t') as tmp:
         tmp.write(config)
         tmp.flush()
@@ -224,6 +224,19 @@ user=cm
     run("supervisorctl reread")
     run("supervisorctl update")
 
+@task
+def remove_mf_from_startup():
+    remote_system = get_system_name()
+    if remote_system == "FreeBSD":
+        conf_path = "/usr/local/etc/supervisord.d"
+    else:
+        conf_path = "/etc/supervisor/conf.d"
+    run("supervisorctl stop mf_master")
+    run("supervisorctl stop mf_satellite")
+    run("rm %s/mf_master.conf" % conf_path)
+    run("rm %s/mf_satellite.conf" % conf_path)
+    run("supervisorctl reread")
+    run("supervisorctl update")
 
 @task()
 def first_setup():

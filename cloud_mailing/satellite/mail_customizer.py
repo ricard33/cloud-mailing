@@ -184,9 +184,12 @@ class MailCustomizer:
         assert(message.get_content_maintype() == 'text')
 
         charset = message.get_content_charset(failobj='us-ascii')
-        original = message.get_payload(decode=True)  # should be in unicode because original data come from DB
-        # decoded = original.decode(charset)
-        decoded = original
+        original = message.get_payload(decode=True)
+        if isinstance(original, unicode):
+            decoded = original
+        else:
+            decoded = original.decode(charset)
+        assert(isinstance(decoded, unicode))
         encoding = message['Content-Transfer-Encoding']
         del message['Content-Transfer-Encoding']
         new_body = self._do_customization(decoded,
