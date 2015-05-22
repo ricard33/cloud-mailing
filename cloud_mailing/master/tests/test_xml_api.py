@@ -32,6 +32,7 @@ from ..models import Mailing, MAILING_STATUS, RECIPIENT_STATUS, MailingHourlySta
 from ...common import settings
 from ...common.config_file import ConfigFile
 from datetime import datetime, timedelta
+import time
 import os
 from mogo import connect
 
@@ -63,6 +64,9 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
             os.remove(settings.CONFIG_FILE)
         self.__proxy = None
         return self.p.stopListening().addBoth(lambda x: self.disconnect_from_db())
+
+    def log(self, msg):
+        print msg
 
     def proxy(self):
         """

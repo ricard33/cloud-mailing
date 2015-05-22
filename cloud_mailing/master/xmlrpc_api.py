@@ -325,7 +325,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         msg['Subject'] = email.header.Header(subject, header_name='Subject')
         msg['From'] = email.utils.formataddr((sender_name, mail_from))
         msg['Date'] = email.utils.formatdate()
-        msg['Message-ID'] = email.utils.make_msgid()
         return self._create_mailing(msg)
 
     @withRequest
