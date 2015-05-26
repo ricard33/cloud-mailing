@@ -18,7 +18,9 @@
 
 # encoding: utf-8
 from ConfigParser import RawConfigParser
+import httplib
 import random
+import ssl
 from subprocess import PIPE, Popen
 import urllib2
 import xmlrpclib
@@ -79,7 +81,8 @@ domains = (
 class CloudMailingsTestCase(unittest.TestCase):
     def setUp(self):
         self.domain_name = "cm-unittest.net"
-        self.cloudMailingsRpc = xmlrpclib.ServerProxy("https://admin:%(api_key)s@%(ip)s:33610/CloudMailing" % CONFIG)
+        self.cloudMailingsRpc = xmlrpclib.ServerProxy("https://admin:%(api_key)s@%(ip)s:33610/CloudMailing" % CONFIG,
+                                                      context=ssl._create_unverified_context())
         self.cloudMailingsRpc.delete_all_mailings_for_domain(self.domain_name)
 
     def tearDown(self):

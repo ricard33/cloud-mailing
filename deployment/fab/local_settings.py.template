@@ -1,0 +1,31 @@
+# Copyright 2015 Cedric RICARD
+#
+# This file is part of CloudMailing.
+#
+# CloudMailing is free software: you can redistribute it and/or modify
+# it under the terms of the GNU Affero General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# CloudMailing is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU Affero General Public License for more details.
+#
+# You should have received a copy of the GNU Affero General Public License
+# along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
+
+# Rename this file to local_settings.py and set your own values
+
+roledefs = {
+    'integration': ['root@192.168.0.10:22'],
+    'recette': ['root@192.168.0.11:22'],
+    'production': ['root@192.168.0.12:22'],
+}
+
+default_cm_config = {
+    'test_target': {
+        'ip': "192.168.0.50",
+        'port': 25,
+    },
+}

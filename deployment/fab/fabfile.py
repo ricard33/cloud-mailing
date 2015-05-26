@@ -123,6 +123,7 @@ def deploy_cm_master():
                 run("virtualenv .env")
 
         with prefix('. .env/bin/activate'):
+            run('pip install pip --upgrade')
             run('pip install -r requirements.txt --upgrade')
             # run('pip install -r requirements-testing.txt')
 
@@ -164,7 +165,7 @@ def create_initial_config():
     create a new config file for CloudMailing.
     @return:
     """
-    config_filename = os.path.join(TARGET_PATH, 'config', 'config.ini')
+    config_filename = os.path.join(TARGET_PATH, 'config', 'cloud-mailing.ini')
 
     from ConfigParser import RawConfigParser
     config = RawConfigParser()

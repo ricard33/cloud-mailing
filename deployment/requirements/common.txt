@@ -1,5 +1,5 @@
 twisted
-pyOpenSSL
+pyOpenSSL==0.13
 pymongo==2.8
 mogo==0.2.4
 dnspython==1.12.0
