@@ -664,12 +664,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             total_added += 1
             # TODO add recipient to temp queue if there is some place
             if immediate:
-                MailingTempQueue.create(mailing=rcpt.mailing,
-                                        recipient=rcpt,
-                                        email=rcpt.email,
-                                        domain_name=rcpt.email.split('@', 1)[1],
-                                        next_try=rcpt.next_try,
-                                        in_progress=False)
+                MailingTempQueue.add_recipient(mailing=rcpt.mailing, recipient=rcpt)
                 rcpt.in_progress = True
                 rcpt.save()
 

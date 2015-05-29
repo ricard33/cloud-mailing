@@ -17,14 +17,11 @@
 
 import email
 import email.parser
-import logging
 from datetime import datetime, timedelta
 import time
-from cStringIO import StringIO
-import pymongo
+
 from mogo import Model, Field, EnumField, ReferenceField
 
-from ..common import settings
 from ..common.models import Sequence
 
 DATABASE = "cm_master"
@@ -282,7 +279,7 @@ class MailingTempQueue(Model):
     # id              = models.AutoField(primary_key=True)
     mailing         = ReferenceField(Mailing, required=True)
     mail_from       = Field(required=False)
-    sender_name       = Field()
+    sender_name     = Field()
     recipient       = Field(MailingRecipient, required=True)
     email           = Field(required=True)
     domain_name     = Field(required=True)   # Recipient's domain name
@@ -299,6 +296,17 @@ class MailingTempQueue(Model):
     #     indices = (
     #         Index("serial"),
     #     )
+
+    @staticmethod
+    def add_recipient(mailing, recipient):
+        MailingTempQueue.create(mailing=mailing,
+                     mail_from=mailing.mail_from,
+                     sender_name=mailing.sender_name,
+                     recipient=recipient,
+                     email=recipient.email,
+                     domain_name=recipient.email.split('@', 1)[1],
+                     next_try=recipient.next_try,
+                     in_progress=False)
 
 
 class MailingHourlyStats(Model):

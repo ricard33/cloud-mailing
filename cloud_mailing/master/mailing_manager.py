@@ -19,13 +19,11 @@
 import time
 import logging
 from datetime import datetime, timedelta
-import traceback
 
 from twisted.application import internet
 from twisted.internet.threads import deferToThread
 
 from . import settings_vars
-from ..common import settings
 from .models import Mailing, MailingTempQueue, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
 from ..common.singletonmixin import Singleton
 
@@ -121,14 +119,7 @@ class MailingManager(Singleton):
                     filter = MailingManager.make_recipients_queryset(mailing)
                     selected_recipients = MailingRecipient.find(filter).sort('next_try').limit(nb_max)
                     for rcpt in selected_recipients:
-                        MailingTempQueue.create(mailing=mailing,
-                                                mail_from=mailing.mail_from,
-                                                sender_name=mailing.sender_name,
-                                                recipient=rcpt,
-                                                email=rcpt.email,
-                                                domain_name=rcpt.email.split('@', 1)[1],
-                                                next_try=rcpt.next_try,
-                                                in_progress=False)
+                        MailingTempQueue.add_recipient(mailing=mailing, recipient=rcpt)
                         rcpt_ids.append(rcpt.id)
                         count += 1
                         # if count % 100 == 0:
