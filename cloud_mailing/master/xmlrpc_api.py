@@ -840,10 +840,10 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         return status
 
     @withRequest
-    @doc_signature('<i>string</i> cursor', '<i>string array</i> only_status',
+    @doc_signature('<i>string</i> cursor', '<i>string array</i> filters',
                    '<i>int</i> max_results=1000',
                    '<i>struct</i> recipients status')
-    def xmlrpc_get_recipients_status_updated_since(self, request, cursor=None, only_status=None, max_results=1000):
+    def xmlrpc_get_recipients_status_updated_since(self, request, cursor=None, filters=None, max_results=1000):
         """
         Returns the status of all recipients that changed since the last call. The function will limit to 1000
         results and returns the cursor allowing to get next entries on the next call. 'cursor' is an obscure string and
@@ -852,8 +852,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         :param request:
         :param cursor: Obscure string allowing to get next results.
-        :param only_status: allows to filter results by recipient status. If specified, this parameter should contains a
-                            list of acceptable statuses. By default, the filter contains all statuses except READY.
+        :param filters: allows to filter results. Filter is a structure containing following fields (all optional):
+            - status: filter by recipient status. If specified, this parameter should contains a list of acceptable
+                      statuses. By default, the filter contains all statuses except READY.
+            - owners: list of 'owner_uid'. Only recipients contained in mailing owned by these uids are returned
+            - mailings: list of mailing ids
+            - sender_domains: list of domain names. Only recipients contained in mailings whose sender are from these
+                      domains are selected.
         :param max_results: How many results do you want ? There is a default and hard limit to 1000 results.
         :return: Returns a struct with following fields:
             - cursor: the cursor string
@@ -872,7 +877,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - in_progress: This recipient is currently handled by a Satellite
                 - cloud_client: Sender Satellite which did (or is doing) the sent
         """
-        log_api.debug("XMLRPC: get_recipients_status_updated_since(%s, %s, %d)", cursor, repr(only_status), max_results)
+        log_api.debug("XMLRPC: get_recipients_status_updated_since(%s, %s, %d)", cursor, repr(filters), max_results)
 
         def _count_recipient_for_a_date(from_date, recipients_filter):
             filter = recipients_filter.copy()
@@ -880,7 +885,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             new_count = MailingRecipient.find(filter).count()
             return new_count
 
-        def _get_recipients_status(cursor, only_status, max_results):
+        def _get_recipients_status(cursor, filters, max_results):
             if cursor:
                 try:
                     from_date, count, offset = cursor.split(';')
@@ -898,6 +903,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             if from_date and not isinstance(from_date, datetime):
                 raise Fault(http.NOT_ACCEPTABLE, "Parameter 'from_date' has to be a dateTime.iso8601.")
             all_status = []
+            filters = filters or {}
+            only_status = filters.get('status')
             if only_status:
                 if not isinstance(only_status, (list, tuple)):
                     raise Fault(http.NOT_ACCEPTABLE, "Parameter 'only_status' has to be an array of strings.")
@@ -909,13 +916,40 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             else:
                 only_status = (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.FINISHED, RECIPIENT_STATUS.GENERAL_ERROR,
                                RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.TIMEOUT, RECIPIENT_STATUS.WARNING)
+            recipients_filter = {'send_status': {'$in': only_status}}
+
+            def apply_filter(filters, name, filter_type, type_description, qs_filter, qs_op, qs_mapper=lambda x: x):
+                filter = filters.get(name)
+                if filter is not None:
+                    if not isinstance(filter, filter_type):
+                        raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
+                    return {qs_filter: {qs_op: qs_mapper(filter)}}
+                return {}
+
+            # owners = filters.get('owners')
+            # if owners:
+            #     if not isinstance(owners, (list, tuple)):
+            #         raise Fault(http.NOT_ACCEPTABLE, "Parameter 'owners' has to be an array of strings.")
+            #     ids = map(lambda x: x['_id'], Mailing._collection.find({'owner_guid': {'$in': owners}}, fields=[]))
+            #     filters.setdefault('mailings', []).extend(ids)
+
+            def apply_mailing_filter(filters, name, filter_type, type_description, field, op, qs_mapper=lambda x: x):
+                filter = filters.get(name)
+                if filter is not None:
+                    if not isinstance(filter, filter_type):
+                        raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
+                    ids = map(lambda x: x['_id'], Mailing._collection.find({field: {op: qs_mapper(filter)}}, fields=[]))
+                    filters.setdefault('mailings', []).extend(ids)
+
+            apply_mailing_filter(filters, 'owners', (list, tuple), 'an array of strings', 'owner_guid', '$in')
+            apply_mailing_filter(filters, 'sender_domains', (list, tuple), 'an array of strings', 'domain_name', '$in')
+            recipients_filter.update(apply_filter(filters, 'mailings', (list, tuple), 'an array of mailing_ids', 'mailing.$id', '$in'))
+
             if max_results > 1000:
                 max_results = 1000
             elif max_results < 1:
                 max_results = 1
 
-            recipients_filter = {'send_status': {'$in': only_status}}
-            # queryset = MailingRecipient.find(recipients_filter)
             if count:
                 new_count = _count_recipient_for_a_date(from_date, recipients_filter)
                 if count != new_count:
@@ -955,7 +989,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             log_api.debug("XMLRPC: get_recipients_status_updated_since returned %d results (count=%d, offset=%d)", len(all_status), count, offset)
             # print r
             return r
-        return deferToThread(_get_recipients_status, cursor, only_status, max_results)
+        return deferToThread(_get_recipients_status, cursor, filters, max_results)
 
     @withRequest
     @doc_signature('<i>array</i> recipient_ids', '')
