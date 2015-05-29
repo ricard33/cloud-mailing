@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
+import StringIO
 
 import glob
 import os
@@ -21,7 +22,7 @@ import random
 import tempfile
 from fabric.api import env, cd, run, put, settings, prefix, task, local, get
 from fabric.contrib.project import rsync_project
-from fabric.contrib.files import append
+from fabric.contrib import files
 import sys
 
 env.shell = "/bin/sh -c"
@@ -107,12 +108,22 @@ def sync_sources(test_only=False):
     )
 
 
+@task
+def put_version():
+    import subprocess
+    label = subprocess.check_output(["git", "describe"]).strip()
+    stats = subprocess.check_output(['git', 'diff', '--shortstat'])
+    dirty = len(stats) > 0 and stats[-1]
+    with cd(TARGET_PATH + '/cloud_mailing'):
+        put(StringIO.StringIO('VERSION=%s%s\n' % (label, dirty and "-dirty" or "")), 'version.properties')
+
 
 @task
 def deploy_cm_master():
     run("mkdir -p %s" % TARGET_PATH)
     clean_compiled_files()
     sync_sources()
+    put_version()
     compile_python_files()
 
     # put(os.path.join(WORKSPACE, "requirements.txt"), TARGET_PATH)
