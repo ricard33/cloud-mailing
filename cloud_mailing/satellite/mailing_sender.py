@@ -598,9 +598,13 @@ class MailingSender(pb.Referenceable):
     def remove_closed_mailings(self):
         self.log.info("Remove closed mailings")
         for mailing in Mailing.search(deleted=True):
+            MailingRecipient.remove({'mailing.$id': mailing.id, 'in_progress': False, 'finished': False})
             if not MailingRecipient.find({'mailing.$id': mailing.id}).first():
                 self.log.info("No more recipients for closed mailing [%d]. Deleted...", mailing.id)
                 mailing.delete()
+            else:
+                self.log.warn("Some recipients are still present for closed mailing [%d].", mailing.id)
+
 
     def delete_all_customized_temp_files(self):
         """Delete all customized files from temp folder."""
