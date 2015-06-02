@@ -82,6 +82,13 @@ class Settings(Model):
         return default
 
     @staticmethod
+    def get_float(name, default = None):
+        var = Settings.search(var_name=name).first()
+        if var:
+            return float(var.var_value)
+        return default
+
+    @staticmethod
     def get_datetime(name, default=None):
         var = Settings.search(var_name=name).first()
         if var:

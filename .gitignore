@@ -60,7 +60,7 @@ target/
 ssl
 UT
 log
-config/config.ini
+config/cloud-mailing.ini
 config/logging-master.py
 config/logging-satellite.py
 deployment/acceptance_tests/test_config.ini

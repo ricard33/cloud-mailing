@@ -634,8 +634,15 @@ class ActiveQueuesList(object):
         return len(self.managed)
 
     def removeActiveRelay(self, queue_id):
-        ActiveQueue.remove({'_id': queue_id})
-        del self.managed[queue_id]
+        def _remove(queue_id):
+            ActiveQueue.remove({'_id': queue_id})
+            del self.managed[queue_id]
+
+        delay = settings_vars.get_float(settings_vars.MAILING_QUEUE_ENDING_DELAY)
+        if delay > 0:
+            reactor.callLater(delay, _remove, queue_id)
+        else:
+            _remove(queue_id)
 
     # # Not used
     # def removeAllActiveRelays(self):

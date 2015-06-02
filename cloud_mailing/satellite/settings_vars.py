@@ -32,6 +32,7 @@ MAILING_MAX_NEW_RECIPIENTS = 'mailing_max_new_recipients'
 # DEFAULT_MAX_MX = 'default_max_mx'
 DEFAULT_MAX_QUEUE_PER_DOMAIN = 'default_max_queue_per_domain'
 ZOMBIE_QUEUE_AGE_IN_SECONDS = 'zombie_queue_age_in_seconds'
+MAILING_QUEUE_ENDING_DELAY = 'mailing_queue_ending_delay'
 
 default = {
     EHLO_STRING: 'mail.cloudmailing.net',
@@ -46,6 +47,7 @@ default = {
     # DEFAULT_MAX_MX: 2
     DEFAULT_MAX_QUEUE_PER_DOMAIN: 1,  #2
     ZOMBIE_QUEUE_AGE_IN_SECONDS: 300,
+    MAILING_QUEUE_ENDING_DELAY: 0,
 }
 
 # Helpers
@@ -62,6 +64,10 @@ def get_int(name):
 
 def get_long(name):
     return Settings.get_long(name, default[name])
+
+
+def get_float(name):
+    return Settings.get_float(name, default[name])
 
 
 def get_bool(name):
