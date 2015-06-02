@@ -69,6 +69,8 @@ def getAllPages(referenceable, methodName, *args, **kw):
     """
     A utility method that will call a remote method which expects a
     PageCollector as the first argument.
+    
+    This version is an improved one from twisted, with an errback called in case of error.
     """
     d = defer.Deferred()
     referenceable.callRemote(methodName, CallbackPageCollector(d.callback), *args, **kw).addErrback(d.errback)
