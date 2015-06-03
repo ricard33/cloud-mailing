@@ -796,7 +796,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - status: global status ('READY', 'FINISHED', 'TIMEOUT', 'GENERAL_ERROR', 'ERROR', 'WARNING', 'IN PROGRESS')
                 - reply_code: the error code returned by remote SMTP server
                 - reply_enhanced_code: The enhanced error code, if remote SMTP server supports ESMTP protocol
-                - reply_message: The full message returned by remote SMTP server.
+                - reply_text: The full message returned by remote SMTP server.
                 - smtp_log: The full SMTP transaction log
                 - modified: last modification date
                 - first_try: The first time the recipient has been tried
@@ -828,7 +828,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         #     'status': recipient.send_status,
         #     'reply_code': recipient.reply_code or '',
         #     'reply_enhanced_code': recipient.reply_enhanced_code or '',
-        #     'reply_message': recipient.reply_message or '',
+        #     'reply_text': recipient.reply_text or '',
         #     'smtp_log': recipient.smtp_log or '',
         #     'modified': recipient.modified,
         #     'first_try': recipient.first_try or '',
@@ -868,7 +868,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - status: global status ('READY', 'FINISHED', 'TIMEOUT', 'GENERAL_ERROR', 'ERROR', 'WARNING', 'IN PROGRESS')
                 - reply_code: the error code returned by remote SMTP server
                 - reply_enhanced_code: The enhanced error code, if remote SMTP server supports ESMTP protocol
-                - reply_message: The full message returned by remote SMTP server.
+                - reply_text: The full message returned by remote SMTP server.
                 - smtp_log: the full log of the SMTP transaction
                 - modified: last modification date
                 - first_try: The first time the recipient has been tried
