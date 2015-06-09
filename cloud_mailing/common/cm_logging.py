@@ -48,12 +48,13 @@ def configure_logging(config, log_name, LOG_CONFIG_PATH, LOG_PATH, DEFAULT_LOG_F
         handler = LoggingConfigEventHandler(log_name, LOG_CONFIG_PATH, LOG_PATH, DEFAULT_LOG_FORMAT)
         handler.do_reconfigure_logging()
 
-        observer = Observer()
-        # observer.schedule(LoggingEventHandler(), LOG_CONFIG_PATH, recursive=False)
-        observer.schedule(handler, LOG_CONFIG_PATH, recursive=False)
-        print "log watcher to '%s'" % LOG_CONFIG_PATH
-        observer.daemon = True  # should not block the program ending
-        observer.start()
+        if os.path.exists(LOG_CONFIG_PATH):
+            observer = Observer()
+            # observer.schedule(LoggingEventHandler(), LOG_CONFIG_PATH, recursive=False)
+            observer.schedule(handler, LOG_CONFIG_PATH, recursive=False)
+            print "log watcher to '%s'" % LOG_CONFIG_PATH
+            observer.daemon = True  # should not block the program ending
+            observer.start()
 
 
 class LoggingConfigEventHandler(FileSystemEventHandler):

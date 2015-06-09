@@ -34,7 +34,10 @@ CONFIG_FILE = os.path.join(CONFIG_PATH, "cloud-mailing.ini")
 LOG_PATH = os.path.join(PROJECT_ROOT, "log")
 
 config = ConfigFile()
-config.read(CONFIG_FILE)
+if os.path.exists(CONFIG_FILE):
+    config.read(CONFIG_FILE)
+else:
+    sys.stderr.write("Config file '%s' not found!\n" % CONFIG_FILE)
 
 DEBUG = config.getboolean('DEBUG', 'DEBUG', False)
 SSL_CERTIFICATE_PATH = os.path.join(PROJECT_ROOT, 'ssl')
