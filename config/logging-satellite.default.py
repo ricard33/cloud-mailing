@@ -50,6 +50,15 @@ LOGGING = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 10,
         },
+        'outgoing': {
+            'level': 'NOTSET',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': 'log/mailing.out.log',
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 20,
+        },
         # 'mail_admins': {
         #     'level': 'ERROR',
         #     'class': 'logging.handlers.SMTPHandler',
@@ -84,6 +93,10 @@ LOGGING = {
         },
         'sendmail': {
             'level': 'INFO',
+        },
+        'mailing.out': {
+            'level': 'INFO',
+            'handlers': ['outgoing']
         },
     },
 
