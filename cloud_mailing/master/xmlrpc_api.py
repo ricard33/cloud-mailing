@@ -548,7 +548,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             Recipients are passed as an array of struct, each struct containing fields for one recipient.
             Predefined fields are:
               - email     -- MANDATORY. Without it, recipient can't be added
-              - tracking_id -- if set, will be used as tracking or unsubscribe id instead of an auto-generated one
+              - tracking_id -- if set, will be used as tracking or unsubscribe id instead of an auto-generated one. It
+                  will also be used as recipient_id. So it absolutely has to be unique! If not defined, CloudMailing
+                  will generate it. Must be a string with less than 50 characters.
               - attachments -- optional: Array of struct, each one describes an attachment
 
             Attachment struct contains following fields:
@@ -668,7 +670,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 rcpt.in_progress = True
                 rcpt.save()
 
-            c['id'] = str(rcpt.id)
+            c['id'] = tracking_id
             c['tracking_id'] = tracking_id
             result.append(c)
 
@@ -808,15 +810,16 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         log_api.debug("XMLRPC: get_recipients_status(%s)", repr(recipient_ids))
         def _get_recipients_status(recipient_ids):
             all_status = []
-            for recipient in MailingRecipient.find({'_id': {'$in': recipient_ids}}):
+            for recipient in MailingRecipient.find({'tracking_id': {'$in': recipient_ids}}):
                 status = self.make_recipient_status_structure(recipient)
                 all_status.append(status)
             return all_status
-        return deferToThread(_get_recipients_status, map(ObjectId, recipient_ids))
+        return deferToThread(_get_recipients_status, recipient_ids)
 
     def make_recipient_status_structure(self, recipient):
         status = recipient.copy()
-        status['id'] = str(status.pop('_id'))
+        status.pop('_id')
+        status['id'] = status.pop('tracking_id')
         status.pop('mailing', None)
         status.pop('contact', None)
         status.pop('send_status', None)
@@ -1000,11 +1003,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         log_api.debug("XMLRPC: reset_recipients_status(%s)", repr(recipient_ids))
         def _reset_recipients_status(recipient_ids):
-            MailingRecipient.update({'_id': {'$in': recipient_ids}},
+            MailingRecipient.update({'tracking_id': {'$in': recipient_ids}},
                                     {'$set': {'send_status': RECIPIENT_STATUS.READY}},
                                     multi=True)
             return 0
-        return deferToThread(_reset_recipients_status, map(ObjectId, recipient_ids))
+        return deferToThread(_reset_recipients_status, recipient_ids)
 
     @withRequest
     @doc_signature('<i>date_time</i> from_date',

@@ -452,7 +452,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertTrue("id" in x[2]) and x)
 
         # Test emails should already be in queue
-        d.addCallback(lambda x: self.assertEquals(3, MailingTempQueue.find({'recipient._id': {'$in': [ObjectId(r['id']) for r in x]}}).count()) and x)
+        d.addCallback(lambda x: self.assertEquals(3, MailingTempQueue.find({'recipient.tracking_id': {'$in': [r['id'] for r in x]}}).count()) and x)
         # Test emails should be available for Satellites
         d.addCallback(lambda x: self.assertEquals(3, MailingManagerView._make_get_recipients_queryset(10, None, None, logging.getLogger()).count()) and x)
 
@@ -464,10 +464,10 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         """
         mailing = MailingFactory()
         ids = []
-        ids.append(RecipientFactory(mailing=mailing, email="1@2.fr").id)
-        ids.append(RecipientFactory(mailing=mailing, email="2@2.fr").id)
-        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr").id)
-        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr").id)
+        ids.append(RecipientFactory(mailing=mailing, email="1@2.fr").tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="2@2.fr").tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr").tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr").tracking_id)
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
 
@@ -483,10 +483,10 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         """
         mailing = MailingFactory()
         ids = []
-        ids.append(RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.FINISHED).id)
-        ids.append(RecipientFactory(mailing=mailing, email="2@2.fr", send_status=RECIPIENT_STATUS.FINISHED).id)
-        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED).id)
-        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED).id)
+        ids.append(RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="2@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
 
@@ -501,10 +501,10 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         """
         mailing = MailingFactory(owner_guid='the_owner')
         ids = []
-        ids.append(RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.READY).id)
-        ids.append(RecipientFactory(mailing=mailing, email="2@2.fr", send_status=RECIPIENT_STATUS.IN_PROGRESS).id)
-        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED).id)
-        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED).id)
+        ids.append(RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.READY).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="2@2.fr", send_status=RECIPIENT_STATUS.IN_PROGRESS).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
 
@@ -656,8 +656,8 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED)
 
         ids = [
-            MailingRecipient.find_one({'email': "1@2.fr"}).id,
-            MailingRecipient.find_one({'email': "2@2.fr"}).id,
+            MailingRecipient.find_one({'email': "1@2.fr"}).tracking_id,
+            MailingRecipient.find_one({'email': "2@2.fr"}).tracking_id,
         ]
 
         d = self.proxy().callRemote("reset_recipients_status", map(str, ids))

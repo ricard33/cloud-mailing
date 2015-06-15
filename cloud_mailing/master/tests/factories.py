@@ -17,6 +17,7 @@
 
 # from django.contrib.auth import get_user_model
 from datetime import datetime
+import uuid
 import factory
 from ..models import Mailing, MailingRecipient, CloudClient
 
@@ -47,5 +48,5 @@ class RecipientFactory(factory.MogoFactory):
     mailing = factory.SubFactory(MailingFactory)
     email = "firstname.lastname@domain.com"
     next_try = datetime.utcnow()
-
+    tracking_id = factory.LazyAttribute(lambda a: str(uuid.uuid4()))
 
