@@ -17,7 +17,12 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+import argparse
+import os
+import pymongo
 from mogo import connect
+import sys
+import time
 import twisted
 from twisted.application import service, internet
 from twisted.application.service import IService
@@ -30,29 +35,36 @@ from ..common.ssl_tools import make_SSL_context
 from ..common import settings
 from ..common.cm_logging import configure_logging
 from ..common import colored_log
-from .xmlrpc_api import make_xmlrpc_server
+from .xmlrpc_api import make_xmlrpc_server, CloudMailingRpc
 
 service_master = None
 service_manager = None
 
-def get_api_service(application=None, ssl_context_factory=None):
+def get_api_service(application=None, interface='', port=33610, ssl_context_factory=None):
     """
     Return a service suitable for creating an application object.
 
     This service is a simple web server that serves files on port 8080 from
     underneath the current working directory.
     """
-    if not ssl_context_factory:
-        ssl_context_factory = make_SSL_context()
+    # if not ssl_context_factory:
+    #     ssl_context_factory = make_SSL_context()
 
     webServer = server.Site( make_xmlrpc_server() )
+    # webServer = server.Site( CloudMailingRpc(useDateTime=True) )
     if application:
-        apiService = internet.SSLServer(33610, webServer, ssl_context_factory)
+        if ssl_context_factory:
+            apiService = internet.SSLServer(port, webServer, ssl_context_factory, interface=interface)
+        else:
+            apiService = internet.TCPServer(port, webServer, interface=interface)
         apiService.setServiceParent(application)
     else:
-        apiService = reactor.listenSSL(33610, webServer, ssl_context_factory)
+        if ssl_context_factory:
+            apiService = reactor.listenSSL(port, webServer, ssl_context_factory, interface=interface)
+        else:
+            apiService = reactor.listenTCP(port, webServer, interface=interface)
 
-    logging.info("Supervisor XMLRPC SSL server started on port %d", 33610)
+    logging.info("Supervisor XMLRPC%s server started on port %d", ssl_context_factory and " SSL" or "", port)
     return apiService
 
 
@@ -104,6 +116,14 @@ def main(application=None):
     :type application: twisted.application.service.Application
     """
     configure_logging(settings.config, "master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
+    parser = argparse.ArgumentParser(description='Start the Master process for CloudMailing.')
+    parser.add_argument('-p', '--port', type=int, default=33620, help='port number for Master MailingManager (default: 33620)')
+    parser.add_argument('--api-interface', default='', help='network interface (IP address) on which API should listen (default: <empty> = all)')
+    parser.add_argument('--api-port', type=int, default=33610, help='port number for API (default: 33610)')
+    parser.add_argument('--api-dont-use-ssl', action='store_true', default=True, help='ask API to not use secure port (SSL)')
+
+    args = parser.parse_args()
+
 
     ##Twisted logs
     observer = PythonLoggingObserver()
@@ -135,5 +155,7 @@ def main(application=None):
                 time.sleep(5)
 
     # attach the service to its parent application
-    apiService = get_api_service(application, ssl_context_factory=ssl_context_factory)
-    start_master_service(application, ssl_context_factory=ssl_context_factory)
+    apiService = get_api_service(application, port=args.api_port,
+                                 interface=args.api_interface,
+                                 ssl_context_factory=not args.api_dont_use_ssl and ssl_context_factory or None)
+    start_master_service(application, master_port=args.port, ssl_context_factory=ssl_context_factory)
