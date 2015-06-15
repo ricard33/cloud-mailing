@@ -118,7 +118,21 @@ def main(application=None):
     log.info("****************************************************************")
 
     ssl_context_factory = make_SSL_context()
-    db_conn = connect(settings.MASTER_DATABASE)
+    db_conn = None
+    while not db_conn:
+        try:
+            db_conn = connect(settings.MASTER_DATABASE)
+            log.info("Connected to database '%s'", settings.MASTER_DATABASE)
+        except pymongo.errors.ConnectionFailure:
+            log.error("Failed to connect to database server!")
+            # special case for MailFountain hardward only
+            if os.path.exists("/data/mongodb/mongod.lock"):
+                os.remove("/data/mongodb/mongod.lock")
+                os.system('su -m mongodb -c "mongod --config /usr/local/etc/mongodb.conf --dbpath /data/mongodb/ --repair"')
+                os.system("service mongod start")
+            else:
+                log.info("   Trying again in 5 seconds...")
+                time.sleep(5)
 
     # attach the service to its parent application
     apiService = get_api_service(application, ssl_context_factory=ssl_context_factory)
