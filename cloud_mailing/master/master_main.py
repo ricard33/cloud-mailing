@@ -115,7 +115,6 @@ def main(application=None):
     :param application: optional Application instance (if used inside twistd)
     :type application: twisted.application.service.Application
     """
-    configure_logging(settings.config, "master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
     parser = argparse.ArgumentParser(description='Start the Master process for CloudMailing.')
     parser.add_argument('-p', '--port', type=int, default=33620, help='port number for Master MailingManager (default: 33620)')
     parser.add_argument('--api-interface', default='', help='network interface (IP address) on which API should listen (default: <empty> = all)')
@@ -124,6 +123,7 @@ def main(application=None):
 
     args = parser.parse_args()
 
+    configure_logging("master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
 
     ##Twisted logs
     observer = PythonLoggingObserver()

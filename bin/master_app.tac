@@ -45,7 +45,7 @@ from cloud_mailing.common import settings
 from cloud_mailing.common.cm_logging import configure_logging
 from cloud_mailing.common import colored_log
 
-configure_logging(settings.config, "master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
+configure_logging("master", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
 
 ##Twisted logs
 from twisted.python.log import PythonLoggingObserver

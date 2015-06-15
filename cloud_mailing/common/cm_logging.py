@@ -24,7 +24,7 @@ from watchdog.events import LoggingEventHandler, FileSystemEventHandler
 __author__ = 'ricard'
 _watchdog_configured = False
 
-def configure_logging(config, log_name, LOG_CONFIG_PATH, LOG_PATH, DEFAULT_LOG_FORMAT, RUNNING_UNITTEST):
+def configure_logging(log_name, LOG_CONFIG_PATH, LOG_PATH, DEFAULT_LOG_FORMAT, RUNNING_UNITTEST):
     if not os.path.exists(LOG_PATH):
         os.makedirs(LOG_PATH)
 

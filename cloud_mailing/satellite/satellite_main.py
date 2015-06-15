@@ -79,7 +79,7 @@ def main(application=None):
     :param application: optional Application instance (if used inside twistd)
     :type application: twisted.application.service.Application
     """
-    configure_logging(settings.config, "satellite", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
+    configure_logging("satellite", settings.CONFIG_PATH, settings.LOG_PATH, settings.DEFAULT_LOG_FORMAT, False)
 
     ##Twisted logs
     observer = PythonLoggingObserver()
