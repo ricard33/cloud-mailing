@@ -68,3 +68,4 @@ temp
 _trial_temp
 *.pid
 local_settings.py
+version.properties
