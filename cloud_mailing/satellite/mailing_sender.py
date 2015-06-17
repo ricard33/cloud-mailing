@@ -264,7 +264,6 @@ class MailingSender(pb.Referenceable):
                     mailing.body = body
                     mailing.body_downloaded = True
                     mailing.testing = mailing_dict.get('testing', False)
-                    # mailing.advanced_template = mailing_dict.get('advanced_template', False)
                     mailing.read_tracking = mailing_dict.get('read_tracking', True)
                     mailing.click_tracking = mailing_dict.get('click_tracking', False)
                     mailing.tracking_url = tracking_url

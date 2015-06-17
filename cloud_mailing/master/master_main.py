@@ -19,6 +19,7 @@
 import logging
 import argparse
 import os
+import random
 import pymongo
 from mogo import connect
 import sys
@@ -35,6 +36,7 @@ from ..common.ssl_tools import make_SSL_context
 from ..common import settings
 from ..common.cm_logging import configure_logging
 from ..common import colored_log
+from ..common.config_file import ConfigFile
 from .xmlrpc_api import make_xmlrpc_server, CloudMailingRpc
 
 service_master = None
@@ -49,6 +51,17 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
     """
     # if not ssl_context_factory:
     #     ssl_context_factory = make_SSL_context()
+
+    # check if an API KEY exists?
+    config = ConfigFile()
+    config.read(settings.CONFIG_FILE)
+
+    key = config.get('CM_MASTER', 'API_KEY', '')
+    if not key:
+        logging.warn("API KEY not found. Generating a new one...")
+        config.set('CM_MASTER', 'API_KEY', "".join([random.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]))
+        with file(settings.CONFIG_FILE, 'wt') as f:
+            config.write(f)
 
     webServer = server.Site( make_xmlrpc_server() )
     # webServer = server.Site( CloudMailingRpc(useDateTime=True) )

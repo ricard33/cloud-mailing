@@ -45,7 +45,6 @@ class Mailing(Model):
     """Used to store headers and body."""
     # id              = models.IntegerField(primary_key=True)  # Should be the same as mailing_id in Master
     testing         = Field(bool, default=False)    # If True, emails are sent to a testing SMTP server instead of the real one.
-    # advanced_template = models.BooleanField(default=False, help_text="If True, emails will be customized with Jinja2 templating engine")
     read_tracking   = Field(bool, default=True)     # If True, read tracking image are added to html bodies
     click_tracking  = Field(bool, default=False)    # If True, links found into html bodies are converted to allow clicks tracking
     body_downloaded = Field(bool, default=False)

@@ -111,7 +111,6 @@ class Mailing(Model):
     header          = Field()
     body            = Field()
     testing         = Field(bool, default=False)  #If True, emails are sent to a testing SMTP server instead of the real one.
-    # advanced_template = Field(bool, default=False) # If True, emails will be customized with Jinja2 templating engine
     read_tracking   = Field(bool, default=True)  # If True, read tracking image are added to html bodies
     click_tracking  = Field(bool, default=False)  # If True, links found into html bodies are converted to allow clicks tracking
     tracking_url    = Field()  # Base url for all tracking links
