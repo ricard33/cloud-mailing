@@ -279,7 +279,7 @@ class MailingManagerView(pb.Viewable):
             query['domain_name'] = {'$in': included}
         elif excluded:
             query['domain_name'] = {'$nin': excluded}
-        queue = MailingTempQueue.find(query).limit(count)
+        queue = MailingTempQueue.find(query).sort('next_try').limit(count)
         return queue
 
     def view_get_recipients(self, client, collector, count=1):

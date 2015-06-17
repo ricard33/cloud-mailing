@@ -15,6 +15,7 @@
 - /UT/
 - /.env/
 - /_trial*/
+- __pycache__/
 - setup.py
 - *.pyc
 - *.pyo

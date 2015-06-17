@@ -848,7 +848,8 @@ class Queue(object):
                         recipient.update_send_status(RECIPIENT_STATUS.WARNING, smtp_message = err_msg)
                         HourlyStats.add_try()
                         recipient.set_send_mail_next_time()
-                        self.log.debug("Mailing [%s]: recipient <%s> postponed to %s" % (recipient.mail_from,
+                        self.log.debug("Mailing [%d]: from <%s> recipient <%s> postponed to %s" % (recipient.mailing.id,
+                                                                                                   recipient.mail_from,
                                                                                          recipient,
                                                                                          recipient.next_try.isoformat(' ')))
                     else:
@@ -919,7 +920,8 @@ class RecipientManager(object):
         return self.deferred
 
     def onSuccess(self, data):
-        logging.getLogger('mailing.out').info("MAILING SENT FROM <%s> TO <%s>", self.email_from, self.email_to)
+        logging.getLogger('mailing.out').info("MAILING [%d] SENT FROM <%s> TO <%s>", self.recipient.mailing.id,
+                                              self.email_from, self.email_to)
         self.recipient.update_send_status(RECIPIENT_STATUS.FINISHED, smtp_message = '')
         self.recipient.mark_as_finished()
         HourlyStats.add_sent()
