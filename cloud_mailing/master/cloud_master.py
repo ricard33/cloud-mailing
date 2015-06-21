@@ -18,10 +18,12 @@
 import logging
 import cPickle as pickle
 from datetime import datetime, timedelta
+import os
 import time
 import re
 from bson import ObjectId
 import pymongo
+from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
 
 from twisted.spread import pb, util
@@ -41,6 +43,23 @@ mailing_portal = None
 unit_test_mode = False   # used to make delays shorter
 
 #pylint: disable-msg=W0404
+
+def make_customized_file_name(mailing_id, recipient_id):
+    """compose the filename where the customized email is stored."""
+    # this name should be the same as in satellite to allow smart optimization with local satellite
+    return 'cust_ml_%d_rcpt_%s.rfc822' % (mailing_id, str(recipient_id))
+
+def getAllPages(referenceable, methodName, *args, **kw):
+    """
+    A utility method that will call a remote method which expects a
+    PageCollector as the first argument.
+
+    This version is an improved one from twisted, with an errback called in case of error.
+    """
+    d = defer.Deferred()
+    referenceable.callRemote(methodName, CallbackPageCollector(d.callback), *args, **kw).addErrback(d.errback)
+    return d
+
 
 __new_recipients_threadpool = None
 
@@ -164,6 +183,10 @@ class ClientAvatar(pb.Avatar):
         for c in self.clients:
             c.callRemote("force_check_for_new_recipients")
 
+    def retrieve_customized_content(self, mailing_id, recipient_id):
+        if self.clients:
+            return getAllPages(self.clients[0], 'get_customized_content', mailing_id, recipient_id)
+        return defer.fail()
 
     def perspective_get_mailing_manager(self):
         # maybe insert here more rights management
@@ -211,6 +234,7 @@ class MailingManagerView(pb.Viewable):
                                                           'read_tracking': mailing.read_tracking,
                                                           'click_tracking': mailing.click_tracking,
                                                           'tracking_url': mailing.tracking_url,
+                                                          'backup_customized_emails': mailing.backup_customized_emails,
                                                           'testing': mailing.testing,
                                                           'delete': False}))
             else:
@@ -340,6 +364,12 @@ class MailingManagerView(pb.Viewable):
         from models import MailingTempQueue, MailingRecipient
         t0 = time.time()
 
+        # We need to keep backup_customized_emails flag for each mailing to avoid consuming requests
+        mailing_ids = [recipient['mailing'] for recipient in _recipients]
+        mailings = {}
+        for ml in Mailing._get_collection().find({'_id': {'$in': mailing_ids}}, {'backup_customized_emails': True}):
+            mailings[ml['_id']] = ml
+
         ids_ok = []
         mailings_stats = {}
         # TODO optimize this using UPDATE multiples
@@ -352,6 +382,7 @@ class MailingManagerView(pb.Viewable):
                     log.warn("Can't update recipient '%s'. Mailing [%d] or recipient doesn't exist anymore.", name, rcpt['mailing'])
                 else:
                     assert(isinstance(recipient, MailingRecipient))
+                    recipient.report_ready = True
                     if not recipient.first_try:
                         recipient.first_try = rcpt['first_try']
                     was_in_softbounce = recipient.send_status == RECIPIENT_STATUS.WARNING
@@ -380,6 +411,9 @@ class MailingManagerView(pb.Viewable):
                         if recipient.send_status == RECIPIENT_STATUS.FINISHED:
                             # recipient.mailing.total_sent += 1
                             ml_stats['total_sent'] = ml_stats.setdefault('total_sent', 0) + 1
+                            if mailings[recipient.mailing.id].get('backup_customized_emails', False):
+                                if not os.path.exists(make_customized_file_name(recipient.mailing.id, str(recipient.id))):
+                                    recipient.report_ready = False
                         else:
                             # recipient.mailing.total_error += 1
                             ml_stats['total_error'] = ml_stats.setdefault('total_error', 0) + 1
@@ -464,6 +498,7 @@ class CloudRealm:
         self.avatars = {}
         self.max_connections = max_connections
         self.__check_for_orphan_recipients = False
+        self.__content_retrieving = 0
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         global unit_test_mode
@@ -561,6 +596,47 @@ class CloudRealm:
     def _check_recipients_eb(self, err):
         self.log.error("Error in check_recipients_in_clients: %s", err)
         return err
+
+    def retrieve_customized_content(self):
+        if self.__content_retrieving >= 10:
+            return
+
+        def _save_customized_content(data_list, file_name):
+            if os.path.exists(file_name):
+                self.log.warning("Customized file '%s' already exists!", file_name)
+            else:
+                with file(file_name, 'wt') as f:
+                    for data in data_list:
+                        f.write(data)
+                    f.close()
+                self.log.debug("Customized email '%s' written on disk", file_name)
+            return file_name
+
+        def _update_recipient(file_name, recipient):
+            recipient.report_ready = True
+            recipient.save()
+
+        def _handle_failure(err):
+            self.log.error("Error in retrieve_customized_content: %s", err)
+            return err
+
+        def _release_count(data_or_error):
+            self.__content_retrieving -= 1
+
+        for recipient in MailingRecipient.find({'send_status': RECIPIENT_STATUS.FINISHED, 'report_ready': False},
+                                               limit=10-self.__content_retrieving):
+            file_name = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, make_customized_file_name(recipient.mailing.id, str(recipient.id)))
+            if os.path.exists(file_name):
+                self.log.debug("Customized file '%s' already exists, skipping it...", file_name)
+                _update_recipient(file_name, recipient)
+            else:
+                self.__content_retrieving += 1
+                avatar = self.avatars[recipient.cloud_client]
+                avatar.retrieve_customized_content(recipient.mailing.id, str(recipient.id)) \
+                    .addCallback(_save_customized_content, file_name) \
+                    .addCallback(_update_recipient, recipient) \
+                    .addErrback(_handle_failure) \
+                    .addBoth(_release_count)
 
 
 class CmCloudCredentialsChecker:

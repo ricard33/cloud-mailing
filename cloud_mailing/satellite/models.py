@@ -45,6 +45,7 @@ class Mailing(Model):
     """Used to store headers and body."""
     # id              = models.IntegerField(primary_key=True)  # Should be the same as mailing_id in Master
     testing         = Field(bool, default=False)    # If True, emails are sent to a testing SMTP server instead of the real one.
+    backup_customized_emails = Field(bool, default=False)  # If True, customized emails will be included in recipients reports.
     read_tracking   = Field(bool, default=True)     # If True, read tracking image are added to html bodies
     click_tracking  = Field(bool, default=False)    # If True, links found into html bodies are converted to allow clicks tracking
     body_downloaded = Field(bool, default=False)

@@ -264,6 +264,7 @@ class MailingSender(pb.Referenceable):
                     mailing.body = body
                     mailing.body_downloaded = True
                     mailing.testing = mailing_dict.get('testing', False)
+                    mailing.backup_customized_emails = mailing_dict.get('backup_customized_emails', False)
                     mailing.read_tracking = mailing_dict.get('read_tracking', True)
                     mailing.click_tracking = mailing_dict.get('click_tracking', False)
                     mailing.tracking_url = tracking_url
@@ -587,6 +588,7 @@ class MailingSender(pb.Referenceable):
         if queue_id in MailCustomizer.mailingsContent:
             del MailCustomizer.mailingsContent[queue_id]
 
+        self.log.debug("Delete all customized files for mailing [%d].", queue_id)
         import glob
         for entry in glob.glob(os.path.join(settings.MAIL_TEMP, MailCustomizer.make_patten_for_queue(queue_id))):
             #noinspection PyBroadException
@@ -609,6 +611,7 @@ class MailingSender(pb.Referenceable):
 
     def delete_all_customized_temp_files(self):
         """Delete all customized files from temp folder."""
+        self.log.debug("Delete all customized files from temp folder.")
         import glob
         for entry in glob.glob(os.path.join(settings.MAIL_TEMP, "cust_ml_*.rfc822")):
             #noinspection PyBroadException
@@ -926,14 +929,23 @@ class RecipientManager(object):
         self.recipient.mark_as_finished()
         HourlyStats.add_sent()
         DomainStats.add_sent(self.factory.targetDomain)
+        print Mailing._get_collection().find({'_id': self.recipient.mailing.id}, {'backup_customized_emails': True})[0]
         if self.temp_filename and os.path.exists(self.temp_filename):
-            os.remove(self.temp_filename)
+            if Mailing._get_collection().find({'_id': self.recipient.mailing.id}, {'backup_customized_emails': True})[0].get('backup_customized_emails', False):
+                self.log.debug("Moving customized content '%s' to '%s' folder", os.path.basename(self.temp_filename), settings.CUSTOMIZED_CONTENT_FOLDER)
+                os.rename(self.temp_filename, os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, os.path.basename(self.temp_filename)))
+                self.log.debug(os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, os.path.basename(self.temp_filename)))
+                self.log.debug("Exists? %s", os.path.exists(os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, os.path.basename(self.temp_filename))))
+            else:
+                self.log.debug("Deleting customized content: '%s'", self.temp_filename)
+                os.remove(self.temp_filename)
         self.deferred.callback(self.recipient)
     
     def onFailure(self, err):
         handle_recipient_failure(err, self.recipient, self.email_from, self.email_to, self.log)
         if self.recipient.send_status in (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.GENERAL_ERROR) \
                 and self.temp_filename and os.path.exists(self.temp_filename):
+            self.log.debug("Deleting customized content: '%s'", self.temp_filename)
             os.remove(self.temp_filename)
         self.deferred.errback(err)
 

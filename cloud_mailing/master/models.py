@@ -111,6 +111,7 @@ class Mailing(Model):
     header          = Field()
     body            = Field()
     testing         = Field(bool, default=False)  #If True, emails are sent to a testing SMTP server instead of the real one.
+    backup_customized_emails = Field(bool, default=False)  # If True, customized emails will be included in recipients reports.
     read_tracking   = Field(bool, default=True)  # If True, read tracking image are added to html bodies
     click_tracking  = Field(bool, default=False)  # If True, links found into html bodies are converted to allow clicks tracking
     tracking_url    = Field()  # Base url for all tracking links
@@ -223,6 +224,7 @@ class MailingRecipient(Model):
     reply_text = Field()
     smtp_log         = Field()
     in_progress     = Field(bool, default=False)  # added in temp queue
+    report_ready    = Field(bool, default=False)  # data ready to report to API client
     cloud_client    = Field()   # help_text="Client used to send the email
     created         = Field(datetime, default=datetime.utcnow)
     modified        = Field(datetime, default=datetime.utcnow)

@@ -19,9 +19,13 @@
 import sys, os
 sys.path.append(os.path.normpath(os.path.join(os.path.dirname(__file__), '..')))
 
-from cloud_mailing.master import master_main
+from cloud_mailing.master import master_main, cloud_master
 from twisted.internet import reactor
 
 if __name__ == '__main__':
     master_main.main()
-    reactor.run()
+    try:
+        reactor.run()
+    finally:
+        print "Stop all threads"
+        cloud_master.stop_all_threadpools()

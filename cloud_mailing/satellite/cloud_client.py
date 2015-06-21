@@ -21,17 +21,20 @@
 
 import hmac
 import logging
+import os
 from bson import ObjectId
+import errno
 
-from twisted.spread import pb
-from twisted.internet import reactor
+from twisted.spread import pb, util
+from twisted.internet import reactor, defer
+from twisted.python import failure
 from twisted.cred import credentials
 from twisted.internet.protocol import ReconnectingClientFactory
 from .mail_customizer import MailCustomizer
 from .models import MailingRecipient, Mailing
 from ..common.config_file import ConfigFile
 from ..common import settings
-from mailing_sender import MailingSender
+from mailing_sender import MailingSender, getAllPages
 
 log = logging.getLogger("cloud")
 
@@ -127,6 +130,26 @@ class CloudClient(pb.Referenceable):
             'CM_MAILING_QUEUE_USE_LOCAL_DNS_CACHE': settings.USE_LOCAL_DNS_CACHE,
             'CM_MAILING_QUEUE_LOCAL_DNS_CACHE_FILE': settings.LOCAL_DNS_CACHE_FILE,
         }
+
+    def remote_get_customized_content(self, collector, mailing_id, recipient_id):
+        """
+        Ask the satellite to return the customized content for a recipient.
+
+        :param mailing_id: mailing id where the recipient is (used to get the file name without making a db query.
+        :param recipient_id: recipient id
+        :return: StringPager containing the email content
+        """
+        log.debug("get_customized_content(%d, %s)", mailing_id, recipient_id)
+        file_name = MailCustomizer.make_file_name(mailing_id, recipient_id)
+        fullpath = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, file_name)
+        if os.path.exists(fullpath):
+            def _remove_file():
+                log.debug("Removing customized file '%s'", fullpath)
+                os.remove(fullpath)
+            util.FilePager(collector, file(fullpath, 'rt'), callback=_remove_file)
+        else:
+            log.error("Requested customized content not found: %s", fullpath)
+            return defer.fail(IOError(errno.ENOENT, "No such file or directory", fullpath))
 
 
 class CloudClientFactory(pb.PBClientFactory, ReconnectingClientFactory):

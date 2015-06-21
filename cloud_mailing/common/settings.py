@@ -63,6 +63,14 @@ TEST_FAKE_DNS = config.getboolean('MAILING', 'test_faked_dns', False)  # used fo
 USE_LOCAL_DNS_CACHE = config.getboolean('MAILING', 'use_local_dns_cache', False)  # mainly used for mailing tests. DNS always returns determined ips for some domains.
 LOCAL_DNS_CACHE_FILE = config.get('MAILING', 'local_dns_cache_filename', os.path.join(PROJECT_ROOT, 'local_dns_cache.ini'))  # mainly used for mailing tests. DNS always returns determined ips for some domains.
 MAIL_TEMP = config.get('MAILING', 'MAIL_TEMP', os.path.join(PROJECT_ROOT, 'temp'))
+CUSTOMIZED_CONTENT_FOLDER = config.get('MAILING', 'CUSTOMIZED_CONTENT_FOLDER', os.path.join(PROJECT_ROOT, 'cust_ml'))
+
+# Create missing folders
+for dir_name in (CUSTOMIZED_CONTENT_FOLDER, MAIL_TEMP):
+    try:
+        os.makedirs(dir_name)
+    except:
+        pass
 
 ## End satellite specific
 

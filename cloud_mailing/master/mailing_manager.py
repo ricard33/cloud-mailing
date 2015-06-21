@@ -159,6 +159,7 @@ class MailingManager(Singleton):
         try:
             # TODO Check why it seems to be broken with very big DB
             self.check_orphan_recipients()
+            self.retrieve_customized_content()
 
             # Delay this call because master port is not ready at startup
             if time.time() - self.startTime > 1 * 60:
@@ -316,6 +317,15 @@ class MailingManager(Singleton):
                     .addErrback(_set_next_time, 30)
             else:
                 self.log.error("Can't get MailingPortal object!")
+
+    def retrieve_customized_content(self):
+        from .cloud_master import mailing_portal
+
+        if mailing_portal:
+            mailing_master = mailing_portal.realm
+            return mailing_master.retrieve_customized_content()
+        else:
+            self.log.error("Can't get MailingPortal object!")
 
 
 def _checkState(manager):

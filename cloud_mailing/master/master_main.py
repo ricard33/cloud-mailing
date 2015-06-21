@@ -132,7 +132,7 @@ def main(application=None):
     parser.add_argument('-p', '--port', type=int, default=33620, help='port number for Master MailingManager (default: 33620)')
     parser.add_argument('--api-interface', default='', help='network interface (IP address) on which API should listen (default: <empty> = all)')
     parser.add_argument('--api-port', type=int, default=33610, help='port number for API (default: 33610)')
-    parser.add_argument('--api-dont-use-ssl', action='store_true', default=True, help='ask API to not use secure port (SSL)')
+    parser.add_argument('--api-dont-use-ssl', action='store_true', default=False, help='ask API to not use secure port (SSL)')
 
     args = parser.parse_args()
 

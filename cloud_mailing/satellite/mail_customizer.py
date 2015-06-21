@@ -69,12 +69,13 @@ class MailCustomizer:
 
     @staticmethod
     def make_original_file_name(mailing_id):
-        """compose the filename where the customized email is stored."""
+        """compose the filename where the original email is stored."""
         return 'orig_ml_%d.rfc822' % mailing_id
 
-    def make_file_name(self):
+    @staticmethod
+    def make_file_name(mailing_id, recipient_id):
         """compose the filename where the customized email is stored."""
-        return 'cust_ml_%d_rcpt_%s.rfc822' % (self.recipient.mailing.id, str(self.recipient.id))
+        return 'cust_ml_%d_rcpt_%s.rfc822' % (mailing_id, str(recipient_id))
 
     @staticmethod
     def make_patten_for_queue(queue_id):
@@ -250,7 +251,7 @@ class MailCustomizer:
         This may take some time and shouldn't be run from the reactor thread.
         """
         try:
-            fullpath = os.path.join(self.temp_path, self.make_file_name())
+            fullpath = os.path.join(self.temp_path, MailCustomizer.make_file_name(self.recipient.mailing.id, self.recipient.id))
             if os.path.exists(fullpath):
                 self.log.debug("Customized email found here: %s", fullpath)
                 parser = email.parser.Parser()

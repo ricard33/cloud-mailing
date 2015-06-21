@@ -50,7 +50,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         recipient = factories.RecipientFactory(mailing=mailing)
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -73,7 +73,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         recipient = factories.RecipientFactory(mailing=mailing)
 
         customizer = MailCustomizer(recipient, use_jinja2=True)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -109,7 +109,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         #print recipient.mailing.content
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -172,7 +172,7 @@ Nothing else to say...
         )
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -238,7 +238,7 @@ Nothing else to say...
         )
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -314,7 +314,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
         )
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -402,7 +402,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
         )
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -507,7 +507,7 @@ Nothing else to say...
         )
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -608,7 +608,7 @@ I'm happy! Nothing else to say...
         recipient = factories.RecipientFactory(mailing=mailing)
 
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 
@@ -672,7 +672,7 @@ I=92m happy! Nothing else to say...
 
         return
         customizer = MailCustomizer(recipient, use_jinja2=False)
-        fullpath = os.path.join(customizer.temp_path, customizer.make_file_name())
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
 

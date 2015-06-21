@@ -374,6 +374,44 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.assertEqual(mailing['total_sent'], TOTAL_RECIPIENTS)
         self.assertEqual(mailing['total_error'], 0)
 
+    def test_get_full_reports_with_email_content(self):
+        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 0)
+        email_filename = os.path.join('data', 'email.rfc822')
+        self._check_domain_sender(email_filename)
+        mail_from = "my-mailing@%s" % self.domain_name
+        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        self.assertGreater(mailing_id, 0)
+        self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'testing': True, 'backup_customized_emails': True})
+        recipients_list = [{'email': "cedric.ricard@orange.fr", 'firstname': 'Cedric', 'lastname': 'RICARD'},
+                           {'email': "ricard@free.fr", 'firstname': 'John', 'lastname': 'DOE'},
+                           ]
+        results = self.cloudMailingsRpc.send_test(mailing_id, recipients_list)
+        for r1, r2 in zip(recipients_list, results):
+            self.assertDictContainsSubset({'email': r1['email']}, r2)
+            self.assertNotIn('error', r2)
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        self.assertEqual(mailing['total_recipient'], 2)
+
+        mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
+        self.assertEquals(len(mailings), 1)
+        mailing = mailings[0]
+        t0 = time.time()
+        recipients_status = {}
+        cursor = ''
+        while len(recipients_status) < len(recipients_list):   # the unknown domain will take more time...
+            # self.assertEqual(mailing['status'], 'FILLING_RECIPIENTS')
+            self.assertLess(time.time() - t0, 30) # 30 seconds max
+            results = self.cloudMailingsRpc.get_recipients_status_updated_since(cursor)
+            cursor = results['cursor']
+            recipients = results['recipients']
+            for recipient in recipients:
+                recipients_status[recipient['email']] = recipient
+            time.sleep(2)
+        self.assertEqual(recipients_status['cedric.ricard@orange.fr']['status'], 'FINISHED')
+        self.assertEqual(recipients_status['ricard@free.fr']['status'], 'FINISHED')
+        self.assertIn('*Bonjour*Cedric RICARD', recipients_status['cedric.ricard@orange.fr']['customized_content'])
+        self.assertIn('*Bonjour*John DOE', recipients_status['ricard@free.fr']['customized_content'])
+
 
 if __name__ == '__main__':
     import argparse

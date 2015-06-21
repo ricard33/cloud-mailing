@@ -26,6 +26,7 @@ import email.header
 import email.mime.text
 import email.mime.multipart
 from datetime import datetime
+import os
 
 from bson import ObjectId
 import pymongo
@@ -43,6 +44,7 @@ from ..common.xml_api_common import withRequest, doc_signature, BasicHttpAuthXML
 
 import xmlrpclib
 import re
+from .cloud_master import make_customized_file_name
 from .models import CloudClient, Mailing, relay_status, MAILING_STATUS, MailingRecipient, RECIPIENT_STATUS, \
     MailingTempQueue, recipient_status, MailingHourlyStats
 
@@ -364,6 +366,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - sender_name
                 - shown_name (DEPRECATED: use 'sender_name' instead)
                 - tracking_url
+                - backup_customized_emails: If True, customized emails will be included in recipients reports
                 - owner_guid: free string (max 50 characters) that can be used to identify (and filter) mailings we own.
                 - scheduled_start: datetime in isoformat, or empty string to remove its value
                 - scheduled_end: datetime in isoformat. Imperative mailing ending. Mailing life can be reduced by
@@ -402,7 +405,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                     raise Fault(http.NOT_ACCEPTABLE, "Bad value '%s' for Property type. Acceptable values are (%s)"
                                                      % (value, ', '.join(mailing_types)))
                 mailing.type = value
-            elif key in ('sender_name', 'tracking_url', 'testing', 'owner_guid', 'satellite_group'):
+            elif key in ('sender_name', 'tracking_url', 'testing', 'backup_customized_emails', 'owner_guid', 'satellite_group'):
                 setattr(mailing, key, value)
             elif key == 'shown_name':
                 mailing.sender_name = value
@@ -795,6 +798,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :return: Returns an array of recipient status.
             A status is a structure containing following keys:
                 - id: recipient id
+                - email: recipient email
                 - status: global status ('READY', 'FINISHED', 'TIMEOUT', 'GENERAL_ERROR', 'ERROR', 'WARNING', 'IN PROGRESS')
                 - reply_code: the error code returned by remote SMTP server
                 - reply_enhanced_code: The enhanced error code, if remote SMTP server supports ESMTP protocol
@@ -825,21 +829,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         status.pop('send_status', None)
         status['status'] = recipient.send_status
         ensure_no_null_values(status)
-
-        # status = {
-        #     'id': recipient.id,
-        #     'status': recipient.send_status,
-        #     'reply_code': recipient.reply_code or '',
-        #     'reply_enhanced_code': recipient.reply_enhanced_code or '',
-        #     'reply_text': recipient.reply_text or '',
-        #     'smtp_log': recipient.smtp_log or '',
-        #     'modified': recipient.modified,
-        #     'first_try': recipient.first_try or '',
-        #     'next_try': recipient.next_try or '',
-        #     'try_count': recipient.try_count or '',
-        #     'in_progress': recipient.in_progress,
-        #     'cloud_client': recipient.cloud_client or '',
-        # }
         return status
 
     @withRequest
@@ -858,7 +847,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :param filters: allows to filter results. Filter is a structure containing following fields (all optional):
             - status: filter by recipient status. If specified, this parameter should contains a list of acceptable
                       statuses. By default, the filter contains all statuses except READY.
-            - owners: list of 'owner_uid'. Only recipients contained in mailing owned by these uids are returned
+            - owners: list of 'owner_guid'. Only recipients contained in mailing owned by these uids are returned
             - mailings: list of mailing ids
             - sender_domains: list of domain names. Only recipients contained in mailings whose sender are from these
                       domains are selected.
@@ -868,6 +857,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             - recipients: an array of recipient status.
             A status is a structure containing following keys:
                 - id: recipient id
+                - email: recipient email
                 - status: global status ('READY', 'FINISHED', 'TIMEOUT', 'GENERAL_ERROR', 'ERROR', 'WARNING', 'IN PROGRESS')
                 - reply_code: the error code returned by remote SMTP server
                 - reply_enhanced_code: The enhanced error code, if remote SMTP server supports ESMTP protocol
@@ -879,6 +869,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - try_count: Tentatives count
                 - in_progress: This recipient is currently handled by a Satellite
                 - cloud_client: Sender Satellite which did (or is doing) the sent
+                - customized_content: OPTIONAL: if mailing is configured to backup customized emails, this field contains
+                    the email in RFC822 format. Warning: due to high volume data, email content can be retrieved only
+                    once. Its content is destroyed just after this call.
         """
         log_api.debug("XMLRPC: get_recipients_status_updated_since(%s, %s, %d)", cursor, repr(filters), max_results)
 
@@ -919,7 +912,10 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             else:
                 only_status = (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.FINISHED, RECIPIENT_STATUS.GENERAL_ERROR,
                                RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.TIMEOUT, RECIPIENT_STATUS.WARNING)
-            recipients_filter = {'send_status': {'$in': only_status}}
+            recipients_filter = {
+                'send_status': {'$in': only_status},
+                '$or': [{'report_ready': True}, {'report_ready': None}],
+            }
 
             def apply_filter(filters, name, filter_type, type_description, qs_filter, qs_op, qs_mapper=lambda x: x):
                 filter = filters.get(name)
@@ -928,13 +924,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                         raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
                     return {qs_filter: {qs_op: qs_mapper(filter)}}
                 return {}
-
-            # owners = filters.get('owners')
-            # if owners:
-            #     if not isinstance(owners, (list, tuple)):
-            #         raise Fault(http.NOT_ACCEPTABLE, "Parameter 'owners' has to be an array of strings.")
-            #     ids = map(lambda x: x['_id'], Mailing._collection.find({'owner_guid': {'$in': owners}}, fields=[]))
-            #     filters.setdefault('mailings', []).extend(ids)
 
             def apply_mailing_filter(filters, name, filter_type, type_description, field, op, qs_mapper=lambda x: x):
                 filter = filters.get(name)
@@ -963,6 +952,15 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             for recipient in MailingRecipient.find(recipients_filter).sort('modified').skip(offset).limit(max_results):
                 status = self.make_recipient_status_structure(recipient)
                 # print status
+                file_name = make_customized_file_name(recipient.mailing.id, recipient.id)
+                fullpath = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, file_name)
+                if os.path.exists(fullpath):
+                    with file(fullpath, 'rt') as f:
+                        status['customized_content'] = f.read()
+                        f.close()
+                    log_api.debug("Removing customized content: %s", fullpath)
+                    os.remove(fullpath)
+
                 all_status.append(status)
             if all_status:
                 min_date = all_status[0]['modified']
