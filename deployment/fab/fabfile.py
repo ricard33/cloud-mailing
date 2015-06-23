@@ -103,6 +103,7 @@ def sync_sources(test_only=False):
         TARGET_PATH,
         local_dir=WORKSPACE + "/",
         delete=True,
+        default_opts='-rvz',  # '-pthrvz'
         extra_opts='-ci --filter=". %s"' % os.path.join(FAB_PATH, "rsync_filter") + (test_only and " --dry-run" or ""),
         #extra_opts="-ci --dry-run",
     )

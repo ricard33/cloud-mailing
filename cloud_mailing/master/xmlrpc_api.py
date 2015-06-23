@@ -80,9 +80,9 @@ def authenticate(rpc_server, username, password, remote_ip):
 
 
 def ensure_no_null_values(d):
-    for name, value in d.items():
-        if value is None:
-            d[name] = ''
+    null_values = [name for name, value in d.items() if value is None]
+    for name in null_values:
+        del d[name]
 
 
 class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
