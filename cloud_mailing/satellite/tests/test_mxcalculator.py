@@ -539,38 +539,3 @@ class MXTestCase(DatabaseMixin, unittest.TestCase):
 
 
 
-#import unittest as pyunit
-#
-#@pyunit.skip
-class MXWithRealQueriesTestCase(DatabaseMixin, unittest.TestCase):
-    """
-    Tests for L{mailing.mailing_sender.MXCalculator} in real condition.
-    """
-    def setUp(self):
-        # self.connect_to_db()
-        logging.getLogger('mx_calc').setLevel(logging.CRITICAL)
-        #setUpDNS(self)
-        #self.clock = task.Clock()
-        self.mx = MXCalculator()
-
-    # def tearDown(self):
-        #return tearDownDNS(self)
-        # self.disconnect_from_db()
-
-    skip = "Do real DNS query. Only for tests."
-
-    def testSimpleSuccess(self):
-#        self.auth.addresses['test.domain'] = ['the.email.test.domain']
-        d = self.mx.getMX('vds.fr')
-        d.addCallback(self._cbSimpleSuccess)
-        def errback(err):
-            print "getMX error", err
-            print "getMX error", err.value
-        d.addErrback(errback)
-        return d
-
-    def _cbSimpleSuccess(self, mxs):
-        self.assertEquals(1, len(mxs))
-        self.assertEquals(mxs[0].preference, 10, "Bad MX preference")
-        self.assertEquals(str(mxs[0].name), 'mx01.nexthal.com')
-        return mxs

@@ -35,7 +35,6 @@ from twisted.web import xmlrpc, resource, http, static
 
 from ..common import settings
 
-# from cxm.mail.tools import convert_email_charset
 from .mailing_manager import MailingManager
 
 from ..common.html_tools import strip_tags
@@ -97,6 +96,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     server_title = "CloudMailing XML-RPC Server Documentation"
 
     _authenticate_method = authenticate
+
+    # -------------------------------------
+    # Satellites management
 
     @doc_signature('array')
     def xmlrpc_cloud_list_satellites(self):
@@ -206,6 +208,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         s.delete()
         return 0
+
+    # -------------------------------------
+    # Mailings management
 
     @withRequest
     @doc_signature('<i>struct</i> filter (optional)', 'array')
@@ -533,6 +538,62 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             c += 1
         return c
 
+    @withRequest
+    @doc_signature('<i>int</i> mailing_id', '<i>date_time</i> when', '<i>string</i> mailing_status')
+    def xmlrpc_start_mailing(self, request, mailing_id, when=None):
+        """
+        Activate a mailing: its recipients will be available to be handled by mailing queues.
+        :return: new mailing status
+        """
+        log_api.debug("XMLRPC: start_mailing(%s, %s)", mailing_id, when)
+        mailing = Mailing.grab(mailing_id)
+        if not mailing:
+            request.setResponseCode(http.NOT_FOUND)
+            raise Fault(http.NOT_FOUND, 'Mailing not found!')
+
+        if mailing.status == MAILING_STATUS.PAUSED:
+            if mailing.start_time:      ## only set when mailing changes its state to RUNNING
+                mailing.status = MAILING_STATUS.RUNNING
+            else:
+                mailing.status = MAILING_STATUS.READY
+            mailing.save()
+        else:
+            mailing.activate()
+
+        manager = MailingManager.getInstance()
+        manager.forceToCheck()
+        return mailing.status
+
+    @withRequest
+    @doc_signature('<i>int</i> mailing_id', '<i>string</i> mailing_status')
+    def xmlrpc_pause_mailing(self, request, mailing_id):
+        """
+        Temporary stop a mailing (mailing is paused).
+        :return: new mailing status
+        """
+        log_api.debug("XMLRPC: pause_mailing(%s)", mailing_id)
+        mailing = Mailing.grab(mailing_id)
+        if not mailing:
+            request.setResponseCode(http.NOT_FOUND)
+            log_api.error("Mailing [%d] not found!", mailing_id)
+            raise Fault(http.NOT_FOUND, 'Mailing not found!')
+
+        if mailing.status in (MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED):
+            mailing.status = MAILING_STATUS.PAUSED
+            mailing.save()
+            manager = MailingManager.getInstance()
+            assert(isinstance(manager, MailingManager))
+            deferToThread(manager.pause_mailing, mailing)
+        else:
+            log_api.error("Bad mailing status: '%s' for [%d]. Can't pause it!", mailing.status, mailing_id)
+            request.setResponseCode(http.NOT_ACCEPTABLE)
+            raise Fault(http.NOT_ACCEPTABLE, "Bad mailing status: '%s'. Can't pause it!" % mailing.status)
+
+        return mailing.status
+
+    # -------------------------------------
+    # Recipients management
+
     def _update_pending_recipients(self, result):
         recipients, mailing, total_added = result
         Mailing.update({'_id': mailing.id}, {'$inc': {
@@ -611,7 +672,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         return deferToThread(_send_test, request, mailing_id, recipients)\
             .addCallback(self._update_pending_recipients)
 
-
     def _add_recipients(self, request, mailing_id, recipients, immediate=False):
         mailing = Mailing.grab(mailing_id)
         if not mailing:
@@ -680,114 +740,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         manager = MailingManager.getInstance()
         manager.forceToCheck()
         return result, mailing, total_added
-
-    @withRequest
-    @doc_signature('<i>int</i> mailing_id', '<i>date_time</i> when', '<i>string</i> mailing_status')
-    def xmlrpc_start_mailing(self, request, mailing_id, when=None):
-        """
-        Activate a mailing: its recipients will be available to be handled by mailing queues.
-        :return: new mailing status
-        """
-        log_api.debug("XMLRPC: start_mailing(%s, %s)", mailing_id, when)
-        mailing = Mailing.grab(mailing_id)
-        if not mailing:
-            request.setResponseCode(http.NOT_FOUND)
-            raise Fault(http.NOT_FOUND, 'Mailing not found!')
-
-        if mailing.status == MAILING_STATUS.PAUSED:
-            if mailing.start_time:      ## only set when mailing changes its state to RUNNING
-                mailing.status = MAILING_STATUS.RUNNING
-            else:
-                mailing.status = MAILING_STATUS.READY
-            mailing.save()
-        else:
-            mailing.activate()
-
-        manager = MailingManager.getInstance()
-        manager.forceToCheck()
-        return mailing.status
-
-    @withRequest
-    @doc_signature('<i>int</i> mailing_id', '<i>string</i> mailing_status')
-    def xmlrpc_pause_mailing(self, request, mailing_id):
-        """
-        Temporary stop a mailing (mailing is paused).
-        :return: new mailing status
-        """
-        log_api.debug("XMLRPC: pause_mailing(%s)", mailing_id)
-        mailing = Mailing.grab(mailing_id)
-        if not mailing:
-            request.setResponseCode(http.NOT_FOUND)
-            log_api.error("Mailing [%d] not found!", mailing_id)
-            raise Fault(http.NOT_FOUND, 'Mailing not found!')
-
-        if mailing.status in (MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED):
-            mailing.status = MAILING_STATUS.PAUSED
-            mailing.save()
-            manager = MailingManager.getInstance()
-            assert(isinstance(manager, MailingManager))
-            deferToThread(manager.pause_mailing, mailing)
-        else:
-            log_api.error("Bad mailing status: '%s' for [%d]. Can't pause it!", mailing.status, mailing_id)
-            request.setResponseCode(http.NOT_ACCEPTABLE)
-            raise Fault(http.NOT_ACCEPTABLE, "Bad mailing status: '%s'. Can't pause it!" % mailing.status)
-
-        return mailing.status
-
-    @doc_signature('0')
-    def xmlrpc_update_statistics(self):
-        """
-        DEPRECATED as useless. Statistics are in real time now.
-        Ask CloudMailing to update its mailings statistics now. Warning, this is a synchronous call
-        and this operation may take some time.
-        :return: 0
-        """
-        log_api.debug("XMLRPC: update_statistics()")
-        log_api.warn("XMLRPC: update_statistics() is deprecated because it became useless since statistics are updated in real time.")
-        #from cm_master.cron import UpdateMailingsStats
-        #
-        #UpdateMailingsStats.update_stats()
-        return 0
-
-    # Utility functions
-    @doc_hide
-    def xmlrpc_mailing_manager_force_check(self):
-        """Force the MailingManager to immediately check for its queue."""
-        log_api.debug("XMLRPC: mailing_manager_force_check()")
-        manager = MailingManager.getInstance()
-        assert(isinstance(manager, MailingManager))
-        manager.forceToCheck()
-
-        from .cloud_master import mailing_portal
-        if mailing_portal:
-            mailing_master = mailing_portal.realm
-            for avatar in mailing_master.avatars.values():
-                avatar.force_check_for_new_recipients()
-        return 0
-
-    # Utility functions
-    @doc_hide
-    def xmlrpc_force_purge_empty_mailings(self):
-        """Force the MailingManager to immediately purge any empty or finished mailings."""
-        log_api.debug("XMLRPC: force_purge_empty_mailings()")
-        manager = MailingManager.getInstance()
-        assert(isinstance(manager, MailingManager))
-        manager.update_status_for_finished_mailings()
-        return 0
-
-    # Utility functions
-    @withRequest
-    @doc_hide
-    def xmlrpc_activate_unittest_mode(self, request, activated):
-        import cloud_master
-        if cloud_master.MailingPortal.instance:
-            mailing_master = cloud_master.MailingPortal.instance.realm
-            mailing_master.activate_unittest_mode(activated)
-        else:
-            log_cfg.error("Mailing Portal not started!")
-        cloud_master.unit_test_mode = activated
-        log_cfg.info("UNITTEST mode set to %s by admin (from %s) using XMLRPC API" % (activated, request.client.host))
-        return 0
 
     @withRequest
     @doc_signature('<i>array</i> recipient_ids', '<i>array</i> recipients status')
@@ -1007,14 +959,20 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             return 0
         return deferToThread(_reset_recipients_status, recipient_ids)
 
+    # -------------------------------------
+    # Statistics functions
+
     @withRequest
     @doc_signature('<i>date_time</i> from_date',
                    '<i>struct</i> statistics')
-    def xmlrpc_get_hourly_statistics(self, request, from_date):
+    def xmlrpc_get_hourly_statistics(self, request, filters):
         """
         Returns the status of a list of recipients.
         :param request:
-        :param from_date: Only returns statistics since this date
+        :param filters: allows to filter results. Filter is a structure containing following fields (all optional):
+            - from_date: Only returns statistics since this date (iso8601)
+            - to_date: Only returns statistis up to this date (iso8601)
+            - senders: array of satellite serial numbers
         :return: Returns an array of structs containing following fields:
                 - sender: satellite serial number
                 - date:
@@ -1023,14 +981,23 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - failed: number of emails successfully sent during this hour
                 - tries: number of emails successfully sent during this hour
         """
-        log_api.debug("XMLRPC: get_hourly_statistics(%s)", from_date)
+        log_api.debug("XMLRPC: get_hourly_statistics(%s)", filters)
+        from_date = filters.get('from_date')
         if from_date and not isinstance(from_date, datetime):
-            raise Fault(http.NOT_ACCEPTABLE, "Parameter 'from_date' has to be a dateTime.iso8601.")
+            raise Fault(http.NOT_ACCEPTABLE, "Filter 'from_date' has to be a dateTime.iso8601.")
+        to_date = filters.get('to_date')
+        if to_date and not isinstance(to_date, datetime):
+            raise Fault(http.NOT_ACCEPTABLE, "Filter 'to_date' has to be a dateTime.iso8601.")
+        senders = filters.get('senders')
         all_stats = []
 
         filter = {}
         if from_date:
-            filter = {'date': {'$gte': from_date}}
+            filter.setdefault('date', {})['$gte'] = from_date
+        if to_date:
+            filter.setdefault('date', {})['$lte'] = to_date
+        if senders:
+            filter = {'sender': {'$in': senders}}
         for s in MailingHourlyStats.find(filter).sort((('epoch_hour', pymongo.ASCENDING), ('sender', pymongo.ASCENDING))):
             stats = {
                 'sender': s.sender,
@@ -1044,6 +1011,64 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             all_stats.append(stats)
         # print all_stats
         return all_stats
+
+    # -------------------------------------
+    # Deprecated functions
+
+    @doc_hide
+    def xmlrpc_update_statistics(self):
+        """
+        DEPRECATED as useless. Statistics are in real time now.
+        Ask CloudMailing to update its mailings statistics now. Warning, this is a synchronous call
+        and this operation may take some time.
+        :return: 0
+        """
+        log_api.debug("XMLRPC: update_statistics()")
+        log_api.warn("XMLRPC: update_statistics() is deprecated because it became useless since statistics are updated in real time.")
+        #from cm_master.cron import UpdateMailingsStats
+        #
+        #UpdateMailingsStats.update_stats()
+        return 0
+
+    # -------------------------------------
+    # Utility functions (not public)
+
+    @doc_hide
+    def xmlrpc_mailing_manager_force_check(self):
+        """Force the MailingManager to immediately check for its queue."""
+        log_api.debug("XMLRPC: mailing_manager_force_check()")
+        manager = MailingManager.getInstance()
+        assert(isinstance(manager, MailingManager))
+        manager.forceToCheck()
+
+        from .cloud_master import mailing_portal
+        if mailing_portal:
+            mailing_master = mailing_portal.realm
+            for avatar in mailing_master.avatars.values():
+                avatar.force_check_for_new_recipients()
+        return 0
+
+    @doc_hide
+    def xmlrpc_force_purge_empty_mailings(self):
+        """Force the MailingManager to immediately purge any empty or finished mailings."""
+        log_api.debug("XMLRPC: force_purge_empty_mailings()")
+        manager = MailingManager.getInstance()
+        assert(isinstance(manager, MailingManager))
+        manager.update_status_for_finished_mailings()
+        return 0
+
+    @withRequest
+    @doc_hide
+    def xmlrpc_activate_unittest_mode(self, request, activated):
+        import cloud_master
+        if cloud_master.MailingPortal.instance:
+            mailing_master = cloud_master.MailingPortal.instance.realm
+            mailing_master.activate_unittest_mode(activated)
+        else:
+            log_cfg.error("Mailing Portal not started!")
+        cloud_master.unit_test_mode = activated
+        log_cfg.info("UNITTEST mode set to %s by admin (from %s) using XMLRPC API" % (activated, request.client.host))
+        return 0
 
 
 class HomePage(resource.Resource):

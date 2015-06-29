@@ -500,18 +500,21 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         Tests recipient status retrieve
         """
         mailing = MailingFactory(owner_guid='the_owner')
+        mailing2 = MailingFactory(owner_guid='another')
         ids = []
         ids.append(RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.READY).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="2@2.fr", send_status=RECIPIENT_STATUS.IN_PROGRESS).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="5@2.fr", send_status=RECIPIENT_STATUS.WARNING).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing2, email="6@2.fr", send_status=RECIPIENT_STATUS.ERROR).tracking_id)
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
-        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x), 2) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {}))
-        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 3) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 4) and x)  # Only status with reports available
 
-        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'status': ('READY', 'IN PROGRESS')}))
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'status': ('WARNING', 'ERROR')}))
         d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 2) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'owners': ('the_owner', 'other')}))
@@ -524,7 +527,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 0) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'sender_domains': (mailing.domain_name, 'other.com',)}))
-        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 3) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 4) and x)
 
         return d
 
@@ -637,7 +640,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         MailingHourlyStats.add_try('SERIAL')
         MailingHourlyStats.add_sent('SERIAL')
         MailingHourlyStats.add_failed('SERIAL')
-        d = self.proxy().callRemote("get_hourly_statistics", datetime.utcnow() - timedelta(hours=1))
+        d = self.proxy().callRemote("get_hourly_statistics", {'from_date': datetime.utcnow() - timedelta(hours=1)})
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
         d.addCallback(lambda x: self.assertEqual(x[0]['tries'], 3) and x)
