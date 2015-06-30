@@ -21,21 +21,19 @@ from datetime import datetime, timedelta
 import os
 import time
 import re
+
 from bson import ObjectId
 import pymongo
 from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
-
 from twisted.spread import pb, util
 from twisted.internet import reactor, defer
-from twisted.application import internet
 from twisted.python import failure
 from twisted.cred import checkers, portal, error as cred_error, credentials
-from twisted.internet.threads import deferToThread, deferToThreadPool
+from twisted.internet.threads import deferToThreadPool
 from twisted.python import threadpool
 
 from ..common import settings
-
 from .models import RECIPIENT_STATUS, MAILING_STATUS, MailingTempQueue
 from .models import CloudClient, MailingRecipient, Mailing
 
@@ -265,10 +263,10 @@ class MailingManagerView(pb.Viewable):
                             log.warning("Wrong domain name format for '%s'. Ignored...", domain)
                             continue
                         if value:
-                        #                            print self.cloud_client.serial, "include", domain
+                            # print self.cloud_client.serial, "include", domain
                             included.append(domain)
                         else:
-                        #                            print self.cloud_client.serial, "exclude", domain
+                            # print self.cloud_client.serial, "exclude", domain
                             excluded.append(domain)
         except Exception:
             log.exception("Error in Affinity format")

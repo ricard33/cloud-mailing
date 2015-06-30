@@ -50,7 +50,8 @@ class RecipientFactory(factory.MogoFactory):
     send_status = RECIPIENT_STATUS.READY
     next_try = datetime.utcnow()
     tracking_id = factory.LazyAttribute(lambda a: str(uuid.uuid4()))
-    report_ready = factory.LazyAttribute(lambda rcpt: rcpt.send_status in (RECIPIENT_STATUS.ERROR,
-                                                                           RECIPIENT_STATUS.WARNING,
-                                                                           RECIPIENT_STATUS.GENERAL_ERROR,
-                                                                           RECIPIENT_STATUS.FINISHED))
+    # report_ready = factory.LazyAttribute(lambda rcpt: rcpt.send_status in (RECIPIENT_STATUS.ERROR,
+    #                                                                        RECIPIENT_STATUS.WARNING,
+    #                                                                        RECIPIENT_STATUS.GENERAL_ERROR,
+    #                                                                        RECIPIENT_STATUS.FINISHED) or None)
+    report_ready = None

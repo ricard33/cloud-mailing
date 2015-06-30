@@ -100,6 +100,16 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     # -------------------------------------
     # Satellites management
 
+    @withRequest
+    @doc_signature('<i>integer</i> satellites_count')
+    def xmlrpc_cloud_get_satellites_count(self, request):
+        """
+        Returns the total number of satellites
+        :return: the number of satellites
+        """
+        log_api.debug("XMLRPC: get_satellites_count()")
+        return CloudClient.count()
+
     @doc_signature('array')
     def xmlrpc_cloud_list_satellites(self):
         """
@@ -212,6 +222,62 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     # -------------------------------------
     # Mailings management
 
+    def _make_mailings_filter(self, filters):
+        mailings_filter = {}
+        if filters:
+            if isinstance(filters, basestring):
+                mailings_filter['domain_name'] = filters
+            else:
+                if not isinstance(filters, dict):
+                    raise Fault(http.NOT_ACCEPTABLE, "Filters argument has to be a dictionary.")
+                available_filters = ('domain', 'id', 'status', 'owner_guid')
+                for key in filters.keys():
+                    if key not in available_filters:
+                        raise Fault(http.NOT_ACCEPTABLE,
+                                    "Bad filter name. Available filters are: %s" % ', '.join(available_filters))
+                if 'domain' in filters:
+                    mailings_filter['domain_name'] = {'$in': filters['domain']}
+                if 'id' in filters:
+                    mailings_filter['_id'] = {'$in': filters['id']}
+                if 'status' in filters:
+                    for status in filters['status']:
+                        available_status = relay_status
+                        if status not in available_status:
+                            raise Fault(http.NOT_ACCEPTABLE, "Bad status '%s'. Available status are: %s"
+                                        % (status, ', '.join(available_status)))
+                    mailings_filter['status'] = {'$in': filters['status']}
+                if 'owner_guid' in filters:
+                    owners = filters['owner_guid']
+                    if isinstance(owners, basestring):
+                        mailings_filter['owner_guid'] = owners
+                    else:
+                        mailings_filter['owner_guid'] = {'$in': owners}
+                if 'satellite_group' in filters:
+                    satellite_groups = filters['satellite_group']
+                    if isinstance(satellite_groups, basestring):
+                        mailings_filter['satellite_group'] = satellite_groups
+                    else:
+                        mailings_filter['satellite_group'] = {'$in': satellite_groups}
+        return mailings_filter
+
+    @withRequest
+    @doc_signature('<i>struct</i> filter (optional)', '<i>integer</i> mailings_count')
+    def xmlrpc_get_mailings_count(self, request, filters=None):
+        """
+        Returns the number of mailings corresponding to the specified filter
+        :param filters: if present, should be a struct containing filters.
+                        Available filters are:
+                            - 'domain': list of mailing sender domain name
+                            - 'id': will only returns mailing which id are in this list.
+                            - 'status': will only returns mailing which status are in this list.
+                            - 'owner_guid': list of owner GUID to use as filter
+                            - 'satellite_group': list of groups to use as filter
+        :return: the number of mailings for the specified filter
+        """
+        log_api.debug("XMLRPC: get_mailings_count(%s)", filters or {})
+        mailings_filter = self._make_mailings_filter(filters)
+        return Mailing._get_collection().find(mailings_filter).count()
+
     @withRequest
     @doc_signature('<i>struct</i> filter (optional)', 'array')
     def xmlrpc_list_mailings(self, request, filters=None):
@@ -248,40 +314,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         log_api.debug("XMLRPC: list_mailings(%s)", filters or {})
 
-        mailings_filter = {}
-        if filters:
-            if isinstance(filters, basestring):
-                mailings_filter['domain_name'] = filters
-            else:
-                if not isinstance(filters, dict):
-                    raise Fault(http.NOT_ACCEPTABLE, "Filters argument has to be a dictionary.")
-                available_filters = ('domain', 'id', 'status', 'owner_guid')
-                for key in filters.keys():
-                    if key not in available_filters:
-                        raise Fault(http.NOT_ACCEPTABLE, "Bad filter name. Available filters are: %s" % ', '.join(available_filters))
-                if 'domain' in filters:
-                    mailings_filter['domain_name'] = {'$in': filters['domain']}
-                if 'id' in filters:
-                    mailings_filter['_id'] = {'$in': filters['id']}
-                if 'status' in filters:
-                    for status in filters['status']:
-                        available_status = relay_status
-                        if status not in available_status:
-                            raise Fault(http.NOT_ACCEPTABLE, "Bad status '%s'. Available status are: %s"
-                                                             % (status, ', '.join(available_status)))
-                    mailings_filter['status'] = {'$in': filters['status']}
-                if 'owner_guid' in filters:
-                    owners = filters['owner_guid']
-                    if isinstance(owners, basestring):
-                        mailings_filter['owner_guid'] = owners
-                    else:
-                        mailings_filter['owner_guid'] = {'$in': owners}
-                if 'satellite_group' in filters:
-                    satellite_groups = filters['satellite_group']
-                    if isinstance(satellite_groups, basestring):
-                        mailings_filter['satellite_group'] = satellite_groups
-                    else:
-                        mailings_filter['satellite_group'] = {'$in': satellite_groups}
+        mailings_filter = self._make_mailings_filter(filters)
 
         l = []
 
@@ -594,6 +627,47 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     # -------------------------------------
     # Recipients management
 
+    def _make_recipients_filter(self, filters):
+        filters = filters or {}
+        only_status = filters.get('status')
+        if only_status:
+            if not isinstance(only_status, (list, tuple)):
+                raise Fault(http.NOT_ACCEPTABLE, "Parameter 'only_status' has to be an array of strings.")
+            for value in only_status:
+                if value not in recipient_status:
+                    raise Fault(http.NOT_ACCEPTABLE,
+                                "Parameter 'only_status' has invalid status. Valid values are (%s)"
+                                % ', '.join(recipient_status))
+        else:
+            only_status = (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.FINISHED, RECIPIENT_STATUS.GENERAL_ERROR,
+                           RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.TIMEOUT, RECIPIENT_STATUS.WARNING)
+        recipients_filter = {
+            'send_status': {'$in': only_status},
+            '$or': [{'report_ready': True}, {'report_ready': None}],
+        }
+
+        def apply_filter(filters, name, filter_type, type_description, qs_filter, qs_op, qs_mapper=lambda x: x):
+            filter = filters.get(name)
+            if filter is not None:
+                if not isinstance(filter, filter_type):
+                    raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
+                return {qs_filter: {qs_op: qs_mapper(filter)}}
+            return {}
+
+        def apply_mailing_filter(filters, name, filter_type, type_description, field, op, qs_mapper=lambda x: x):
+            filter = filters.get(name)
+            if filter is not None:
+                if not isinstance(filter, filter_type):
+                    raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
+                ids = map(lambda x: x['_id'], Mailing._collection.find({field: {op: qs_mapper(filter)}}, fields=[]))
+                filters.setdefault('mailings', []).extend(ids)
+
+        apply_mailing_filter(filters, 'owners', (list, tuple), 'an array of strings', 'owner_guid', '$in')
+        apply_mailing_filter(filters, 'sender_domains', (list, tuple), 'an array of strings', 'domain_name', '$in')
+        recipients_filter.update(
+            apply_filter(filters, 'mailings', (list, tuple), 'an array of mailing_ids', 'mailing.$id', '$in'))
+        return recipients_filter
+
     def _update_pending_recipients(self, result):
         recipients, mailing, total_added = result
         Mailing.update({'_id': mailing.id}, {'$inc': {
@@ -601,6 +675,24 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             'total_pending': total_added
         }})
         return recipients
+
+    @withRequest
+    @doc_signature('<i>struct</i> filter (optional)', '<i>integer</i> recipients_count')
+    def xmlrpc_get_recipients_count(self, request, filters=None):
+        """
+        Returns the number of recipients corresponding to the specified filter
+        :param filters: allows to filter results. Filter is a structure containing following fields (all optional):
+            - status: filter by recipient status. If specified, this parameter should contains a list of acceptable
+                      statuses. By default, the filter contains all statuses except READY.
+            - owners: list of 'owner_guid'. Only recipients contained in mailing owned by these uids are returned
+            - mailings: list of mailing ids
+            - sender_domains: list of domain names. Only recipients contained in mailings whose sender are from these
+                      domains are selected.
+        :return: the number of mailings for the specified filter
+        """
+        log_api.debug("XMLRPC: get_recipients_count(%s)", filters or {})
+        recipients_filter = self._make_recipients_filter(filters)
+        return MailingRecipient._get_collection().find(recipients_filter).count()
 
     @withRequest
     @doc_signature('<i>int</i> mailing_id', '<i>array</i> recipients_dict', '<i>array</i> status')
@@ -850,44 +942,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
             if from_date and not isinstance(from_date, datetime):
                 raise Fault(http.NOT_ACCEPTABLE, "Parameter 'from_date' has to be a dateTime.iso8601.")
-            all_status = []
-            filters = filters or {}
-            only_status = filters.get('status')
-            if only_status:
-                if not isinstance(only_status, (list, tuple)):
-                    raise Fault(http.NOT_ACCEPTABLE, "Parameter 'only_status' has to be an array of strings.")
-                for value in only_status:
-                    if value not in recipient_status:
-                        raise Fault(http.NOT_ACCEPTABLE,
-                                    "Parameter 'only_status' has invalid status. Valid values are (%s)"
-                                    % ', '.join(recipient_status))
-            else:
-                only_status = (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.FINISHED, RECIPIENT_STATUS.GENERAL_ERROR,
-                               RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.TIMEOUT, RECIPIENT_STATUS.WARNING)
-            recipients_filter = {
-                'send_status': {'$in': only_status},
-                '$or': [{'report_ready': True}, {'report_ready': None}],
-            }
-
-            def apply_filter(filters, name, filter_type, type_description, qs_filter, qs_op, qs_mapper=lambda x: x):
-                filter = filters.get(name)
-                if filter is not None:
-                    if not isinstance(filter, filter_type):
-                        raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
-                    return {qs_filter: {qs_op: qs_mapper(filter)}}
-                return {}
-
-            def apply_mailing_filter(filters, name, filter_type, type_description, field, op, qs_mapper=lambda x: x):
-                filter = filters.get(name)
-                if filter is not None:
-                    if not isinstance(filter, filter_type):
-                        raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
-                    ids = map(lambda x: x['_id'], Mailing._collection.find({field: {op: qs_mapper(filter)}}, fields=[]))
-                    filters.setdefault('mailings', []).extend(ids)
-
-            apply_mailing_filter(filters, 'owners', (list, tuple), 'an array of strings', 'owner_guid', '$in')
-            apply_mailing_filter(filters, 'sender_domains', (list, tuple), 'an array of strings', 'domain_name', '$in')
-            recipients_filter.update(apply_filter(filters, 'mailings', (list, tuple), 'an array of mailing_ids', 'mailing.$id', '$in'))
+            recipients_filter = self._make_recipients_filter(filters)
+            if from_date:
+                recipients_filter['modified'] = {'$gte': from_date}
 
             if max_results > 1000:
                 max_results = 1000
@@ -899,8 +956,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 if count != new_count:
                     offset = 0
                     count = new_count
-            if from_date:
-                recipients_filter['modified'] = {'$gte': from_date}
+            all_status = []
             for recipient in MailingRecipient.find(recipients_filter).sort('modified').skip(offset).limit(max_results):
                 status = self.make_recipient_status_structure(recipient)
                 # print status
@@ -1069,6 +1125,25 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         cloud_master.unit_test_mode = activated
         log_cfg.info("UNITTEST mode set to %s by admin (from %s) using XMLRPC API" % (activated, request.client.host))
         return 0
+
+    #--------------------------------
+    # unstable API
+
+    @doc_hide
+    def xmlrpc_get_global_stats(self, request):
+        """
+        Returns global statistics such as mailings count, recipients count, etc..
+        """
+        stats = {
+            'mailings_count': Mailing.count(),
+            'active_mailings_count': Mailing.find({'status': {'$in': [MAILING_STATUS.READY,
+                                                                       MAILING_STATUS.RUNNING,
+                                                                       MAILING_STATUS.PAUSED]}}).count(),
+            'recipients_count': MailingRecipient.count(),
+            'active_recipients_count': MailingRecipient.find({'send_status': {'$in': [RECIPIENT_STATUS.READY,
+                                                                                      RECIPIENT_STATUS.IN_PROGRESS,
+                                                                                      RECIPIENT_STATUS.WARNING]}}).count()
+        }
 
 
 class HomePage(resource.Resource):

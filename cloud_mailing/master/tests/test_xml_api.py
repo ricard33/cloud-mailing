@@ -18,23 +18,22 @@
 import base64
 import email
 import logging
-import sys
-from bson import ObjectId
-from ...common.unittest_mixins import DatabaseMixin
-from ..cloud_master import MailingManagerView
-from factories import MailingFactory, RecipientFactory, CloudClientFactory
+from datetime import datetime, timedelta
+import os
+
 from twisted.internet import reactor
 from twisted.trial.unittest import TestCase
 from twisted.web import server, xmlrpc
+
+from ...common.unittest_mixins import DatabaseMixin
+from ..cloud_master import MailingManagerView
+from .factories import MailingFactory, RecipientFactory, CloudClientFactory
 from ...common.models import Settings
 from ..xmlrpc_api import CloudMailingRpc
 from ..models import Mailing, MAILING_STATUS, RECIPIENT_STATUS, MailingHourlyStats, MailingTempQueue, MailingRecipient
 from ...common import settings
 from ...common.config_file import ConfigFile
-from datetime import datetime, timedelta
-import time
-import os
-from mogo import connect
+
 
 # def out(s):
 #     # print s, Mailing.objects.all().count()
@@ -78,6 +77,12 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
             self.__proxy = xmlrpc.Proxy("http://admin:the_API_key@127.0.0.1:%d/" % self.port, useDateTime=True, allowNone=True)
         return self.__proxy
 
+    def test_get_satellites_count(self):
+        CloudClientFactory()
+        d = self.proxy().callRemote("cloud_get_satellites_count")
+        d.addCallback(lambda x: self.assertEqual(x, 1) and x)
+        return d
+
     def test_list_satellites(self):
         CloudClientFactory()
         d = self.proxy().callRemote("cloud_list_satellites")
@@ -113,6 +118,35 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.proxy().callRemote("cloud_list_satellites"))
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
         d.addCallback(lambda x: self.assertEqual(len(x), 0) and x)
+        return d
+
+    def test_get_mailings_count(self):
+        """
+        Count all mailings
+        """
+        MailingFactory()
+        d = self.proxy().callRemote("get_mailings_count")
+        d.addCallback(lambda x: self.assertEqual(x, 1) and x)
+        d.addCallback(lambda x: MailingFactory())
+        d.addCallback(lambda x: self.proxy().callRemote("get_mailings_count"))
+        d.addCallback(lambda x: self.assertEqual(x, 2) and x)
+
+        return d
+
+    def test_get_mailings_count_with_filter(self):
+        """
+        Count all mailings matching a filter
+        """
+        MailingFactory(mail_from="sender@my-company.biz")
+        d = self.proxy().callRemote("get_mailings_count", {'domain': ["my-company.biz"]})
+        d.addCallback(lambda x: self.assertEqual(x, 1) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("get_mailings_count", {'domain': ["other.com"]}))
+        d.addCallback(lambda x: self.assertEqual(x, 0) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("get_mailings_count", {'status': ["FILLING_RECIPIENTS"]}))
+        d.addCallback(lambda x: self.assertEqual(x, 1) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("get_mailings_count", {'status': ["READY"]}))
+        d.addCallback(lambda x: self.assertEqual(x, 0) and x)
+
         return d
 
     def test_list_mailings(self):
@@ -512,13 +546,13 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertEqual(len(x), 2) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {}))
-        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 4) and x)  # Only status with reports available
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 5) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'status': ('WARNING', 'ERROR')}))
         d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 2) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'owners': ('the_owner', 'other')}))
-        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 3) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 4) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'owners': ('other',)}))
         d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 0) and x)
@@ -527,7 +561,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 0) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'sender_domains': (mailing.domain_name, 'other.com',)}))
-        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 4) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 5) and x)
 
         return d
 
@@ -669,3 +703,26 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertEqual(MailingRecipient.find_one({'email': "3@2.fr"}).send_status, RECIPIENT_STATUS.ERROR) and x)
         d.addCallback(lambda x: self.assertEqual(MailingRecipient.find_one({'email': "4@2.fr"}).send_status, RECIPIENT_STATUS.FINISHED) and x)
         return d
+
+    def test_get_recipients_count(self):
+        """
+        Count all recipients matching a filter
+        """
+        ml = MailingFactory(mail_from="sender@my-company.biz")
+        RecipientFactory(mailing=ml, send_status=RECIPIENT_STATUS.FINISHED)
+        RecipientFactory(mailing=ml, send_status=RECIPIENT_STATUS.ERROR)
+        RecipientFactory(mailing=ml)
+        RecipientFactory(mailing=MailingFactory(mail_from="sender@other.com"), send_status=RECIPIENT_STATUS.FINISHED)
+        d = self.proxy().callRemote("get_recipients_count")
+        d.addCallback(lambda x: self.assertEqual(x, 3) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_count", {'sender_domains': ["my-company.biz"]}))
+        d.addCallback(lambda x: self.assertEqual(x, 2) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_count", {'mailings': [ml.id]}))
+        d.addCallback(lambda x: self.assertEqual(x, 2) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_count", {'status': [RECIPIENT_STATUS.FINISHED]}))
+        d.addCallback(lambda x: self.assertEqual(x, 2) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_count", {'status': [RECIPIENT_STATUS.READY]}))
+        d.addCallback(lambda x: self.assertEqual(x, 1) and x)
+
+        return d
+
