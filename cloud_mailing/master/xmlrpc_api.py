@@ -27,22 +27,18 @@ import email.mime.text
 import email.mime.multipart
 from datetime import datetime
 import os
+import xmlrpclib
+import re
 
-from bson import ObjectId
 import pymongo
 from twisted.internet.threads import deferToThread
 from twisted.web import xmlrpc, resource, http, static
 
 from ..common import settings
-
 from .mailing_manager import MailingManager
-
 from ..common.html_tools import strip_tags
 from ..common.config_file import ConfigFile
 from ..common.xml_api_common import withRequest, doc_signature, BasicHttpAuthXMLRPC, XMLRPCDocGenerator, doc_hide
-
-import xmlrpclib
-import re
 from .cloud_master import make_customized_file_name
 from .models import CloudClient, Mailing, relay_status, MAILING_STATUS, MailingRecipient, RECIPIENT_STATUS, \
     MailingTempQueue, recipient_status, MailingHourlyStats
@@ -627,8 +623,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     # -------------------------------------
     # Recipients management
 
-    def _make_recipients_filter(self, filters):
+    def _make_recipients_filter(self, filters, for_reports=False):
         filters = filters or {}
+        recipients_filter = {}
         only_status = filters.get('status')
         if only_status:
             if not isinstance(only_status, (list, tuple)):
@@ -638,13 +635,10 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                     raise Fault(http.NOT_ACCEPTABLE,
                                 "Parameter 'only_status' has invalid status. Valid values are (%s)"
                                 % ', '.join(recipient_status))
-        else:
-            only_status = (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.FINISHED, RECIPIENT_STATUS.GENERAL_ERROR,
-                           RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.TIMEOUT, RECIPIENT_STATUS.WARNING)
-        recipients_filter = {
-            'send_status': {'$in': only_status},
-            '$or': [{'report_ready': True}, {'report_ready': None}],
-        }
+            recipients_filter['send_status'] = {'$in': only_status}
+
+        if for_reports:
+            recipients_filter['$or'] = [{'report_ready': True}, {'report_ready': None}]
 
         def apply_filter(filters, name, filter_type, type_description, qs_filter, qs_op, qs_mapper=lambda x: x):
             filter = filters.get(name)
@@ -683,7 +677,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         Returns the number of recipients corresponding to the specified filter
         :param filters: allows to filter results. Filter is a structure containing following fields (all optional):
             - status: filter by recipient status. If specified, this parameter should contains a list of acceptable
-                      statuses. By default, the filter contains all statuses except READY.
+                      statuses.
             - owners: list of 'owner_guid'. Only recipients contained in mailing owned by these uids are returned
             - mailings: list of mailing ids
             - sender_domains: list of domain names. Only recipients contained in mailings whose sender are from these
@@ -691,7 +685,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :return: the number of mailings for the specified filter
         """
         log_api.debug("XMLRPC: get_recipients_count(%s)", filters or {})
-        recipients_filter = self._make_recipients_filter(filters)
+        recipients_filter = filters and self._make_recipients_filter(filters) or {}
         return MailingRecipient._get_collection().find(recipients_filter).count()
 
     @withRequest
@@ -942,6 +936,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
             if from_date and not isinstance(from_date, datetime):
                 raise Fault(http.NOT_ACCEPTABLE, "Parameter 'from_date' has to be a dateTime.iso8601.")
+            if not filters:
+                filters = {}
+            filters.setdefault('status',
+                               [RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.FINISHED, RECIPIENT_STATUS.GENERAL_ERROR,
+                                RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.TIMEOUT, RECIPIENT_STATUS.WARNING])
             recipients_filter = self._make_recipients_filter(filters)
             if from_date:
                 recipients_filter['modified'] = {'$gte': from_date}
