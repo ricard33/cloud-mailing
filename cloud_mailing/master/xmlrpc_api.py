@@ -25,10 +25,12 @@ import email.mime
 import email.header
 import email.mime.text
 import email.mime.multipart
-from datetime import datetime
+from datetime import datetime, timedelta
+import time
 import os
 import xmlrpclib
 import re
+from bson import SON
 
 import pymongo
 from twisted.internet.threads import deferToThread
@@ -1018,16 +1020,17 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     # Statistics functions
 
     @withRequest
-    @doc_signature('<i>date_time</i> from_date',
+    @doc_signature('<i>struct</i> filter',
                    '<i>struct</i> statistics')
     def xmlrpc_get_hourly_statistics(self, request, filters):
         """
-        Returns the status of a list of recipients.
+        Returns hourly statistics for an time interval. The returned array contains one entry per hour into the
+        interval, with a maximum of 1000 results.
         :param request:
-        :param filters: allows to filter results. Filter is a structure containing following fields (all optional):
-            - from_date: Only returns statistics since this date (iso8601)
-            - to_date: Only returns statistis up to this date (iso8601)
-            - senders: array of satellite serial numbers
+        :param filters: allows to filter results. Filter is a structure containing following fields (some are optional):
+            - from_date: Only returns statistics since this date (iso8601) - Mandatory
+            - to_date: Only returns statistics up to this date (iso8601) - Optional
+            - senders: array of satellite serial numbers - Optional
         :return: Returns an array of structs containing following fields:
                 - sender: satellite serial number
                 - date:
@@ -1038,33 +1041,71 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         log_api.debug("XMLRPC: get_hourly_statistics(%s)", filters)
         from_date = filters.get('from_date')
-        if from_date and not isinstance(from_date, datetime):
+        if not isinstance(from_date, datetime):
+            log_api.error("Bad format for 'from_date' parameter.")
             raise Fault(http.NOT_ACCEPTABLE, "Filter 'from_date' has to be a dateTime.iso8601.")
         to_date = filters.get('to_date')
         if to_date and not isinstance(to_date, datetime):
+            log_api.error("Bad format for 'to_date' parameter.")
             raise Fault(http.NOT_ACCEPTABLE, "Filter 'to_date' has to be a dateTime.iso8601.")
         senders = filters.get('senders')
         all_stats = []
 
         filter = {}
-        if from_date:
-            filter.setdefault('date', {})['$gte'] = from_date
-        if to_date:
-            filter.setdefault('date', {})['$lte'] = to_date
+        filter.setdefault('date', {})['$gte'] = from_date
+        if not to_date:
+            to_date = from_date + timedelta(hours=999)
+        filter.setdefault('date', {})['$lte'] = to_date
         if senders:
             filter = {'sender': {'$in': senders}}
-        for s in MailingHourlyStats.find(filter).sort((('epoch_hour', pymongo.ASCENDING), ('sender', pymongo.ASCENDING))):
+        current_epoch_hour = int((from_date - datetime(1970,1,1)).total_seconds() / 3600)
+        max_epoch_hour = int((to_date - datetime(1970,1,1)).total_seconds() / 3600)
+        max_epoch_hour = min(int(time.time() / 3600), max_epoch_hour)
+
+        def fill_until(all_stats, epoch_hour, next_epoch_hour):
+            while epoch_hour < next_epoch_hour:
+                stats = {
+                    'date': datetime.utcfromtimestamp(epoch_hour*3600),
+                    'epoch_hour': epoch_hour,
+                    'sent': 0,
+                    'failed': 0,
+                    'tries': 0,
+                }
+                # print stats
+                all_stats.append(stats)
+                epoch_hour += 1
+            return epoch_hour
+
+        # for s in MailingHourlyStats.find(filter).sort((('epoch_hour', pymongo.ASCENDING), ('sender', pymongo.ASCENDING))):
+        for s in MailingHourlyStats._get_collection().aggregate([
+            {'$match': filter},
+            {'$group': {
+                '_id': '$epoch_hour',
+                'date': {'$first': '$date'},
+                'sent': {'$sum': '$sent'},
+                'failed': {'$sum': '$failed'},
+                'tries': {'$sum': '$tries'},
+            }},
+            {'$sort': SON([('_id', pymongo.ASCENDING), ('sender', pymongo.ASCENDING)])},
+        ])['result']:
+            print "AGGREGATE:", s
+            current_epoch_hour = fill_until(all_stats, current_epoch_hour, s['_id'])
             stats = {
-                'sender': s.sender,
-                'date': s.date,
-                'epoch_hour': s.epoch_hour,
-                'sent': s.sent,
-                'failed': s.failed,
-                'tries': s.tries,
+                # 'sender': s.sender,
+                'date': s['date'],
+                # 'epoch_hour': s.epoch_hour,
+                'epoch_hour': s['_id'],
+                'sent': s['sent'],
+                'failed': s['failed'],
+                'tries': s['tries'],
             }
             # print stats
             all_stats.append(stats)
-        # print all_stats
+            current_epoch_hour += 1
+
+        fill_until(all_stats, current_epoch_hour, max_epoch_hour+1)
+        # print len(all_stats)
+        # print all_stats[:100]
         return all_stats
 
     # -------------------------------------
