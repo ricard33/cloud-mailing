@@ -229,16 +229,26 @@ class MailingSender(pb.Referenceable):
         if time.time() < self.handling_get_mailing_next_time:
             return
         self.handling_get_mailing = True
+        mailing_id = None
         mailing = Mailing.find({'$or': [{'header': None}, {'body_downloaded': False}], 'deleted': False}).first()
-        if not mailing:
+        if mailing:
+            mailing_id = mailing._id
+        else:
+            existing_mailings_ids = map(lambda m: m._id, Mailing.find({}, fields=[]))
+            orphan_recipient = MailingRecipient._collection.find_one({'mailing.$id': {'$not': {'$in': existing_mailings_ids}}})
+            if orphan_recipient:
+                print orphan_recipient['mailing']
+                mailing_id = orphan_recipient['mailing'].id
+        if mailing_id is None:
             self.handling_get_mailing = False
             self.handling_get_mailing_next_time = time.time() + self.delay_if_empty
             #print "check_for_missing_mailing: Waiting for %d seconds..." % self.delay_if_empty
             return
             
         try:
-#            d = self.mailing_manager.callRemote('get_mailing', mailing.id)
-            d = getAllPages(self.mailing_manager, "get_mailing", mailing.id)
+            self.log.info("Requesting content for mailing [%d]", mailing_id)
+#            d = self.mailing_manager.callRemote('get_mailing', mailing_id)
+            d = getAllPages(self.mailing_manager, "get_mailing", mailing_id)
             d.addCallbacks(self.cb_get_mailing, self.eb_get_mailing)
             self.is_connected = True
         except pb.DeadReferenceError:
@@ -277,9 +287,14 @@ class MailingSender(pb.Referenceable):
                     self.log.error("Mailing [%d] doesn't exist. Can't update header and body data.", mailing_id)
             else:
                 self.log.warn("Received DELETE order for mailing [%d] from Manager", mailing_id)
-                mailing = Mailing.grab(mailing_id)
-                if mailing:
-                    mailing.delete()
+                self.close_mailing(mailing_id)
+                # self.log.info("Deleting recipients from mailing [%d]", mailing_id)
+                # MailingRecipient.remove({'mailing.$id': mailing_id})
+                #
+                # mailing = Mailing.grab(mailing_id)
+                # if mailing:
+                #     self.log.info("Deleting mailing [%d]", mailing_id)
+                #     mailing.delete()
 
         except pickle.PickleError:
             self.log.exception("Can't decode mailing data")
@@ -580,15 +595,19 @@ class MailingSender(pb.Referenceable):
         """Delete from db all recipients from a mailing and remove all customized files
            from temp folder."""
         self.log.info("Closing mailing id %d", queue_id)
-        mailing = Mailing.grab(queue_id)
-        if mailing:
-            mailing.deleted = True
-            mailing.save()
-            # noinspection PyCallByClass
-            MailingRecipient.remove({'mailing.$id': mailing.id, 'in_progress': False, 'finished': False})
-        else:
-            self.log.warn("Mailing id [%d] doesn't exist!", queue_id)
-            
+
+        # TODO remove recipients from active queues
+
+        MailingRecipient.remove({'mailing.$id': queue_id})
+        Mailing.remove({'_id': queue_id})
+        # mailing = Mailing.grab(queue_id)
+        # if mailing:
+        #     mailing.deleted = True
+        #     mailing.save()
+        #     # noinspection PyCallByClass
+        # else:
+        #     self.log.warn("Mailing id [%d] doesn't exist!", queue_id)
+
         if queue_id in MailCustomizer.mailingsContent:
             del MailCustomizer.mailingsContent[queue_id]
 
@@ -611,7 +630,6 @@ class MailingSender(pb.Referenceable):
                 mailing.delete()
             else:
                 self.log.warn("Some recipients are still present for closed mailing [%d].", mailing.id)
-
 
     def delete_all_customized_temp_files(self):
         """Delete all customized files from temp folder."""
@@ -686,6 +704,9 @@ class ActiveQueuesList(object):
                 self.log.warn("Deleting queue for '%d' that contains %d recipients", queue.domain, len(queue.recipients))
                 queue._ebExchange(defer.failure.Failure(defer.TimeoutError), queue.factory, queue.domain, queue.recipients)
                 self.removeActiveRelay(_id)
+
+    # def unqueue_recipients(self, recipient_ids):
+
 
 
 class Queue(object):
