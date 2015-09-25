@@ -172,12 +172,16 @@ class MailingSender(pb.Referenceable):
             recipients = pickle.loads(''.join(data_list))
             self.log.debug("Received %d new recipients from Manager in %.1fs.", len(recipients), time.time() - t0)
             self.handling_check_for_new_recipients = False
+            mailings = {}   # dict(mailing_id, mailing)
             c = 0
             for r in recipients:
                 # self.log.debug("Recipient: %s", r)
-                mailing = Mailing.grab(r['mailing'])
+                mailing_id = r['mailing']
+                mailing = mailings.get(mailing_id)
                 if not mailing:
-                    mailing = Mailing.create(_id=r['mailing'])
+                    mailing = Mailing.grab(mailing_id)
+                    if not mailing:
+                        mailing = Mailing.create(_id=mailing_id)
                 try:
                     MailingRecipient.create(mailing=DBRef("mailing", mailing.id),
                                             _id=r['_id'],
