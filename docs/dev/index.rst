@@ -7,3 +7,4 @@ Developer guide
    :maxdepth: 2
 
    mongodb
+   settings
