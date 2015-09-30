@@ -47,14 +47,12 @@ def get_system_name():
 
 @task
 def cm_stop():
-    run("supervisorctl stop cm:cm_master")
-    run("supervisorctl stop cm:cm_satellite")
+    run("supervisorctl stop cm:*")
 
 
 @task
 def cm_start():
-    run("supervisorctl start cm:cm_master")
-    run("supervisorctl start cm:cm_satellite")
+    run("supervisorctl start cm:*")
 
 
 @task
@@ -120,7 +118,7 @@ def put_version():
 
 
 @task
-def deploy_cm_master():
+def _deploy_cm():
     run("mkdir -p %s" % TARGET_PATH)
     clean_compiled_files()
     sync_sources()
@@ -181,14 +179,31 @@ def create_initial_config():
 
     from ConfigParser import RawConfigParser
     config = RawConfigParser()
-    config.add_section("CM_MASTER")
-    config.set('CM_MASTER', 'API_KEY', "".join([random.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]))
+    host_conf = local_settings.targets.get(env.host_string, {})
+    serial = host_conf.get('serial')
+    if serial:
+        config.add_section("ID")
+        config.set('ID', 'SERIAL', serial)
 
     test_target = default_cm_config.get('test_target')
     if test_target:
         config.add_section("MAILING")
         config.set('MAILING', 'test_target_ip', test_target['ip'])
         config.set('MAILING', 'test_target_port', test_target['port'])
+
+    remote_master_conf = host_conf.get('remote_master')
+    if remote_master_conf:
+        # satellite only
+        if not config.has_section('MAILING'):
+            config.add_section("MAILING")
+        config.set('MAILING', 'master_ip', remote_master_conf['master_ip'])
+        config.set('MAILING', 'master_port', remote_master_conf.get('master_port', 33620))
+        config.set('MAILING', 'shared_key', host_conf['shared_key'])
+    else:
+        # master + (eventually) satellite
+        config.add_section("CM_MASTER")
+        config.set('CM_MASTER', 'API_KEY', "".join([random.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]))
+
 
     with tempfile.NamedTemporaryFile('w+t') as tmp:
         config.write(tmp)
@@ -199,12 +214,17 @@ def create_initial_config():
 
 
 @task
-def create_supervisord_config():
+def create_supervisord_config(satellite_only=False):
     """
     create the supervisord config files for CloudMailing jobs
     @return:
     """
-    config = """[group:cm]
+    if satellite_only:
+        config = """[group:cm]
+programs=cm_satellite
+"""
+    else:
+        config = """[group:cm]
 programs=cm_master,cm_satellite
 
 [program:cm_master]
@@ -215,7 +235,9 @@ stdout_logfile=/var/log/cm_master.supervisor.log
 autostart=true
 autorestart=true
 user=cm
+""" % {'TARGET_PATH': TARGET_PATH}
 
+    config += """
 [program:cm_satellite]
 command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_satellite.py
 directory=%(TARGET_PATH)s
@@ -225,6 +247,7 @@ autostart=true
 autorestart=true
 user=cm
 """ % {'TARGET_PATH': TARGET_PATH}
+
     with tempfile.NamedTemporaryFile('w+t') as tmp:
         tmp.write(config)
         tmp.flush()
@@ -253,11 +276,14 @@ def remove_mf_from_startup():
 
 @task()
 def first_setup():
+    host_conf = local_settings.targets.get(env.host_string, {})
+    satellite_only = host_conf.get('remote_master') is not None
+
     # init_db()
     create_user()
     create_initial_config()
-    create_supervisord_config()
-    deploy_cm_master()
+    create_supervisord_config(satellite_only=satellite_only)
+    _deploy_cm()
     cm_start()
 
 
@@ -269,7 +295,10 @@ def diff():
 @task(default=True)
 def deploy():
     cm_stop()
-    deploy_cm_master()
+    _deploy_cm()
     cm_start()
 
 
+@task
+def test_env():
+    print "running", env.host_string, env.host, local_settings.targets.get(env.host_string, {})
