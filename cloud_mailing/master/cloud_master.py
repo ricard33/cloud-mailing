@@ -102,7 +102,7 @@ class ClientAvatar(pb.Avatar):
         assert(isinstance(avatarId, CloudClient))
         assert(avatarId == self.cloud_client)
         avatarId.paired = True
-        avatarId.date_paired = datetime.now()
+        avatarId.date_paired = datetime.utcnow()
         avatarId.save()
         self.clients.append(mind)
         # print "attached to", mind, avatarId
@@ -110,7 +110,7 @@ class ClientAvatar(pb.Avatar):
     def detached(self, mind):
         self.cloud_client = CloudClient.grab(self.cloud_client.id)  # reload object
         self.cloud_client.paired = False
-        self.cloud_client.date_paired = datetime.now()
+        self.cloud_client.date_paired = datetime.utcnow()
         self.cloud_client.save()
         self.clients.remove(mind)
         # print "detached from", mind
