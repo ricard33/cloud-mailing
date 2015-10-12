@@ -51,6 +51,7 @@ except AttributeError:
         f.withRequest = True
         return f
 
+
 def doc_signature(*args, **kwargs):
     """
     Decorator to document signatures of a function.
@@ -138,7 +139,6 @@ class TwistedRPCServer(xmlrpc.XMLRPC):
                 )
 
         return server.NOT_DONE_YET
-
 
 
 def _authenticate(rpc_server, username, password, remote_ip):
@@ -283,20 +283,32 @@ class HTMLDoc(object):
         result.write('</ol>')
         return result.getvalue()
 
+
 class ServerHTMLDoc(HTMLDoc):
     """Class used to generate HTML document for a server"""
 
     def page(self, title, contents):
         """Format an HTML page."""
+        from .. import __version__ as VERSION
         return '''
 <!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<html><head><title>CloudMailing: %s</title>
+<html><head><title>CloudMailing: %(title)s</title>
 <link href="//netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap.min.css" rel="stylesheet">
 <script src="//netdna.bootstrapcdn.com/bootstrap/3.0.0/js/bootstrap.min.js"></script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-</head><body bgcolor="#f0f0f8">
-<div class="container">%s</div>
-</body></html>''' % (title, contents)
+</head><body bgcolor="#f0f0f8" style="padding-top: 40px">
+<nav class="navbar navbar-fixed-top navbar-inverse">
+  <div class="container-fluid">
+      <a class="navbar-brand" href="/">CloudMailing XML-RPC services</a>
+      <p class="navbar-text navbar-right">v %(version)s</p>
+  </div>
+</nav>
+<div class="container">%(content)s</div>
+</body></html>''' % {
+            'title': title,
+            'content': contents,
+            'version': VERSION,
+        }
 
     def grey(self, text): return '<span class="text-muted">%s</span>' % text
 
@@ -432,6 +444,7 @@ class ServerHTMLDoc(HTMLDoc):
             'Methods details', ' '.join(contents))
 
         return result
+
 
 class XMLRPCDocGenerator(object):
     """Generates documentation for an Twisted XML-RPC server.
