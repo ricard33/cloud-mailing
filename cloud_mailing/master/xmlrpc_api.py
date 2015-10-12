@@ -1088,7 +1088,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             }},
             {'$sort': SON([('_id', pymongo.ASCENDING), ('sender', pymongo.ASCENDING)])},
         ])['result']:
-            print "AGGREGATE:", s
+            # print "AGGREGATE:", s
             current_epoch_hour = fill_until(all_stats, current_epoch_hour, s['_id'])
             stats = {
                 # 'sender': s.sender,
