@@ -66,9 +66,20 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
         List all mailings
         """
         factories.MailingFactory()
-        d = self.call_api('GET', "mailings", http_status.HTTP_200_OK)
+        d = self.call_api('GET', "/mailings", http_status.HTTP_200_OK)
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
         d.addCallback(lambda x: self.assertEqual(x[0]['sender_name'], "Mailing Sender") and x)
+
+        return d
+
+    def test_get_mailing(self):
+        """
+        List all mailings
+        """
+        ml = factories.MailingFactory()
+        d = self.call_api('GET', "/mailings/%d" % ml.id, http_status.HTTP_200_OK)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertEqual(x['id'], ml.id) and x)
 
         return d

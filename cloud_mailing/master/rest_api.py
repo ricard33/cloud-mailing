@@ -15,12 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 import json
-from bson import json_util
 import platform
 import re
 from datetime import datetime
 
+from bson import json_util
 from twisted.web import server, error as web_error
+
 from twisted.web.resource import Resource
 
 from cloud_mailing.master.models import relay_status, Mailing
@@ -80,6 +81,20 @@ class RestApiHome(ApiResource):
     #         .addErrback(self._on_error, request)
     #     return server.NOT_DONE_YET
 
+
+# TODO make a serializer usable from XMLRPC and RESTAPI
+_mailing_fields = (
+    '_id', 'domain_name', 'satellite_group',
+    'mail_from', 'sender_name', 'status',
+    'type', 'tracking_url',
+    'header',
+    'dont_close_if_empty',
+    'submit_time', 'scheduled_start', 'scheduled_end', 'scheduled_duration',
+    'start_time', 'end_time',
+    'total_recipient', 'total_sent', 'total_pending', 'total_error',
+    'total_softbounce',
+    'read_tracking', 'click_tracking'
+)
 
 class ListMailingsApi(ApiResource):
     """
@@ -146,17 +161,7 @@ class ListMailingsApi(ApiResource):
         self.log_call(request)
         mailings_filter = self._make_mailings_filter(request.args)
         l = []
-        for mailing in Mailing._get_collection().find(mailings_filter, fields=(
-                '_id', 'domain_name', 'satellite_group',
-                'mail_from', 'sender_name', 'status',
-                'type', 'tracking_url',
-                'header',
-                'dont_close_if_empty',
-                'submit_time', 'scheduled_start', 'scheduled_end', 'scheduled_duration',
-                'start_time', 'end_time',
-                'total_recipient', 'total_sent', 'total_pending', 'total_error',
-                'total_softbounce',
-                'read_tracking', 'click_tracking')):
+        for mailing in Mailing._get_collection().find(mailings_filter, fields=_mailing_fields):
             mailing['id'] = mailing.pop('_id')
             # print mailing
             l.append(mailing)
@@ -172,12 +177,6 @@ class MailingApi(ApiResource):
         Resource.__init__(self)
         self.mailing_id = mailing_id
 
-    def _list_received(self, data, request):
-        request.setResponseCode(http_status.HTTP_200_OK)
-        self.write_headers(request)
-        request.write(json.dumps(data[0], default=json_serial))
-        request.finish()
-
     def _status_received(self, data, request):
         request.setResponseCode(http_status.HTTP_200_OK)
         self.write_headers(request)
@@ -185,10 +184,13 @@ class MailingApi(ApiResource):
         request.finish()
 
     def render_GET(self, request):
-        self.proxy.callRemote("list_mailings", {'id': [self.mailing_id]})\
-            .addCallback(self._list_received, request)\
-            .addErrback(self._on_error, request)
-        return server.NOT_DONE_YET
+        self.log_call(request)
+        mailing = Mailing.find({'_id': self.mailing_id}, fields=_mailing_fields).first()
+        if mailing:
+            mailing['id'] = mailing.pop('_id')
+            self.write_headers(request)
+            return json.dumps(mailing, default=json_util.default)
+        raise web_error.Error(http_status.HTTP_404_NOT_FOUND)
 
     def render_PATCH(self, request):
         data = json.loads(request.content.read())
