@@ -674,7 +674,9 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         MailingHourlyStats.add_try('SERIAL')
         MailingHourlyStats.add_sent('SERIAL')
         MailingHourlyStats.add_failed('SERIAL')
-        d = self.proxy().callRemote("get_hourly_statistics", {'from_date': datetime.utcnow() - timedelta(hours=1)})
+        d = self.proxy().callRemote("get_hourly_statistics", {'from_date': datetime.utcnow().replace(minute=0, second=0, microsecond=0)})
+
+        d.addCallback(lambda x: self.log(x) or x)
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
         d.addCallback(lambda x: self.assertEqual(x[0]['tries'], 3) and x)
