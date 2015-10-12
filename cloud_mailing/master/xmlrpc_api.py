@@ -31,6 +31,7 @@ import os
 import xmlrpclib
 import re
 from bson import SON
+from mogo.connection import Connection
 
 import pymongo
 from twisted.internet.threads import deferToThread
@@ -882,7 +883,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         should not be interpreted nor manually generated. It change after every call, so it have to be stored by
         client.
 
-        :param request:
         :param cursor: Obscure string allowing to get next results.
         :param filters: allows to filter results. Filter is a structure containing following fields (all optional):
             - status: filter by recipient status. If specified, this parameter should contains a list of acceptable
@@ -1026,7 +1026,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         Returns hourly statistics for an time interval. The returned array contains one entry per hour into the
         interval, with a maximum of 1000 results.
-        :param request:
         :param filters: allows to filter results. Filter is a structure containing following fields (some are optional):
             - from_date: Only returns statistics since this date (iso8601) - Mandatory
             - to_date: Only returns statistics up to this date (iso8601) - Optional
@@ -1174,6 +1173,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         Returns global statistics such as mailings count, recipients count, etc..
         """
+        log_api.debug("XMLRPC: xmlrpc_get_global_stats()")
         stats = {
             'mailings_count': Mailing.count(),
             'active_mailings_count': Mailing.find({'status': {'$in': [MAILING_STATUS.READY,
@@ -1184,6 +1184,31 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                                                                                       RECIPIENT_STATUS.IN_PROGRESS,
                                                                                       RECIPIENT_STATUS.WARNING]}}).count()
         }
+
+    @doc_hide
+    def xmlrpc_master_db_find(self, request, collection, filter, projection, skip, limit, sort):
+        """
+        Executes a query to the master database and returns the results. This function expose part of the find()
+        function in pymongo API.
+
+        :param collection: the collection name
+        :param filter: (optional) a SON object specifying elements which must be present for a document to be included
+            in the result set
+        :param projection: (optional) a list of field names that should be returned in the result set or a dict
+            specifying the fields to include or exclude. If projection is a list "_id" will always be returned. Use a dict
+            to exclude fields from the result (e.g. projection={'_id': False}).
+        :param skip: (optional) the number of documents to omit (from the start of the result set) when returning the
+            results
+        :param limit: (optional) the maximum number of results to return
+        :param sort: (optional) a list of (key, direction) pairs specifying the sort order for this query.
+
+        :return: Returns an array of results
+        """
+        log_api.debug("XMLRPC: xmlrpc_master_db_find(collection=%s, filter=%s, projection=%s, skip=%s, limit=%s, sort=%s)",
+                      collection, filter, projection, skip, limit, sort)
+        conn = Connection.instance()
+        coll = conn.get_collection(collection)
+        return list(coll.find(spec=filter, fields=projection, skip=skip, limit=limit, sort=sort))
 
 
 class HomePage(resource.Resource):
