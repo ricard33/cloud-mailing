@@ -32,12 +32,14 @@ from twisted.python.log import PythonLoggingObserver
 from twisted.web import server
 
 from .. import __version__ as VERSION
+from ..common.api_common import HomePage
 from ..common.ssl_tools import make_SSL_context
 from ..common import settings
 from ..common.cm_logging import configure_logging
 from ..common import colored_log
 from ..common.config_file import ConfigFile
-from .xmlrpc_api import make_xmlrpc_server, CloudMailingRpc
+from .xmlrpc_api import CloudMailingRpc
+from .rest_api import make_rest_api
 
 service_master = None
 service_manager = None
@@ -63,8 +65,13 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
         with file(settings.CONFIG_FILE, 'wt') as f:
             config.write(f)
 
-    webServer = server.Site( make_xmlrpc_server() )
-    # webServer = server.Site( CloudMailingRpc(useDateTime=True) )
+    home_page = HomePage()
+    home_page.put_child('CloudMailing',  CloudMailingRpc(useDateTime=True), True)
+    home_page.put_child('api',  make_rest_api(), True)
+    home_page.make_home_page()
+
+    webServer = server.Site( home_page )
+
     if application:
         if ssl_context_factory:
             apiService = internet.SSLServer(port, webServer, ssl_context_factory, interface=interface)

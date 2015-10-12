@@ -1221,9 +1221,9 @@ class HomePage(resource.Resource):
         self.putChild("", home)
 
 
-def make_xmlrpc_server():
-    root = HomePage()
-    root.put_child('CloudMailing',  CloudMailingRpc(useDateTime=True), True)
-    root.make_home_page()
-    return root
-
+# def make_xmlrpc_server():
+#     root = HomePage()
+#     root.put_child('CloudMailing',  CloudMailingRpc(useDateTime=True), True)
+#     root.make_home_page()
+#     return root
+#
