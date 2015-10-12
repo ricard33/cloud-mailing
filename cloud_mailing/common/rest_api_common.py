@@ -37,3 +37,6 @@ class ApiResource(Resource):
             request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
             request.write(json.dumps({'error': repr(err.value)}))
         request.finish()
+
+    def log_call(self, request):
+        log.debug('%s: %s (%s)', request.method.upper(), request.path, request.args)
