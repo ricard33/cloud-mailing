@@ -36,6 +36,9 @@ from mogo.connection import Connection
 import pymongo
 from twisted.internet.threads import deferToThread
 from twisted.web import xmlrpc, resource, http, static
+from .api_common import log_cfg, log_security, log_api
+from .api_common import set_mailing_properties, start_mailing
+from cloud_mailing.master.serializers import MailingSerializer
 
 from ..common import settings
 from .mailing_manager import MailingManager
@@ -50,10 +53,6 @@ Fault = xmlrpclib.Fault
 Binary = xmlrpclib.Binary
 Boolean = xmlrpclib.Boolean
 DateTime = xmlrpclib.DateTime
-
-log_cfg = logging.getLogger('config')
-log_security = logging.getLogger('security')
-log_api = logging.getLogger('api')
 
 email_re = re.compile(
     r"(^[-!#$%&'*+/=?^_`{}|~0-9A-Z]+(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
@@ -317,17 +316,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         l = []
 
-        for mailing in Mailing._get_collection().find(mailings_filter, fields=(
-                '_id', 'domain_name', 'satellite_group',
-                'mail_from', 'sender_name', 'status',
-                'type', 'tracking_url',
-                'header',
-                'dont_close_if_empty',
-                'submit_time', 'scheduled_start', 'scheduled_end', 'scheduled_duration',
-                'start_time', 'end_time',
-                'total_recipient', 'total_sent', 'total_pending', 'total_error',
-                'total_softbounce',
-                'read_tracking', 'click_tracking')):
+        for mailing in Mailing._get_collection().find(mailings_filter, fields=MailingSerializer.fields):
             mailing['id'] = mailing.pop('_id')
             ensure_no_null_values(mailing)
             #print mailing
@@ -425,116 +414,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - click_tracking: set True to active tracking for clicks (default: False)
         """
         log_api.debug("XMLRPC: set_mailing_properties(%s, %s)", mailing_id, repr(properties))
-        mailing = Mailing.grab(mailing_id)
-        if not mailing:
-            request.setResponseCode(http.NOT_FOUND)
-            raise Fault(http.NOT_FOUND, 'Mailing not found!')
-
-        if mailing.status == MAILING_STATUS.FINISHED:
-            raise Fault(http.FORBIDDEN, "Mailing properties can't be changed anymore. "
-                                        "Only active mailings can be edited!")
-
-        content_change = False
-        for key, value in properties.items():
-            if key == 'type':
-                from models import mailing_types
-                if value not in mailing_types:
-                    raise Fault(http.NOT_ACCEPTABLE, "Bad value '%s' for Property type. Acceptable values are (%s)"
-                                                     % (value, ', '.join(mailing_types)))
-                mailing.type = value
-            elif key in ('sender_name', 'tracking_url', 'testing', 'backup_customized_emails', 'owner_guid', 'satellite_group'):
-                setattr(mailing, key, value)
-            elif key == 'shown_name':
-                mailing.sender_name = value
-            elif key in ('header', 'body'):
-                setattr(mailing, key, value)
-            elif key in ('dont_close_if_empty', 'read_tracking', 'click_tracking'):
-                setattr(mailing, key, bool(value))
-            elif key == 'mail_from':
-                mailing.mail_from = value
-                mailing.domain_name = value.split('@')[1]
-            elif key in ('scheduled_start', 'scheduled_end'):
-                setattr(mailing, key, value and datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f") or None)
-            elif key == 'scheduled_duration':
-                i = int(value)
-                mailing.scheduled_duration = i and i or None
-            elif key in ('subject', 'html_content', 'plain_content'):
-                if 'charset' not in properties:
-                    raise Fault(http.NOT_ACCEPTABLE,
-                                "Missing charset field. This field is mandatory for 'subject', 'html_content' and 'plain_content' fields.")
-                content_change = True
-            elif key == 'charset':
-                # ignored, only used with subject, html_content and plain_content fields
-                pass
-            else:
-                raise Fault(http.NOT_ACCEPTABLE, "Property '%s' is unknown or can't be changed." % key)
-        if content_change:
-            msg = mailing.get_message()
-
-            charset = properties.get('charset')
-            subject = properties.get('subject')
-            html_content = properties.get('html_content')
-            plain_content = properties.get('plain_content')
-            if subject is not None:
-                if 'Subject' in msg:
-                    del msg['Subject']
-                msg['Subject'] = email.header.Header(subject, header_name='Subject')
-
-            if html_content or plain_content:
-                def replace_bodies(part, html_content, plain_content):
-                    import email.message
-                    assert(isinstance(part, email.message.Message))
-                    if part.is_multipart():
-                        subtype = part.get_content_subtype()
-                        if subtype == 'mixed':
-                            replace_bodies(part.get_payload(0), html_content, plain_content)
-
-                        elif subtype == 'alternative':
-                            for p in part.get_payload():
-                                replace_bodies(p, html_content, plain_content)
-
-                        elif subtype == 'digest':
-                            raise email.errors.MessageParseError, "multipart/digest not supported"
-
-                        elif subtype == 'parallel':
-                            raise email.errors.MessageParseError, "multipart/parallel not supported"
-
-                        elif subtype == 'related':
-                            replace_bodies(part.get_payload(0), html_content, plain_content)
-
-                        else:
-                            self.log.warn("Unknown multipart subtype '%s'" % subtype)
-
-                    else:
-                        maintype, subtype = part.get_content_type().split('/')
-                        if maintype == 'text':
-                            new_content = None
-                            if subtype == 'plain' and plain_content is not None:
-                                new_content = plain_content
-                            elif subtype == 'html' and html_content is not None:
-                                new_content = html_content
-                            if new_content is not None:
-                                # to force content to be correctly encoded
-                                if 'Content-Transfer-Encoding' in part:
-                                    del part['Content-Transfer-Encoding']
-                                part.set_payload(new_content, charset=charset)
-                        else:
-                            self.log.warn("personalise_bodies(): can't handle '%s' parts" % part.get_content_type())
-                replace_bodies(msg, html_content, plain_content)
-
-            # store new message
-            # convert_email_charset(msg)
-
-            text = msg.as_string()
-            p = text.find("\n\n")
-            mailing.header = text[:p+2]
-            mailing.body = text[p+2:]
-
-        mailing.save()
-        from .cloud_master import mailing_portal
-        if mailing_portal:
-            mailing_master = mailing_portal.realm
-            mailing_master.invalidate_mailing_content_on_satellites(mailing)
+        try:
+            set_mailing_properties(mailing_id, properties)
+        except Fault, ex:
+            request.setResponseCode(ex.faultCode)
+            request.setResponseCode(ex.faultCode)
         return 0
 
     @withRequest
@@ -578,22 +462,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :return: new mailing status
         """
         log_api.debug("XMLRPC: start_mailing(%s, %s)", mailing_id, when)
-        mailing = Mailing.grab(mailing_id)
-        if not mailing:
-            request.setResponseCode(http.NOT_FOUND)
-            raise Fault(http.NOT_FOUND, 'Mailing not found!')
-
-        if mailing.status == MAILING_STATUS.PAUSED:
-            if mailing.start_time:      ## only set when mailing changes its state to RUNNING
-                mailing.status = MAILING_STATUS.RUNNING
-            else:
-                mailing.status = MAILING_STATUS.READY
-            mailing.save()
-        else:
-            mailing.activate()
-
-        manager = MailingManager.getInstance()
-        manager.forceToCheck()
+        mailing = start_mailing(mailing_id, request)
         return mailing.status
 
     @withRequest

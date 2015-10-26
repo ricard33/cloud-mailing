@@ -18,13 +18,16 @@ import json
 import platform
 import re
 from datetime import datetime
+from xmlrpclib import Fault
 
 from bson import json_util
 from twisted.web import server, error as web_error
 
 from twisted.web.resource import Resource
+from cloud_mailing.master.api_common import set_mailing_properties
 
 from cloud_mailing.master.models import relay_status, Mailing
+from cloud_mailing.master.serializers import MailingSerializer
 from ..common import http_status
 from ..common.rest_api_common import ApiResource, log, json_serial
 from .. import __version__
@@ -81,20 +84,6 @@ class RestApiHome(ApiResource):
     #         .addErrback(self._on_error, request)
     #     return server.NOT_DONE_YET
 
-
-# TODO make a serializer usable from XMLRPC and RESTAPI
-_mailing_fields = (
-    '_id', 'domain_name', 'satellite_group',
-    'mail_from', 'sender_name', 'status',
-    'type', 'tracking_url',
-    'header',
-    'dont_close_if_empty',
-    'submit_time', 'scheduled_start', 'scheduled_end', 'scheduled_duration',
-    'start_time', 'end_time',
-    'total_recipient', 'total_sent', 'total_pending', 'total_error',
-    'total_softbounce',
-    'read_tracking', 'click_tracking'
-)
 
 class ListMailingsApi(ApiResource):
     """
@@ -161,7 +150,7 @@ class ListMailingsApi(ApiResource):
         self.log_call(request)
         mailings_filter = self._make_mailings_filter(request.args)
         l = []
-        for mailing in Mailing._get_collection().find(mailings_filter, fields=_mailing_fields):
+        for mailing in Mailing._get_collection().find(mailings_filter, fields=MailingSerializer.fields):
             mailing['id'] = mailing.pop('_id')
             # print mailing
             l.append(mailing)
@@ -185,16 +174,24 @@ class MailingApi(ApiResource):
 
     def render_GET(self, request):
         self.log_call(request)
-        mailing = Mailing.find({'_id': self.mailing_id}, fields=_mailing_fields).first()
+        mailing = Mailing.find({'_id': self.mailing_id}, fields=MailingSerializer.fields).first()
         if mailing:
             mailing['id'] = mailing.pop('_id')
             self.write_headers(request)
-            return json.dumps(mailing, default=json_util.default)
+            return MailingSerializer().to_json(mailing)
         raise web_error.Error(http_status.HTTP_404_NOT_FOUND)
 
     def render_PATCH(self, request):
-        data = json.loads(request.content.read())
+        self.log_call(request)
+        content = request.content.read()
+        data = json.loads(content)
         if 'status' in data:
+            if len(data) > 1:
+                request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
+                self.write_headers(request)
+                return json.dumps({'error': " Mailing 'status' field should be changed alone."})
+
+            # mailing = Mailing.find({'_id': self.mailing_id}, fields=_mailing_fields).first()
             status = data['status']
             if status == 'PAUSED':
                 self.proxy.callRemote("pause_mailing", self.mailing_id)\
@@ -210,9 +207,15 @@ class MailingApi(ApiResource):
             self.write_headers(request)
             return json.dumps({'error': "Unsupported status value"})
         else:
-            request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
+            try:
+                mailing = set_mailing_properties(self.mailing_id, data)
+            except Fault, ex:
+                request.setResponseCode(ex.faultCode)
+                self.write_headers(request)
+                return json.dumps({'error': self.faultString})
+
             self.write_headers(request)
-            return json.dumps({'error': "Only 'status' changes are currently supported."})
+            return MailingSerializer().to_json(mailing)
 
 
 class RecipientsApi(ApiResource):
