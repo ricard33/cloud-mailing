@@ -15,6 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 from datetime import datetime
+from cloud_mailing.master.models import MAILING_STATUS
 from cloud_mailing.master.tests import factories
 import json
 from twisted.web.http_headers import Headers
@@ -113,3 +114,42 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
         # d.addCallback(lambda x: self._out(x))
         d.addCallback(lambda x: self.assertEqual("UT", x['owner_guid']) and x)
         return d
+
+    def test_start_mailing(self):
+        """
+        Test mailings sending
+        """
+        mailing = factories.MailingFactory()
+        # factories.RecipientFactory(mailing=mailing)
+
+        d = self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'RUNNING'})
+        d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.READY, x['status']) and x)
+        return d
+
+    def test_pause_and_restart_mailing_ready(self):
+        mailing = factories.MailingFactory(status=MAILING_STATUS.READY)
+        # factories.RecipientFactory(mailing=mailing)
+
+        d = self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'PAUSED'})
+        d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.PAUSED, x['status']) and x)
+        d.addCallback(lambda x: self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'RUNNING'}))
+        d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.READY, x['status']) and x)
+        return d
+
+    def test_pause_and_restart_mailing_running(self):
+        mailing = factories.MailingFactory(status=MAILING_STATUS.RUNNING, start_time=datetime.utcnow())
+        # factories.RecipientFactory(mailing=mailing)
+
+        d = self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'PAUSED'})
+        d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.PAUSED, x['status']) and x)
+        d.addCallback(lambda x: self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'RUNNING'}))
+        d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.RUNNING, x['status']) and x)
+        return d
+
+    def test_stop_mailing(self):
+        mailing = factories.MailingFactory(status=MAILING_STATUS.RUNNING, start_time=datetime.utcnow())
+
+        d = self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'FINISHED'})
+        d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.FINISHED, x['status']) and x)
+        return d
+

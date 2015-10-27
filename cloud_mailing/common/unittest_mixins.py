@@ -21,9 +21,13 @@ from mogo import connect
 from mogo.connection import Connection
 from . import settings
 from twisted.internet import reactor
+from twisted.internet.defer import succeed
 from twisted.web import server, resource
 from twisted.web.client import readBody, Agent
 from twisted.web.http_headers import Headers
+from twisted.web.iweb import IBodyProducer
+from zope.interface import implements
+from cloud_mailing.common import http_status
 from cloud_mailing.common.config_file import ConfigFile
 from cloud_mailing.common.models import Settings
 from cloud_mailing.master.rest_api import make_rest_api
@@ -60,6 +64,24 @@ class DatabaseMixin(object):
         self.db_conn.disconnect()
 
 
+class JsonProducer(object):
+    implements(IBodyProducer)
+
+    def __init__(self, body):
+        self.body = json.dumps(body)
+        self.length = len(self.body)
+
+    def startProducing(self, consumer):
+        consumer.write(self.body)
+        return succeed(None)
+
+    def pauseProducing(self):
+        pass
+
+    def stopProducing(self):
+        pass
+
+
 class RestApiTestMixin(object):
 
     def start_rest_api(self):
@@ -80,7 +102,7 @@ class RestApiTestMixin(object):
     def cb_decode_json(body):
         return json.loads(body)
 
-    def call_api(self, verb, url, expected_status_code, headers=None, body=None):
+    def call_api(self, verb, url, expected_status_code=http_status.HTTP_200_OK, headers=None, data=None):
         def cbResponse(response):
             # print 'Response version:', response.version
             # print 'Response code:', response.code
@@ -97,6 +119,9 @@ class RestApiTestMixin(object):
         if headers:
             _headers.update(headers)
         agent = Agent(reactor)
+        body = None
+        if data is not None:
+            body = JsonProducer(data)
         d = agent.request(verb,
                           self.api_base_url + url,
                           Headers(_headers),

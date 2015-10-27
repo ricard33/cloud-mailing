@@ -24,7 +24,7 @@ from bson import json_util
 from twisted.web import server, error as web_error
 
 from twisted.web.resource import Resource
-from cloud_mailing.master.api_common import set_mailing_properties
+from cloud_mailing.master.api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing
 
 from cloud_mailing.master.models import relay_status, Mailing
 from cloud_mailing.master.serializers import MailingSerializer
@@ -191,22 +191,19 @@ class MailingApi(ApiResource):
                 self.write_headers(request)
                 return json.dumps({'error': " Mailing 'status' field should be changed alone."})
 
-            # mailing = Mailing.find({'_id': self.mailing_id}, fields=_mailing_fields).first()
             status = data['status']
             if status == 'PAUSED':
-                self.proxy.callRemote("pause_mailing", self.mailing_id)\
-                    .addCallback(self._status_received, request)\
-                    .addErrback(self._on_error, request)
-                return server.NOT_DONE_YET
+                mailing = pause_mailing(self.mailing_id)
             elif status == 'RUNNING':
-                self.proxy.callRemote("start_mailing", self.mailing_id)\
-                    .addCallback(self._status_received, request)\
-                    .addErrback(self._on_error, request)
-                return server.NOT_DONE_YET
-            request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
-            self.write_headers(request)
-            return json.dumps({'error': "Unsupported status value"})
-        else:
+                mailing = start_mailing(self.mailing_id)
+            elif status == 'FINISHED':
+                mailing = close_mailing(self.mailing_id)
+            else:
+                request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
+                self.write_headers(request)
+                return json.dumps({'error': "Unsupported status value"})
+
+        else:  # 'status' not in data
             try:
                 mailing = set_mailing_properties(self.mailing_id, data)
             except Fault, ex:
@@ -214,8 +211,9 @@ class MailingApi(ApiResource):
                 self.write_headers(request)
                 return json.dumps({'error': self.faultString})
 
-            self.write_headers(request)
-            return MailingSerializer().to_json(mailing)
+        # finally returns the modified mailing
+        self.write_headers(request)
+        return MailingSerializer().to_json(mailing)
 
 
 class RecipientsApi(ApiResource):

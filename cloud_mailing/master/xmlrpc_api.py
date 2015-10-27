@@ -36,7 +36,7 @@ from mogo.connection import Connection
 import pymongo
 from twisted.internet.threads import deferToThread
 from twisted.web import xmlrpc, resource, http, static
-from .api_common import log_cfg, log_security, log_api
+from .api_common import log_cfg, log_security, log_api, pause_mailing
 from .api_common import set_mailing_properties, start_mailing
 from cloud_mailing.master.serializers import MailingSerializer
 
@@ -418,7 +418,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             set_mailing_properties(mailing_id, properties)
         except Fault, ex:
             request.setResponseCode(ex.faultCode)
-            request.setResponseCode(ex.faultCode)
+            raise
         return 0
 
     @withRequest
@@ -462,7 +462,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :return: new mailing status
         """
         log_api.debug("XMLRPC: start_mailing(%s, %s)", mailing_id, when)
-        mailing = start_mailing(mailing_id, request)
+        try:
+            mailing = start_mailing(mailing_id)
+        except Fault, ex:
+            request.setResponseCode(ex.faultCode)
+            raise
         return mailing.status
 
     @withRequest
@@ -473,23 +477,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :return: new mailing status
         """
         log_api.debug("XMLRPC: pause_mailing(%s)", mailing_id)
-        mailing = Mailing.grab(mailing_id)
-        if not mailing:
-            request.setResponseCode(http.NOT_FOUND)
-            log_api.error("Mailing [%d] not found!", mailing_id)
-            raise Fault(http.NOT_FOUND, 'Mailing not found!')
-
-        if mailing.status in (MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED):
-            mailing.status = MAILING_STATUS.PAUSED
-            mailing.save()
-            manager = MailingManager.getInstance()
-            assert(isinstance(manager, MailingManager))
-            deferToThread(manager.pause_mailing, mailing)
-        else:
-            log_api.error("Bad mailing status: '%s' for [%d]. Can't pause it!", mailing.status, mailing_id)
-            request.setResponseCode(http.NOT_ACCEPTABLE)
-            raise Fault(http.NOT_ACCEPTABLE, "Bad mailing status: '%s'. Can't pause it!" % mailing.status)
-
+        try:
+            mailing = pause_mailing(mailing_id)
+        except Fault, ex:
+            request.setResponseCode(ex.faultCode)
+            raise
         return mailing.status
 
     # -------------------------------------

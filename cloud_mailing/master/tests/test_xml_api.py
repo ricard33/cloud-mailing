@@ -24,6 +24,7 @@ import os
 from twisted.internet import reactor
 from twisted.trial.unittest import TestCase
 from twisted.web import server, xmlrpc
+from cloud_mailing.master.tests import factories
 
 from ...common.unittest_mixins import DatabaseMixin
 from ..cloud_master import MailingManagerView
@@ -327,6 +328,21 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings", "my-domain.com"))
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
         d.addCallback(lambda x: self.assertEqual(x[0]['status'], MAILING_STATUS.READY) and x)
+        return d
+
+    def test_pause_mailing(self):
+        mailing = factories.MailingFactory(status=MAILING_STATUS.RUNNING, start_time=datetime.utcnow())
+
+        d = self.proxy().callRemote("pause_mailing", mailing.id)
+        d.addCallback(lambda x: self.assertEqual(x, MAILING_STATUS.PAUSED) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("list_mailings"))
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+        d.addCallback(lambda x: self.assertEqual(x[0]['status'], MAILING_STATUS.PAUSED) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("start_mailing", mailing.id))
+        d.addCallback(lambda x: self.assertEqual(x, MAILING_STATUS.RUNNING) and x)
+        d.addCallback(lambda x: self.proxy().callRemote("list_mailings"))
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+        d.addCallback(lambda x: self.assertEqual(x[0]['status'], MAILING_STATUS.RUNNING) and x)
         return d
 
     def test_set_mailing_properties(self):
