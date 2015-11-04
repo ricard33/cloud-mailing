@@ -65,7 +65,7 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
 
     def _out(self, x):
         print x
-        x
+        return x
 
     def test_list_mailings(self):
         """
@@ -73,20 +73,35 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
         """
         factories.MailingFactory()
         d = self.call_api('GET', "/mailings", http_status.HTTP_200_OK)
-        d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
-        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
-        d.addCallback(lambda x: self.assertEqual(x[0]['sender_name'], "Mailing Sender") and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
+        d.addCallback(lambda x: self.assertEqual(1, len(x['items'])) and x)
+        d.addCallback(lambda x: self.assertEqual("Mailing Sender", x['items'][0]['sender_name']) and x)
         return d
 
     def test_get_mailing(self):
         """
-        List all mailings
+        Get a mailing details
         """
         ml = factories.MailingFactory()
         d = self.call_api('GET', "/mailings/%d" % ml.id, http_status.HTTP_200_OK)
         d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
         d.addCallback(lambda x: self.assertEqual(x['id'], ml.id) and x)
         return d
+
+    def test_get_mailings_count(self):
+        """
+        Count mailings
+        """
+        factories.MailingFactory()
+        factories.MailingFactory()
+        d = self.call_api('GET', "/mailings/?.filter=total", http_status.HTTP_200_OK)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
+        d.addCallback(lambda x: self.assertEqual(x['total'], 2) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x['items']), 2) and x)
+        return d
+
 
     def test_set_mailing_properties(self):
         """

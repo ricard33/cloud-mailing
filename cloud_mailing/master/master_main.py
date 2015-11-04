@@ -67,7 +67,7 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
 
     home_page = HomePage()
     home_page.put_child('CloudMailing',  CloudMailingRpc(useDateTime=True), True)
-    home_page.put_child('api',  make_rest_api(), True)
+    home_page.put_child('api',  make_rest_api(xmlrpc_port=port, xmlrpc_use_ssl=ssl_context_factory is not None, api_key=key))
     home_page.make_home_page()
 
     webServer = server.Site( home_page )

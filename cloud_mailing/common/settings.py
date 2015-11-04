@@ -86,3 +86,6 @@ DEFAULT_LOG_FORMAT='%(name)-12s: %(asctime)s %(levelname)-8s [%(threadName)s] %(
 
 import warnings
 warnings.simplefilter('ignore', UserWarning)
+
+# API settings
+PAGE_SIZE = 100
