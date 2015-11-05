@@ -28,6 +28,8 @@ import os
 import re
 import threading
 import urllib
+
+from cloud_mailing.common.email_tools import header_to_unicode
 from ..common import settings
 from .models import MailingRecipient
 
@@ -338,13 +340,7 @@ class MailCustomizer:
             personalise_bodies(message, mixed_attachments, related_attachments)
 
             # Customize the subject
-            l = []
-            for txt, encoding in email.header.decode_header(message.get("Subject", "")):
-                if encoding:
-                    l.append(txt.decode(encoding, errors='replace'))
-                else:
-                    l.append(txt)
-            subject = self._do_customization(''.join(l), contact_data)
+            subject = self._do_customization(header_to_unicode(message.get("Subject", "")), contact_data)
             if 'Subject' in message:
                 del message['Subject']
             message['Subject'] = Header(subject)

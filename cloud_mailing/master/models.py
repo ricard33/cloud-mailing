@@ -22,6 +22,7 @@ import time
 
 from mogo import Model, Field, EnumField, ReferenceField
 
+from cloud_mailing.common.email_tools import header_to_unicode
 from ..common.models import Sequence
 
 DATABASE = "cm_master"
@@ -164,7 +165,7 @@ class Mailing(Model):
         header = text[:p+2]
         body = text[p+2:]
         if not mail_from:
-            name, mail_from = email.utils.parseaddr(msg.get('From'))
+            name, mail_from = email.utils.parseaddr(header_to_unicode(msg.get("From")))
             if not sender_name:
                 sender_name = name
         if not mail_from:

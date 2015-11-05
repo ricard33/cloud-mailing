@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-
+from cloud_mailing.common.email_tools import header_to_unicode
 from ...common.unittest_mixins import DatabaseMixin
 from ..models import Mailing
 from twisted.trial import unittest
@@ -78,4 +78,44 @@ I=92m happy! Nothing else to say...
         self.assertEquals("windows-1252", message.get_payload(i=1).get_param('charset'))
         self.assertEquals("This is a very simple mailing. I\x92m happy.", message.get_payload(i=0).get_payload(decode=True))
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>. I\x92m happy! ", message.get_payload(i=1).get_payload(decode=True))
+        # print message.as_string()
+
+    def test_create_mailing_from_message_with_encoded_headers(self):
+
+        parser = email.parser.Parser()
+        msg = parser.parsestr("""Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative; boundary="===============2840728917476054151=="
+Subject: Great news!
+From: =?UTF-8?B?Q2VkcmljIFJJQ0FSRA==?= <my-mailing@cm-unittest.net>
+To: <firstname.lastname@domain.com>
+Date: Wed, 05 Jun 2013 06:05:56 -0000
+
+This is a multi-part message in MIME format.
+--===============2840728917476054151==
+Content-Type: text/plain; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+
+This is a very simple mailing. I=92m happy.
+--===============2840728917476054151==
+Content-Type: text/html; charset="windows-1252"
+Content-Transfer-Encoding: quoted-printable
+
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<html><head>
+<META http-equiv=3DContent-Type content=3D"text/html; charset=3Diso-8859-1">
+</head>
+<body>
+This is <strong> a very simple</strong> <u>mailing</u>. =
+I=92m happy! Nothing else to say...
+</body></html>
+
+--===============2840728917476054151==--
+""")
+        mailing = Mailing.create_from_message(msg, scheduled_start=None, scheduled_duration=None)
+
+        message = parser.parsestr(mailing.header + mailing.body)
+        assert(isinstance(message, email.message.Message))
+        mail_from = header_to_unicode(message.get("From"))
+
+        self.assertEquals(u"Cedric RICARD <my-mailing@cm-unittest.net>", mail_from)
         # print message.as_string()

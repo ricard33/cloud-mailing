@@ -43,6 +43,12 @@ class Config(RawConfigParser):
         else:
             return default
 
+    def getboolean(self, section, option, default = None):
+        if self.has_option(section, option) or not isinstance(default, bool):
+            return RawConfigParser.getboolean(self, section, option)
+        else:
+            return default
+
 
 test_config = Config()
 if os.path.exists("test_config.ini"):
@@ -58,6 +64,7 @@ CONFIG = {'ip': test_config.get("TARGET", "ip", "127.0.0.1"),
 
 # Set it to true if network isn't available and if DNS and SMTP are faked
 OFFLINE_TESTS=True
+PURGE_OLD_MAILING = test_config.getboolean("SETTINGS", "purge_old_tests", True)
 
 domains = (
     'free.fr',
@@ -83,7 +90,9 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.domain_name = "cm-unittest.net"
         self.cloudMailingsRpc = xmlrpclib.ServerProxy("https://admin:%(api_key)s@%(ip)s:33610/CloudMailing" % CONFIG,
                                                       context=ssl._create_unverified_context())
-        self.cloudMailingsRpc.delete_all_mailings_for_domain(self.domain_name)
+        if PURGE_OLD_MAILING:
+            print "DELETING ALL PREVIOUS MAILING..."
+            self.cloudMailingsRpc.delete_all_mailings_for_domain(self.domain_name)
 
     def tearDown(self):
         pass
@@ -124,18 +133,20 @@ class CloudMailingsTestCase(unittest.TestCase):
         return [{'email': "email%d@%s" % (i, domains[random.randint(0, len(domains)-1)])} for i in range(count)]
 
     def test_get_mailings(self):
-        self.assertEquals(self.cloudMailingsRpc.list_mailings(self.domain_name), [])
+        self.assertTrue(isinstance(self.cloudMailingsRpc.list_mailings(self.domain_name), (list, tuple)))
 
     def test_create_mailing(self):
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 0)
+        mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
+        self.assertGreaterEqual(mailing_count, 0)
         mailing_id = self.cloudMailingsRpc.create_mailing("my-mailing@%s" % self.domain_name, "My Mailing",
                                                        'The great newsletter',
                                                        "<h1>Title</h1><p>Coucou</p>", "Title\nCoucou\n", "UTF-8")
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
+        self.assertEquals(len(mailings), mailing_count + 1)
         mail_from = "my-mailing@%s" % self.domain_name
-        self.assertEquals(mailings[0]['mail_from'], mail_from)
+        self.assertEquals(mailings[-1]['id'], mailing_id)
+        self.assertEquals(mailings[-1]['mail_from'], mail_from)
         recipients_list = [{'email': "cedric.ricard@orange.fr"},
                            {'email': "ricard@free.fr"},
                            {'email': "ricard@calexium.com"},
@@ -148,7 +159,8 @@ class CloudMailingsTestCase(unittest.TestCase):
             self.assertDictContainsSubset({'email': r1['email']}, r2)
             self.assertNotIn('error', r2)
 
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
+        self.assertEqual(mailing['id'], mailing_id)
         self.assertEqual(mailing['total_recipient'], 6)
 
 
@@ -158,22 +170,22 @@ class CloudMailingsTestCase(unittest.TestCase):
 
         mailing2_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
         self.assertGreater(mailing2_id, 0)
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 2)
-        mailing = self.cloudMailingsRpc.list_mailings()[1]
+        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), mailing_count + 2)
+        mailing = self.cloudMailingsRpc.list_mailings()[-1]
         # self.assertEqual(mailing['id'], mailing2_id)
         # self.assertEqual(mailing['domain_name'], self.domain_name)
         # self.assertEqual(mailing['total_recipient'], 0)
 
     def test_run_mailing(self):
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 0)
+        mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
         mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        self.assertEquals(mailings[0]['mail_from'], mail_from)
+        self.assertEquals(len(mailings), mailing_count + 1)
+        self.assertEquals(mailings[-1]['mail_from'], mail_from)
         recipients_list = [{'email': "cedric.ricard@orange.fr"},
                            {'email': "ricard@free.fr"},
                            {'email': "ricard@calexium.com"},
@@ -185,7 +197,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         for r1, r2 in zip(recipients_list, results):
             self.assertDictContainsSubset({'email': r1['email']}, r2)
             self.assertNotIn('error', r2)
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['total_recipient'], 6)
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 3, 'testing': True})
 
@@ -193,17 +205,16 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.cloudMailingsRpc.mailing_manager_force_check()
         self.cloudMailingsRpc.update_statistics()
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        mailing = mailings[0]
+        mailing = mailings[-1]
         t0 = time.time()
         while mailing['total_pending'] > 0:
             self.assertTrue(mailing['status'] in ('READY', 'RUNNING'))
             self.assertLess(time.time() - t0, 60) # 1 minutes max
             self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(2)
-            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         # stats not up to date
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         #self.assertEqual(mailing['status'], 'FINISHED')
         #print repr(mailing)
         self.assertEqual(mailing['total_recipient'], 6)
@@ -212,7 +223,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.assertEqual(mailing['total_error'], 2)
 
     def test_send_test_emails(self):
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 0)
+        mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
@@ -226,21 +237,18 @@ class CloudMailingsTestCase(unittest.TestCase):
         for r1, r2 in zip(recipients_list, results):
             self.assertDictContainsSubset({'email': r1['email']}, r2)
             self.assertNotIn('error', r2)
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['total_recipient'], 2)
 
-        mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        mailing = mailings[0]
         t0 = time.time()
         while mailing['total_pending'] > 1:   # the unknown domain will take more time...
             self.assertEqual(mailing['status'], 'FILLING_RECIPIENTS')
             self.assertLess(time.time() - t0, 30) # 30 seconds max
             # self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(2)
-            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         # stats not up to date
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['status'], 'FILLING_RECIPIENTS')
         #print repr(mailing)
         self.assertEqual(mailing['total_recipient'], 2)
@@ -253,40 +261,39 @@ class CloudMailingsTestCase(unittest.TestCase):
         """
         start_memory = self._get_memory_for_process('runmailings')
         max_delta_memory = 50000
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 0)
+        mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'medium_sized.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
         mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        self.assertEquals(mailings[0]['mail_from'], mail_from)
+        self.assertEquals(len(mailings), mailing_count + 1)
+        self.assertEquals(mailings[-1]['mail_from'], mail_from)
         recipients_list = self._make_recipients_list(100)
         results = self.cloudMailingsRpc.add_recipients(mailing_id, recipients_list)
         for r1, r2 in zip(recipients_list, results):
             self.assertDictContainsSubset({'email': r1['email']}, r2)
             self.assertNotIn('error', r2)
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['total_recipient'], len(recipients_list))
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 300, 'testing': True})
 
         self.cloudMailingsRpc.start_mailing(mailing_id)
         self.cloudMailingsRpc.mailing_manager_force_check()
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        mailing = mailings[0]
+        mailing = mailings[-1]
         t0 = time.time()
         while mailing['status'] != 'FINISHED':
             self.assertTrue(mailing['status'] in ('READY', 'RUNNING'))
             self.assertLess(time.time() - t0, 300) # 1 minutes max
             self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(2)
-            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
             memory = self._get_memory_for_process('runmailings')
             self.assertLess(memory, start_memory + max_delta_memory)
         self.cloudMailingsRpc.mailing_manager_force_check()
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['status'], 'FINISHED')
         #print repr(mailing)
         self.assertEqual(mailing['total_recipient'], len(recipients_list))
@@ -311,15 +318,15 @@ class CloudMailingsTestCase(unittest.TestCase):
 
     # @unittest.skip("Too long. Should be run manually.")
     def test_run_big_mailing(self):
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 0)
+        mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
         mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        self.assertEquals(mailings[0]['mail_from'], mail_from)
+        self.assertEquals(len(mailings), mailing_count + 1)
+        self.assertEquals(mailings[-1]['mail_from'], mail_from)
 
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 1440, 'testing': True,
                                                                   'dont_close_if_empty': True})
@@ -346,16 +353,14 @@ class CloudMailingsTestCase(unittest.TestCase):
         if len(rcpts_list2):
             _add_recipients(rcpts_list2)
 
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['total_recipient'], TOTAL_RECIPIENTS)
 
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'dont_close_if_empty': False})
 
         # self.cloudMailingsRpc.mailing_manager_force_check()
         #time.sleep(6)
-        mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        mailing = mailings[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         t0 = time.time()
         while mailing['total_pending'] > 0:
             self.assertTrue(mailing['status'] in ('READY', 'RUNNING'))
@@ -363,10 +368,10 @@ class CloudMailingsTestCase(unittest.TestCase):
             # self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(10)
             # self.cloudMailingsRpc.update_statistics()
-            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+            mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         # stats not up to date
         # self.cloudMailingsRpc.update_statistics()
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         #self.assertEqual(mailing['status'], 'FINISHED')
         #print repr(mailing)
         self.assertEqual(mailing['total_recipient'], TOTAL_RECIPIENTS)
@@ -375,7 +380,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.assertEqual(mailing['total_error'], 0)
 
     def test_get_full_reports_with_email_content(self):
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), 0)
+        mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
@@ -389,12 +394,10 @@ class CloudMailingsTestCase(unittest.TestCase):
         for r1, r2 in zip(recipients_list, results):
             self.assertDictContainsSubset({'email': r1['email']}, r2)
             self.assertNotIn('error', r2)
-        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['total_recipient'], 2)
 
-        mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), 1)
-        mailing = mailings[0]
+        mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         t0 = time.time()
         recipients_status = {}
         cursor = ''

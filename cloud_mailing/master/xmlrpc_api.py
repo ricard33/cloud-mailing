@@ -351,9 +351,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         msg.attach(email.mime.text.MIMEText(html_content.encode('utf-8'), 'html', 'utf-8'))
 
         msg['Subject'] = email.header.Header(subject, header_name='Subject')
-        msg['From'] = email.utils.formataddr((sender_name, mail_from))
+        # msg['From'] = email.utils.formataddr((sender_name, mail_from))
         msg['Date'] = email.utils.formatdate()
-        return self._create_mailing(msg)
+        return self._create_mailing(msg, mail_from=mail_from, sender_name=sender_name)
 
     @withRequest
     @doc_signature('<i>string</i> rfc822_string', 'mailing_id')
