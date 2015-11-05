@@ -109,6 +109,7 @@ class Mailing(Model):
     domain_name     = Field()       # Related domain name = identity of sender.
     mail_from       = Field(required=True)
     sender_name       = Field()
+    subject         = Field()
     header          = Field()
     body            = Field()
     testing         = Field(bool, default=False)  #If True, emails are sent to a testing SMTP server instead of the real one.
@@ -173,6 +174,7 @@ class Mailing(Model):
 
         sender_name = sender_name or ""
         mailing = Mailing(mail_from=mail_from, sender_name=sender_name,
+                          subject=header_to_unicode(msg.get("Subject")),
                           header=header, body=body,
                           scheduled_start=scheduled_start, scheduled_duration=scheduled_duration)
         mailing.save()

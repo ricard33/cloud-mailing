@@ -40,7 +40,7 @@ __author__ = 'Cedric RICARD'
 
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
 date_re = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
-int_re = re.compile(r'^\d$')
+int_re = re.compile(r'^\d+$')
 
 
 def datetime_parser(dct):
@@ -198,6 +198,7 @@ class OsApi(ApiResource):
         Resource.__init__(self)
 
     def render_GET(self, request):
+        # self.log_call(request)
         import psutil
         section = request.postpath and request.postpath.pop() or None
         if not section:

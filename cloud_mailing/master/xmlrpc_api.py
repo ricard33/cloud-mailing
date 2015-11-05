@@ -295,6 +295,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
          - satellite_group: group name for satellites allowed to handle this mailing
          - mail_from: email address displayed in sender field
          - sender_name: Full name displayed in sender field
+         - subject: Mailing subject
          - status: Mailing status
          - submit_time: Date and time when mailing was submitted
          - scheduled_start: Date and time when mailing should start

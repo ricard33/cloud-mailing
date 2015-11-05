@@ -15,9 +15,11 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 import datetime
+import email
 import json
 
 from cloud_mailing.common import settings
+from cloud_mailing.common.email_tools import header_to_unicode
 from cloud_mailing.master import models
 from ..common.rest_api_common import log
 
@@ -71,6 +73,10 @@ class Serializer(object):
             obj = self.model_class._get_collection().find({'_id': id}, fields=self.filtered_fields)[0]
             if obj:
                 obj['id'] = obj.pop('_id')
+                if 'subject' not in obj and 'subject' in self.filtered_fields and 'header' in obj:
+                    parser = email.parser.HeaderParser()
+                    msg = parser.parsestr(obj['header'])
+                    obj['subject'] = header_to_unicode(msg.get('Subject'))
                 return obj
             raise NotFound
         except IndexError:
@@ -99,7 +105,7 @@ class MailingSerializer(Serializer):
     model_class = models.Mailing
     fields = (
         '_id', 'domain_name', 'satellite_group', 'owner_guid',
-        'mail_from', 'sender_name', 'status',
+        'mail_from', 'sender_name', 'subject', 'status',
         'type', 'tracking_url',
         'header',
         'dont_close_if_empty',

@@ -85,6 +85,7 @@ def set_mailing_properties(mailing_id, properties):
             if 'Subject' in msg:
                 del msg['Subject']
             msg['Subject'] = email.header.Header(subject, header_name='Subject')
+            mailing.subject = subject
 
         if html_content or plain_content:
             def replace_bodies(part, html_content, plain_content):
