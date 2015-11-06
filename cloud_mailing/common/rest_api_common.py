@@ -4,9 +4,17 @@ import re
 from datetime import datetime
 from xmlrpclib import Fault
 from twisted.web.resource import Resource
-from cloud_mailing.common import http_status
+from twisted.web import error as web_error
+
+from .json_tools import json_default
+from . import http_status
+from . import settings
 
 log = logging.getLogger('api')
+
+
+class NotFound(Exception):
+    pass
 
 
 def json_serial(obj):
@@ -36,6 +44,61 @@ def regroup_args(dd):
 
 
 class ApiResource(Resource):
+    serializer_class = None
+    request = None
+    object_id = None
+
+    def get_serializer(self, *args, **kwargs):
+        """
+        Return the serializer instance that should be used for validating and
+        deserializing input, and for serializing output.
+        """
+        serializer_class = self.get_serializer_class()
+        kwargs['context'] = self.get_serializer_context()
+        return serializer_class(*args, **kwargs)
+
+    def get_serializer_class(self):
+        """
+        Return the class to use for the serializer.
+        Defaults to using `self.serializer_class`.
+        You may want to override this if you need to provide different
+        serializations depending on the incoming request.
+        (Eg. admins get full serialization, others get basic serialization)
+        """
+        assert self.serializer_class is not None, (
+            "'%s' should either include a `serializer_class` attribute, "
+            "or override the `get_serializer_class()` method."
+            % self.__class__.__name__
+        )
+
+        return self.serializer_class
+
+    def get_serializer_context(self):
+        """
+        Extra context provided to the serializer class.
+        """
+        return {
+            'request': self.request,
+            'view': self
+        }
+
+    def get_object_id(self):
+        """
+        Returns the object the view is displaying
+
+        Defaults to using `self.object_id`.
+        You may want to override this if you need to provide different
+        id depending on the incoming request.
+        """
+        assert self.object_id is not None, (
+            "'%s' should either include a `object_id` attribute, "
+            "or override the `get_object_id()` method."
+            % self.__class__.__name__
+        )
+
+        return self.object_id
+
+
     def getChild(self, name, request):
         """Allows this resource to be selected with a trailing '/'."""
         if name == '':
@@ -69,3 +132,39 @@ class ApiResource(Resource):
         self.write_headers(request)
         # request.setHeader('Access-Control-Allow-Origin', '*')
         return ''
+
+
+# View Mixins
+
+
+class ListModelMixin(object):
+    """
+    List a queryset.
+    """
+    def list(self, request, *args, **kwargs):
+        args = regroup_args(request.args)
+        fields_filter = args.pop('.filter', 'default')
+        serializer = self.get_serializer_class()(fields_filter=fields_filter)
+        self.write_headers(request)
+        limit = args.pop('.limit', settings.PAGE_SIZE)
+        offset = args.pop('.offset', 0)
+        try:
+            result = serializer.find(args, skip = offset, limit = limit)
+            return json.dumps(result, default=json_default)
+        except ValueError, ex:
+            raise web_error.Error(http_status.HTTP_406_NOT_ACCEPTABLE, ex.message)
+
+
+class RetrieveModelMixin(object):
+    """
+    Retrieve a model instance.
+    """
+    def retrieve(self, request, *args, **kwargs):
+        try:
+            _filter = request.args.get('.filter', 'default')
+            serializer = self.get_serializer_class()(fields_filter=_filter)
+            self.write_headers(request)
+            result = serializer.get(self.get_object_id())
+            return json.dumps(result, default=json_default)
+        except NotFound:
+            raise web_error.Error(http_status.HTTP_404_NOT_FOUND)

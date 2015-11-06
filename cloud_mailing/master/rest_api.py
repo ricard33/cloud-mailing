@@ -26,13 +26,13 @@ from twisted.web import server, error as web_error
 from twisted.web.resource import Resource
 from twisted.web.xmlrpc import Proxy
 
-from cloud_mailing.common.json_tools import json_default
-from cloud_mailing.master.api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing
+from ..common.json_tools import json_default
+from .api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing
 
-from cloud_mailing.master.models import relay_status, Mailing
-from cloud_mailing.master.serializers import MailingSerializer, NotFound
+from .models import relay_status, Mailing
+from .serializers import MailingSerializer, RecipientSerializer
 from ..common import http_status
-from ..common.rest_api_common import ApiResource, log, json_serial, regroup_args
+from ..common.rest_api_common import ApiResource, log, regroup_args, ListModelMixin, RetrieveModelMixin
 from .. import __version__
 from ..common import settings
 
@@ -78,7 +78,7 @@ class RestApiHome(ApiResource):
         request.setResponseCode(http_status.HTTP_200_OK)
         self.write_headers(request)
         # print data
-        request.write(json.dumps({'status': 'ok', 'result': data}, default=json_serial))
+        request.write(json.dumps({'status': 'ok', 'result': data}, default=json_default))
         request.finish()
 
     def render_POST(self, request):
@@ -93,53 +93,45 @@ class RestApiHome(ApiResource):
         return server.NOT_DONE_YET
 
 
-class ListMailingsApi(ApiResource):
+class ListMailingsApi(ListModelMixin, ApiResource):
     """
     Resource to handle requests on mailings
     """
     # isLeaf = True
+    serializer_class = MailingSerializer
+
     def __init__(self):
         Resource.__init__(self)
 
     def getChild(self, name, request):
-        """Allows this resource to be selected with a trailing '/'."""
         if int_re.match(name):
             return MailingApi(int(name))
         return ApiResource.getChild(self, name, request)
 
     def render_GET(self, request):
         self.log_call(request)
-        args = regroup_args(request.args)
-        fields_filter = args.pop('.filter', 'default')
-        serializer = MailingSerializer(fields_filter=fields_filter)
-        self.write_headers(request)
-        limit = args.pop('.limit', settings.PAGE_SIZE)
-        offset = args.pop('.offset', 0)
-        try:
-            result = serializer.find(args, skip = offset, limit = limit)
-            return json.dumps(result, default=json_default)
-        except ValueError, ex:
-            raise web_error.Error(http_status.HTTP_406_NOT_ACCEPTABLE, ex.message)
+        return self.list(request)
 
 
-class MailingApi(ApiResource):
+class MailingApi(RetrieveModelMixin, ApiResource):
     """
     Resource handling request on a specific mailing
     """
+    serializer_class = MailingSerializer
+
     def __init__(self, mailing_id):
         Resource.__init__(self)
-        self.mailing_id = mailing_id
+        self.mailing_id = mailing_id  # easier to read that object_id
+        self.object_id = mailing_id
+
+    def getChild(self, name, request):
+        if name == 'recipients':
+            return ListRecipientsApi(self.mailing_id)
+        return ApiResource.getChild(self, name, request)
 
     def render_GET(self, request):
         self.log_call(request)
-        try:
-            _filter = request.args.get('.filter', 'default')
-            serializer = MailingSerializer(fields_filter=_filter)
-            self.write_headers(request)
-            result = serializer.get(self.mailing_id)
-            return json.dumps(result, default=json_default)
-        except NotFound:
-            raise web_error.Error(http_status.HTTP_404_NOT_FOUND)
+        return self.retrieve(request)
 
     def render_PATCH(self, request):
         self.log_call(request)
@@ -177,11 +169,38 @@ class MailingApi(ApiResource):
         return json.dumps(result, default=json_default)
 
 
-class RecipientsApi(ApiResource):
-    def __init__(self):
-        Resource.__init__(self)
+class ListRecipientsApi(ListModelMixin, ApiResource):
+    """
+    Resource to handle requests on recipients
+    """
+    # isLeaf = True
+    serializer_class = RecipientSerializer
 
-    pass
+    def __init__(self, mailing_id=None):
+        Resource.__init__(self)
+        self.mailing_id = mailing_id
+
+    def getChild(self, name, request):
+        if name:
+            return RecipientApi(name)
+        return ApiResource.getChild(self, name, request)
+
+    def render_GET(self, request):
+        self.log_call(request)
+        return self.list(request)
+
+
+class RecipientApi(RetrieveModelMixin, ApiResource):
+    serializer_class = RecipientSerializer
+
+    def __init__(self, recipient_id):
+        Resource.__init__(self)
+        self.recipient_id = recipient_id
+        self.object_id = recipient_id
+
+    def render_GET(self, request):
+        self.log_call(request)
+        return self.retrieve(request)
 
 
 class SatelliteApi(ApiResource):
@@ -245,6 +264,6 @@ class OsApi(ApiResource):
 def make_rest_api(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
     api = RestApiHome(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=api_key)
     api.putChild('mailings', ListMailingsApi())
-    api.putChild('recipients', RecipientsApi())
+    api.putChild('recipients', ListRecipientsApi())
     api.putChild('os', OsApi())
     return api

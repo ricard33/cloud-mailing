@@ -67,6 +67,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
 
     def log(self, msg):
         print msg
+        return msg
 
     def proxy(self):
         """

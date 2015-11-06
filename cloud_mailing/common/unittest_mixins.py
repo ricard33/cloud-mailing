@@ -97,6 +97,7 @@ class RestApiTestMixin(object):
 
     def log(self, msg):
         print msg
+        return msg
 
     @staticmethod
     def cb_decode_json(body):

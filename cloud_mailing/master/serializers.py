@@ -17,17 +17,16 @@
 import datetime
 import email
 import json
+import logging
 
 from cloud_mailing.common import settings
 from cloud_mailing.common.email_tools import header_to_unicode
+from cloud_mailing.common.rest_api_common import NotFound
 from cloud_mailing.master import models
-from ..common.rest_api_common import log
 
 __author__ = 'Cedric RICARD'
 
-
-class NotFound(Exception):
-    pass
+log = logging.getLogger('api')
 
 
 class Serializer(object):
@@ -37,6 +36,7 @@ class Serializer(object):
 
     fields = []
     model_class = None
+    id_field = '_id'
 
     def __init__(self, instance=None, data=None, fields_filter=None, many=False):
         self._instance = instance
@@ -68,9 +68,18 @@ class Serializer(object):
                 _filter['satellite_group'] = value
         return _filter
 
+    def make_get_filter(self, object_id):
+        """
+        Compose the filter used to retrieve an object by its id.
+
+        Defaults to using `{_id: object_id}`.
+        You may want to override this if you need to provide different logic.
+        """
+        return {self.id_field: object_id}
+
     def get(self, id):
         try:
-            obj = self.model_class._get_collection().find({'_id': id}, fields=self.filtered_fields)[0]
+            obj = self.model_class._get_collection().find(self.make_get_filter(id), fields=self.filtered_fields)[0]
             if obj:
                 obj['id'] = obj.pop('_id')
                 if 'subject' not in obj and 'subject' in self.filtered_fields and 'header' in obj:
@@ -156,3 +165,29 @@ class MailingSerializer(Serializer):
                 else:
                     mailings_filter['satellite_group'] = {'$in': satellite_groups}
         return mailings_filter
+
+
+class RecipientSerializer(Serializer):
+    """
+    Recipient serializer
+    """
+    model_class = models.MailingRecipient
+    fields = (
+        '_id', 'email', 'status', 'tracking_id',
+        'reply_code', 'reply_enhanced_code', 'reply_text', 'smtp_log',
+        'modified',
+        'first_try', 'next_try', 'try_count',
+        'in_progress',
+        'cloud_client',
+    )
+    id_field = 'tracking_id'
+
+    @property
+    def filtered_fields(self):
+        return list(set(self.fields) & (set(self._fields_filter) | {'tracking_id'}))
+
+    def get(self, id):
+        recipient = super(RecipientSerializer, self).get(id)
+        recipient.pop('id')
+        recipient['id'] = recipient.pop('tracking_id')
+        return recipient

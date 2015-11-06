@@ -27,6 +27,7 @@ from ...common.unittest_mixins import CommonTestMixin, DatabaseMixin, RestApiTes
 
 __author__ = 'Cedric RICARD'
 
+
 class HomeTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase):
 
     def setUp(self):
@@ -62,10 +63,6 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
     def tearDown(self):
         self.clear_settings()
         return self.stop_rest_api().addBoth(lambda x: self.disconnect_from_db())
-
-    def _out(self, x):
-        print x
-        return x
 
     def test_list_mailings(self):
         """
@@ -126,7 +123,7 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
         d.addCallback(lambda x: self.assertTrue(isinstance(x['scheduled_duration'], int)) and x)
         # Test if GUID is correctly set
         d.addCallback(lambda x: self.call_api('GET', "/mailings/%d" % mailing.id))
-        # d.addCallback(lambda x: self._out(x))
+        # d.addCallback(lambda x: self.log(x))
         d.addCallback(lambda x: self.assertEqual("UT", x['owner_guid']) and x)
         return d
 
@@ -167,4 +164,60 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
         d = self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'FINISHED'})
         d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.FINISHED, x['status']) and x)
         return d
+
+
+class RecipientTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase):
+
+    def setUp(self):
+        self.connect_to_db()
+        self.start_rest_api()
+        self.setup_settings()
+
+    def tearDown(self):
+        self.clear_settings()
+        return self.stop_rest_api().addBoth(lambda x: self.disconnect_from_db())
+
+    def test_list_recipients(self):
+        """
+        List all recipients of a mailing
+        """
+        ml = factories.MailingFactory()
+        factories.RecipientFactory(mailing=ml)
+        factories.RecipientFactory(mailing=ml)
+        d = self.call_api('GET', "/mailings/%d/recipients" % ml.id, http_status.HTTP_200_OK)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
+        d.addCallback(lambda x: self.assertEqual(2, len(x['items'])) and x)
+        d.addCallback(lambda x: self.assertIn('email', x['items'][0]) and x)
+
+        # d.addCallback(lambda x: self.assertEqual("Mailing Sender", x['items'][0]['sender_name']) and x)
+        return d
+
+    def test_get_recipient(self):
+        """
+        Get a recipient details
+        """
+        ml = factories.MailingFactory()
+        rcpt = factories.RecipientFactory(mailing=ml)
+        # WARNING: API should never use `id` but `tracking_id` to get recipients
+        d = self.call_api('GET', "/mailings/%d/recipients/%s" % (ml.id, rcpt.tracking_id), http_status.HTTP_200_OK)
+        # d.addCallback(lambda x: self.log(x))
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertEqual(x['id'], rcpt.tracking_id) and x)
+        return d
+
+    def test_get_recipients_count(self):
+        """
+        Count recipients
+        """
+        ml = factories.MailingFactory()
+        factories.RecipientFactory(mailing=ml)
+        factories.RecipientFactory(mailing=ml)
+        d = self.call_api('GET', "/mailings/%d/recipients/?.filter=total" % ml.id, http_status.HTTP_200_OK)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
+        d.addCallback(lambda x: self.assertEqual(x['total'], 2) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x['items']), 2) and x)
+        return d
+
 
