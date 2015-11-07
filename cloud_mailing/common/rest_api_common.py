@@ -142,14 +142,15 @@ class ListModelMixin(object):
     List a queryset.
     """
     def list(self, request, *args, **kwargs):
-        args = regroup_args(request.args)
-        fields_filter = args.pop('.filter', 'default')
+        _args = regroup_args(request.args)
+        _args.update(kwargs)
+        fields_filter = _args.pop('.filter', 'default')
         serializer = self.get_serializer_class()(fields_filter=fields_filter)
         self.write_headers(request)
-        limit = args.pop('.limit', settings.PAGE_SIZE)
-        offset = args.pop('.offset', 0)
+        limit = _args.pop('.limit', settings.PAGE_SIZE)
+        offset = _args.pop('.offset', 0)
         try:
-            result = serializer.find(args, skip = offset, limit = limit)
+            result = serializer.find(_args, skip = offset, limit = limit)
             return json.dumps(result, default=json_default)
         except ValueError, ex:
             raise web_error.Error(http_status.HTTP_406_NOT_ACCEPTABLE, ex.message)

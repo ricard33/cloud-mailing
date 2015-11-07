@@ -16,18 +16,56 @@
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 
 from datetime import datetime
-from cloud_mailing.master.models import MAILING_STATUS
-from cloud_mailing.master.serializers import RecipientSerializer
-from cloud_mailing.master.tests import factories
-import json
-from twisted.web.http_headers import Headers
-from twisted.internet import reactor
 from twisted.trial.unittest import TestCase
 
-from cloud_mailing.common import http_status
+from cloud_mailing.master.models import RECIPIENT_STATUS, MAILING_STATUS
+from . import factories
+from ..serializers import RecipientSerializer, Serializer, MailingSerializer
 from ...common.unittest_mixins import CommonTestMixin, DatabaseMixin, RestApiTestMixin
 
 __author__ = 'Cedric RICARD'
+
+
+class SerializerTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase):
+
+    def setUp(self):
+        self.connect_to_db()
+        self.start_rest_api()
+        self.setup_settings()
+
+    def tearDown(self):
+        self.clear_settings()
+        return self.stop_rest_api().addBoth(lambda x: self.disconnect_from_db())
+
+    def test_make_filter(self):
+        self.assertDictEqual({'field': 'value'}, Serializer().make_filter({'field': 'value'}))
+        self.assertDictEqual({'field': {'$in': (1, 2)}}, Serializer().make_filter({'field': (1, 2)}))
+
+
+class MailingSerializerTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase):
+
+    def setUp(self):
+        self.connect_to_db()
+        self.start_rest_api()
+        self.setup_settings()
+
+    def tearDown(self):
+        self.clear_settings()
+        return self.stop_rest_api().addBoth(lambda x: self.disconnect_from_db())
+
+    def test_make_filter(self):
+        self.assertDictEqual({'domain_name': 'value'}, MailingSerializer().make_filter({'domain': 'value'}))
+        self.assertDictEqual({'domain_name': {'$in': (1, 2)}}, MailingSerializer().make_filter({'domain': (1, 2)}))
+        self.assertDictEqual({'_id': {'$in': [1]}}, MailingSerializer().make_filter({'id': 1}))
+        self.assertDictEqual({'_id': {'$in': (1, 2)}}, MailingSerializer().make_filter({'id': (1, 2)}))
+        self.assertDictEqual({'status': {'$in': [MAILING_STATUS.FINISHED]}},
+                             MailingSerializer().make_filter({'status': MAILING_STATUS.FINISHED}))
+        self.assertDictEqual({'status': {'$in': (MAILING_STATUS.READY, MAILING_STATUS.FINISHED)}},
+                             MailingSerializer().make_filter({'status': (MAILING_STATUS.READY, MAILING_STATUS.FINISHED)}))
+        self.assertDictEqual({'owner_guid': 'value'}, MailingSerializer().make_filter({'owner_guid': 'value'}))
+        self.assertDictEqual({'owner_guid': {'$in': ('value1', 'value2')}}, MailingSerializer().make_filter({'owner_guid': ('value1', 'value2')}))
+        self.assertDictEqual({'satellite_group': 'value'}, MailingSerializer().make_filter({'satellite_group': 'value'}))
+        self.assertDictEqual({'satellite_group': {'$in': ('value1', 'value2')}}, MailingSerializer().make_filter({'satellite_group': ('value1', 'value2')}))
 
 
 class RecipientSerializerTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase):

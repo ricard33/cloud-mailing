@@ -63,9 +63,9 @@ class Serializer(object):
         _filter = {}
         for field, value in args.items():
             if isinstance(value, (list, tuple)):
-                _filter['satellite_group'] = {'$in': value}
+                _filter[field] = {'$in': value}
             else:
-                _filter['satellite_group'] = value
+                _filter[field] = value
         return _filter
 
     def make_get_filter(self, object_id):
@@ -93,7 +93,8 @@ class Serializer(object):
 
     def find(self, spec, skip=0, limit=settings.PAGE_SIZE):
         _filter = self.make_filter(spec)
-        cursor = self.model_class._get_collection().find(_filter, fields=self.filtered_fields, skip=skip, limit=limit)
+        # cursor = self.model_class._get_collection().find(_filter, fields=self.filtered_fields, skip=skip, limit=limit)
+        cursor = self.model_class._get_collection().find(_filter, skip=skip, limit=limit)
         items = []
         for obj in cursor:
             if '_id' in  obj:
@@ -122,13 +123,13 @@ class MailingSerializer(Serializer):
         'start_time', 'end_time',
         'total_recipient', 'total_sent', 'total_pending', 'total_error',
         'total_softbounce',
-        'read_tracking', 'click_tracking'
+        'read_tracking', 'click_tracking', 'mailing'
     )
 
     def make_filter(self, args):
         mailings_filter = {}
         if args:
-            available_filters = ('domain', 'id', 'status', 'owner_guid')
+            available_filters = ('domain', 'id', 'status', 'owner_guid', 'satellite_group')
             for key in args.keys():
                 if key not in available_filters:
                     log.error("Bad filter name '%s'. Available filters are: %s", key, ', '.join(available_filters))
@@ -140,7 +141,9 @@ class MailingSerializer(Serializer):
                 else:
                     mailings_filter['domain_name'] = {'$in': domain}
             if 'id' in args:
-                mailings_filter['_id'] = {'$in': args['id']}
+                value = args['id']
+                ids_list = isinstance(value, (list, tuple)) and value or [value]
+                mailings_filter['_id'] = {'$in': ids_list}
             if 'status' in args:
                 value = args['status']
                 status_list = isinstance(value, (list, tuple)) and value or [value]

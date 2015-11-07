@@ -187,7 +187,10 @@ class ListRecipientsApi(ListModelMixin, ApiResource):
 
     def render_GET(self, request):
         self.log_call(request)
-        return self.list(request)
+        kwargs = {}
+        if self.mailing_id is not None:
+            kwargs['mailing.$id'] = self.mailing_id
+        return self.list(request, **kwargs)
 
 
 class RecipientApi(RetrieveModelMixin, ApiResource):

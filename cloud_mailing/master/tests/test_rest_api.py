@@ -185,6 +185,7 @@ class RecipientTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCa
         factories.RecipientFactory(mailing=ml)
         factories.RecipientFactory(mailing=ml)
         d = self.call_api('GET', "/mailings/%d/recipients" % ml.id, http_status.HTTP_200_OK)
+        # d.addCallback(lambda x: self.log(x))
         d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
         d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
         d.addCallback(lambda x: self.assertEqual(2, len(x['items'])) and x)
@@ -208,12 +209,29 @@ class RecipientTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCa
 
     def test_get_recipients_count(self):
         """
-        Count recipients
+        Count total recipients
+        """
+        factories.RecipientFactory()
+        factories.RecipientFactory()
+        factories.RecipientFactory()
+        d = self.call_api('GET', "/recipients/?.filter=total", http_status.HTTP_200_OK)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
+        d.addCallback(lambda x: self.assertEqual(x['total'], 3) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x['items']), 3) and x)
+        return d
+
+
+    def test_get_recipients_count_from_mailing(self):
+        """
+        Count mailing recipients
         """
         ml = factories.MailingFactory()
         factories.RecipientFactory(mailing=ml)
         factories.RecipientFactory(mailing=ml)
+        factories.RecipientFactory()  # Another recipient from another mailing. Should not be counted.
         d = self.call_api('GET', "/mailings/%d/recipients/?.filter=total" % ml.id, http_status.HTTP_200_OK)
+        # d.addCallback(lambda x: self.log(x))
         d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
         d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
         d.addCallback(lambda x: self.assertEqual(x['total'], 2) and x)
