@@ -96,10 +96,10 @@ class Serializer(object):
         except IndexError:
             raise NotFound
 
-    def find(self, spec, skip=0, limit=settings.PAGE_SIZE):
+    def find(self, spec, skip=0, limit=settings.PAGE_SIZE, sort=None):
         _filter = self.make_filter(spec)
-        # cursor = self.model_class._get_collection().find(_filter, fields=self.filtered_fields, skip=skip, limit=limit)
-        cursor = self.model_class._get_collection().find(_filter, skip=skip, limit=limit)
+        cursor = self.model_class._get_collection().find(_filter, fields=self.filtered_fields, skip=skip, limit=limit,
+                                                         sort=sort)
         items = []
         for obj in cursor:
             if '_id' in  obj:
@@ -181,7 +181,7 @@ class RecipientSerializer(Serializer):
     """
     model_class = models.MailingRecipient
     fields = (
-        '_id', 'email', 'status', 'tracking_id',
+        '_id', 'email', 'send_status', 'tracking_id',
         'reply_code', 'reply_enhanced_code', 'reply_text', 'smtp_log',
         'modified',
         'first_try', 'next_try', 'try_count',

@@ -3,6 +3,8 @@ import logging
 import re
 from datetime import datetime
 from xmlrpclib import Fault
+
+import pymongo
 from twisted.web.resource import Resource
 from twisted.web import error as web_error
 
@@ -41,6 +43,13 @@ def regroup_args(dd):
     for k,v in dd.items():
         ret[k] = simplify_value(v)
     return ret
+
+
+def make_sort_filter(sort_string):
+    if sort_string:
+        orientation = sort_string[0] == '-' and pymongo.DESCENDING or pymongo.ASCENDING
+        return [(sort_string.strip('-'), orientation)]
+    return None
 
 
 class ApiResource(Resource):
@@ -149,8 +158,9 @@ class ListModelMixin(object):
         self.write_headers(request)
         limit = _args.pop('.limit', settings.PAGE_SIZE)
         offset = _args.pop('.offset', 0)
+        sort = make_sort_filter(_args.pop('.sort', None))
         try:
-            result = serializer.find(_args, skip = offset, limit = limit)
+            result = serializer.find(_args, skip = offset, limit = limit, sort=sort)
             return json.dumps(result, default=json_default)
         except ValueError, ex:
             raise web_error.Error(http_status.HTTP_406_NOT_ACCEPTABLE, ex.message)

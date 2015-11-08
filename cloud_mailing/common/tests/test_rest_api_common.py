@@ -16,7 +16,9 @@
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 from datetime import datetime
 
-from cloud_mailing.common.rest_api_common import regroup_args
+import pymongo
+
+from cloud_mailing.common.rest_api_common import regroup_args, make_sort_filter
 from cloud_mailing.master.models import MAILING_STATUS
 from cloud_mailing.master.tests import factories
 import json
@@ -36,3 +38,7 @@ class RegroupArgsTestCase(TestCase):
         self.assertDictEqual({'.limit': 100}, regroup_args({'.limit': ['100']}))
         self.assertDictEqual({'status': ['FILLING_RECIPIENTS', 'READY', 'RUNNING', 'PAUSED']},
                              regroup_args({'status': ['FILLING_RECIPIENTS', 'READY', 'RUNNING', 'PAUSED']}))
+
+    def test_make_sort_filter(self):
+        self.assertEqual([('field', pymongo.ASCENDING)], make_sort_filter('field'))
+        self.assertEqual([('field', pymongo.DESCENDING)], make_sort_filter('-field'))
