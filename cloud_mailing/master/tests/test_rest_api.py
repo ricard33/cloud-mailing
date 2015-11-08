@@ -181,9 +181,44 @@ class RecipientTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCa
         """
         List all recipients of a mailing
         """
+        factories.RecipientFactory()
+        factories.RecipientFactory()
+        d = self.call_api('GET', "/recipients", http_status.HTTP_200_OK)
+        # d.addCallback(lambda x: self.log(x))
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
+        d.addCallback(lambda x: self.assertEqual(2, len(x['items'])) and x)
+        d.addCallback(lambda x: self.assertIn('email', x['items'][0]) and x)
+
+        # d.addCallback(lambda x: self.assertEqual("Mailing Sender", x['items'][0]['sender_name']) and x)
+        return d
+
+    def test_list_recipients_from_mailing(self):
+        """
+        List all recipients of a mailing
+        """
         ml = factories.MailingFactory()
         factories.RecipientFactory(mailing=ml)
         factories.RecipientFactory(mailing=ml)
+        factories.RecipientFactory()
+        d = self.call_api('GET', "/recipients?mailing=%d" % ml.id, http_status.HTTP_200_OK)
+        # d.addCallback(lambda x: self.log(x))
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)
+        d.addCallback(lambda x: self.assertTrue(isinstance(x['items'], list)) and x)
+        d.addCallback(lambda x: self.assertEqual(2, len(x['items'])) and x)
+        d.addCallback(lambda x: self.assertIn('email', x['items'][0]) and x)
+
+        # d.addCallback(lambda x: self.assertEqual("Mailing Sender", x['items'][0]['sender_name']) and x)
+        return d
+
+    def test_list_recipients_nested_api(self):
+        """
+        List all recipients of a mailing
+        """
+        ml = factories.MailingFactory()
+        factories.RecipientFactory(mailing=ml)
+        factories.RecipientFactory(mailing=ml)
+        factories.RecipientFactory()
         d = self.call_api('GET', "/mailings/%d/recipients" % ml.id, http_status.HTTP_200_OK)
         # d.addCallback(lambda x: self.log(x))
         d.addCallback(lambda x: self.assertTrue(isinstance(x, dict)) and x)

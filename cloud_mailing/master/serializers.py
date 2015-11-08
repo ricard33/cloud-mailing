@@ -18,6 +18,7 @@ import datetime
 import email
 import json
 import logging
+import re
 
 from cloud_mailing.common import settings
 from cloud_mailing.common.email_tools import header_to_unicode
@@ -46,6 +47,8 @@ class Serializer(object):
             self._fields_filter = ['.total']
         elif fields_filter == 'none':
             self._fields_filter = []
+        elif fields_filter == 'default_with_total':
+            self._fields_filter = self.fields + ('.total',)
         elif fields_filter == 'default' or fields_filter is None:
             self._fields_filter = self.fields
         # elif not isinstance(fields_filter, (list, tuple)):
@@ -64,6 +67,8 @@ class Serializer(object):
         for field, value in args.items():
             if isinstance(value, (list, tuple)):
                 _filter[field] = {'$in': value}
+            elif isinstance(value, basestring):
+                _filter[field] = {'$regex': '.*' + re.escape(value) + '.*'}
             else:
                 _filter[field] = value
         return _filter
@@ -194,3 +199,16 @@ class RecipientSerializer(Serializer):
         recipient.pop('id')
         recipient['id'] = recipient.pop('tracking_id')
         return recipient
+
+    def make_filter(self, args):
+        _args = args.copy()
+        if 'mailing' in _args:
+            _args['mailing.$id'] = _args.pop('mailing')
+        smtp_reply = _args.pop('smtp_reply', None)
+        _args =  super(RecipientSerializer, self).make_filter(_args)
+        if smtp_reply:
+            _args.setdefault('$and', []).append({'$or': [
+                {'reply_code': smtp_reply},
+                super(RecipientSerializer, self).make_filter({'reply_text': smtp_reply}),
+            ]})
+        return _args

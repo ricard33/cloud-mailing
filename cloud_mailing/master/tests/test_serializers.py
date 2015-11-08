@@ -38,8 +38,10 @@ class SerializerTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestC
         return self.stop_rest_api().addBoth(lambda x: self.disconnect_from_db())
 
     def test_make_filter(self):
-        self.assertDictEqual({'field': 'value'}, Serializer().make_filter({'field': 'value'}))
+        self.assertDictEqual({'field': 1}, Serializer().make_filter({'field': 1}))
+        self.assertDictEqual({'field': {'$regex': '.*value.*'}}, Serializer().make_filter({'field': 'value'}))
         self.assertDictEqual({'field': {'$in': (1, 2)}}, Serializer().make_filter({'field': (1, 2)}))
+        self.assertDictEqual({'field': {'$in': ('1', '2')}}, Serializer().make_filter({'field': ('1', '2')}))
 
 
 class MailingSerializerTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase):
@@ -83,3 +85,11 @@ class RecipientSerializerTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMix
 
         self.assertIn('tracking_id', RecipientSerializer().filtered_fields)
         self.assertIn('tracking_id', RecipientSerializer(fields_filter='none').filtered_fields)
+
+    def test_make_filter(self):
+        self.assertDictEqual({'mailing.$id': 1}, RecipientSerializer().make_filter({'mailing': 1}))
+        self.assertDictEqual({'mailing.$id': {'$in': (1, 2)}}, RecipientSerializer().make_filter({'mailing': (1, 2)}))
+        self.assertDictEqual({'$and': [{'$or': [
+            {'reply_code': 'Error'},
+            {'reply_text': {'$regex': '.*Error.*'}},
+        ]}]}, RecipientSerializer().make_filter({'smtp_reply': 'Error'}))
