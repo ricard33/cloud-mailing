@@ -17,7 +17,7 @@
 
 __author__ = 'ricard'
 
-__product_version__ = "0.1.0"
+__product_version__ = "0.3.0"
 
 def __read_version_from_properties_file():
     import os
