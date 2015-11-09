@@ -113,7 +113,8 @@ class RestApiTestMixin(object):
             if expected_status_code:
                 self.assertEqual(expected_status_code, response.code)
             d = readBody(response)
-            d.addCallback(RestApiTestMixin.cb_decode_json)
+            if response.code != http_status.HTTP_204_NO_CONTENT:
+                d.addCallback(RestApiTestMixin.cb_decode_json)
             return d
 
         _headers = {'User-Agent': ['Twisted Web Client Example']}

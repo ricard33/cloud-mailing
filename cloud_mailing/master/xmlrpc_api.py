@@ -36,7 +36,7 @@ from mogo.connection import Connection
 import pymongo
 from twisted.internet.threads import deferToThread
 from twisted.web import xmlrpc, resource, http, static
-from .api_common import log_cfg, log_security, log_api, pause_mailing
+from .api_common import log_cfg, log_security, log_api, pause_mailing, delete_mailing
 from .api_common import set_mailing_properties, start_mailing
 from cloud_mailing.master.serializers import MailingSerializer
 
@@ -428,16 +428,12 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """Delete a mailing.
         """
         log_api.debug("XMLRPC: delete_mailing(%s)", mailing_id)
-        mailing = Mailing.grab(mailing_id)
-        if mailing:
-            manager = MailingManager.getInstance()
-            manager.close_mailing(mailing)
+        try:
+            delete_mailing(mailing_id)
+        except Fault, ex:
+            request.setResponseCode(ex.faultCode)
+            raise
 
-        else:
-            request.setResponseCode(http.NOT_FOUND)
-            raise Fault(http.NOT_FOUND, 'Mailing not found!')
-
-        mailing.full_remove()
         return 0
 
     @withRequest

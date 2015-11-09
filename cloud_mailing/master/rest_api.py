@@ -27,8 +27,7 @@ from twisted.web.resource import Resource
 from twisted.web.xmlrpc import Proxy
 
 from ..common.json_tools import json_default
-from .api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing
-
+from .api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing, delete_mailing
 from .models import relay_status, Mailing
 from .serializers import MailingSerializer, RecipientSerializer
 from ..common import http_status
@@ -146,7 +145,7 @@ class MailingApi(RetrieveModelMixin, ApiResource):
             status = data['status']
             if status == 'PAUSED':
                 mailing = pause_mailing(self.mailing_id)
-            elif status == 'RUNNING':
+            elif status in ('READY', 'RUNNING'):
                 mailing = start_mailing(self.mailing_id)
             elif status == 'FINISHED':
                 mailing = close_mailing(self.mailing_id)
@@ -167,6 +166,14 @@ class MailingApi(RetrieveModelMixin, ApiResource):
         self.write_headers(request)
         result = MailingSerializer().get(mailing.id)
         return json.dumps(result, default=json_default)
+
+    def render_DELETE(self, request):
+        self.log_call(request)
+        delete_mailing(self.mailing_id)
+        self.write_headers(request)
+        request.setResponseCode(http_status.HTTP_204_NO_CONTENT)
+        return ""
+
 
 
 class ListRecipientsApi(ListModelMixin, ApiResource):

@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 from datetime import datetime
-from cloud_mailing.master.models import MAILING_STATUS
+from cloud_mailing.master.models import MAILING_STATUS, Mailing
 from cloud_mailing.master.tests import factories
 import json
 from twisted.web.http_headers import Headers
@@ -163,6 +163,13 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
 
         d = self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'status': 'FINISHED'})
         d.addCallback(lambda x: self.assertEqual(MAILING_STATUS.FINISHED, x['status']) and x)
+        return d
+
+    def test_delete_mailing(self):
+        mailing = factories.MailingFactory(status=MAILING_STATUS.RUNNING, start_time=datetime.utcnow())
+
+        d = self.call_api('DELETE', "/mailings/%d" % mailing.id, expected_status_code=http_status.HTTP_204_NO_CONTENT)
+        d.addCallback(lambda x: self.assertEqual(None, Mailing.find({'_id': mailing.id}).first()))
         return d
 
 

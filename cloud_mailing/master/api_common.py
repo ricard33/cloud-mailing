@@ -181,7 +181,7 @@ def pause_mailing(mailing_id):
     return mailing
 
 
-def close_mailing(mailing_id):
+def close_mailing(mailing_id, sync=False):
     mailing = Mailing.grab(mailing_id)
     if not mailing:
         log_api.warn("Mailing [%d] not found!", mailing_id)
@@ -191,5 +191,12 @@ def close_mailing(mailing_id):
     mailing.save()
     manager = MailingManager.getInstance()
     assert(isinstance(manager, MailingManager))
-    deferToThread(manager.close_mailing, mailing)
+    if sync:
+        manager.close_mailing(mailing)
+    else:
+        deferToThread(manager.close_mailing, mailing)
     return mailing
+
+def delete_mailing(mailing_id):
+    mailing = close_mailing(mailing_id, sync=True)
+    mailing.full_remove()
