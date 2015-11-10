@@ -18,7 +18,6 @@ import datetime
 
 import bson
 import bson.json_util
-from bson.py3compat import string_types
 
 __author__ = 'Cedric RICARD'
 
@@ -29,7 +28,7 @@ def _json_convert(obj):
     """
     if hasattr(obj, 'iteritems') or hasattr(obj, 'items'):  # PY3 support
         return bson.SON(((k, _json_convert(v)) for k, v in obj.iteritems()))
-    elif hasattr(obj, '__iter__') and not isinstance(obj, string_types):
+    elif hasattr(obj, '__iter__') and not isinstance(obj, basestring):
         return list((_json_convert(v) for v in obj))
     try:
         return json_default(obj)

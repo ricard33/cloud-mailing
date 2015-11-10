@@ -5,3 +5,4 @@ mogo==0.2.4
 dnspython==1.12.0
 Jinja2
 watchdog
+psutil
