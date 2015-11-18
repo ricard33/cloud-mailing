@@ -56,6 +56,7 @@ class ApiResource(Resource):
     serializer_class = None
     request = None
     object_id = None
+    log = log
 
     def get_serializer(self, *args, **kwargs):
         """
@@ -133,8 +134,11 @@ class ApiResource(Resource):
             request.write(json.dumps({'error': repr(err.value)}))
         request.finish()
 
-    def log_call(self, request):
-        log.debug('%s: %s (%s)', request.method.upper(), request.path, request.args)
+    def log_call(self, request, content=None):
+        if content:
+            log.debug('%s: %s (%s, %s)', request.method.upper(), request.path, request.args, content)
+        else:
+            log.debug('%s: %s (%s)', request.method.upper(), request.path, request.args)
 
     def render_OPTIONS(self, request):
         self.log_call(request)

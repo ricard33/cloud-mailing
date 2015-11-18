@@ -133,13 +133,17 @@ class MailingApi(RetrieveModelMixin, ApiResource):
         return self.retrieve(request)
 
     def render_PATCH(self, request):
-        self.log_call(request)
+        return self.render_POST(request)
+
+    def render_POST(self, request):
         content = request.content.read()
+        self.log_call(request, content=content)
         data = json.loads(content)
         if 'status' in data:
             if len(data) > 1:
                 request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
                 self.write_headers(request)
+                self.log.warning(" Mailing 'status' field should be changed alone.")
                 return json.dumps({'error': " Mailing 'status' field should be changed alone."})
 
             status = data['status']
@@ -152,6 +156,7 @@ class MailingApi(RetrieveModelMixin, ApiResource):
             else:
                 request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
                 self.write_headers(request)
+                self.log.warning("Unsupported status value")
                 return json.dumps({'error': "Unsupported status value"})
 
         else:  # 'status' not in data
@@ -160,7 +165,8 @@ class MailingApi(RetrieveModelMixin, ApiResource):
             except Fault, ex:
                 request.setResponseCode(ex.faultCode)
                 self.write_headers(request)
-                return json.dumps({'error': self.faultString})
+                self.log.error("Error setting mailing properties: %s", ex.faultString)
+                return json.dumps({'error': ex.faultString})
 
         # finally returns the modified mailing
         self.write_headers(request)
