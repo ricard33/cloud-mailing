@@ -115,6 +115,8 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
                                                                                                  'header': "Subject: New subject!"}))
         d.addCallback(lambda x: self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'scheduled_start': now.isoformat(),
                                                                                                  'scheduled_duration': 3600}))
+        d.addCallback(lambda x: self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'scheduled_start': now.isoformat()+"Z",  # with TZ
+                                                                                                 'scheduled_duration': 3600}))
         d.addCallback(lambda x: self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'owner_guid': "UT", }))
 
         d.addCallback(lambda x: self.call_api('GET', "/mailings/%d" % mailing.id, http_status.HTTP_200_OK))

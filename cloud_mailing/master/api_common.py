@@ -18,6 +18,7 @@ import email
 import logging
 from xmlrpclib import Fault
 from datetime import datetime
+import dateutil.parser
 
 from twisted.web import http
 from twisted.internet.threads import deferToThread
@@ -60,7 +61,7 @@ def set_mailing_properties(mailing_id, properties):
             mailing.mail_from = value
             mailing.domain_name = value.split('@')[1]
         elif key in ('scheduled_start', 'scheduled_end'):
-            setattr(mailing, key, value and datetime.strptime(value, "%Y-%m-%dT%H:%M:%S.%f") or None)
+            setattr(mailing, key, value and dateutil.parser.parse(value) or None)
         elif key == 'scheduled_duration':
             i = int(value)
             mailing.scheduled_duration = i and i or None
