@@ -27,12 +27,14 @@ import time
 import twisted
 from twisted.application import service, internet
 from twisted.application.service import IService
+from twisted.web.guard import DigestCredentialFactory, BasicCredentialFactory
 from twisted.internet import reactor
 from twisted.python.log import PythonLoggingObserver
 from twisted.web import server
 
+from .api_authentication import AdminChecker
 from .. import __version__ as VERSION
-from ..common.api_common import HomePage
+from ..common.api_common import HomePage, AuthenticatedSite
 from ..common.ssl_tools import make_SSL_context
 from ..common import settings
 from ..common.cm_logging import configure_logging
@@ -70,7 +72,9 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
     home_page.put_child('api',  make_rest_api(xmlrpc_port=port, xmlrpc_use_ssl=ssl_context_factory is not None, api_key=key))
     home_page.make_home_page()
 
-    webServer = server.Site( home_page )
+    webServer = AuthenticatedSite( home_page )
+    webServer.credentialFactories = [BasicCredentialFactory("CloudMailing API"), DigestCredentialFactory("md5", "CloudMailing API")]
+    webServer.credentialsCheckers = [AdminChecker()]
 
     if application:
         if ssl_context_factory:

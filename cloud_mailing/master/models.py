@@ -22,12 +22,20 @@ import time
 
 from mogo import Model, Field, EnumField, ReferenceField
 
-from cloud_mailing.common.email_tools import header_to_unicode
+from ..common.email_tools import header_to_unicode
 from ..common.models import Sequence
 
 DATABASE = "cm_master"
 
 _ = lambda x: x
+
+
+class User(Model):
+    # id              = AutoField(primary_key=True)
+    username        = Field(required=True)
+    password        = Field(required=True)
+    is_superuser    = Field(bool, default=False)
+    groups          = Field()       # group names list
 
 
 class CloudClient(Model):

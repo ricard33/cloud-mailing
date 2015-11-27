@@ -14,25 +14,16 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
-from datetime import datetime
 
 import pymongo
-
-from cloud_mailing.common.rest_api_common import regroup_args, make_sort_filter
-from cloud_mailing.master.models import MAILING_STATUS
-from cloud_mailing.master.tests import factories
-import json
-from twisted.web.http_headers import Headers
-from twisted.internet import reactor
 from twisted.trial.unittest import TestCase
 
-from cloud_mailing.common import http_status
-from ...common.unittest_mixins import CommonTestMixin, DatabaseMixin, RestApiTestMixin
+from ..rest_api_common import regroup_args, make_sort_filter
 
 __author__ = 'Cedric RICARD'
 
-class RegroupArgsTestCase(TestCase):
 
+class RegroupArgsTestCase(TestCase):
     def test_regroup_args(self):
         self.assertDictEqual({'.filter': 'total'}, regroup_args({'.filter': ['total']}))
         self.assertDictEqual({'.limit': 100}, regroup_args({'.limit': ['100']}))

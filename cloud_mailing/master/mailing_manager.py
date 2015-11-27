@@ -85,7 +85,7 @@ class MailingManager(Singleton):
         #     Q(smtp_next_time__lte=datetime.utcnow()) | Q(smtp_next_time__isnull=True),
         #     Q(in_progress=False) | Q(in_progress__isnull=True),
         #     send_status__in=(RECIPIENT_STATUS.READY,
-        #                      RECIPIENT_STATUS.WARNING),
+        #                      RECIPIENT_STATUS.WARNING),Fill
         #     mailing__in=mailings_qs,
         # ).exclude(
         #     id__in=MailingTempQueue.objects.values_list('recipient__id', flat=True)
@@ -117,6 +117,7 @@ class MailingManager(Singleton):
                     self.log.debug("Filling mailing queue: selecting max %d recipients from mailing [%d]", nb_max,
                                    mailing.id)
                     filter = MailingManager.make_recipients_queryset(mailing)
+                    t1 = time.time()
                     selected_recipients = MailingRecipient.find(filter).sort('next_try').limit(nb_max)
                     for rcpt in selected_recipients:
                         MailingTempQueue.add_recipient(mailing=mailing, recipient=rcpt)
@@ -124,8 +125,8 @@ class MailingManager(Singleton):
                         count += 1
                         # if count % 100 == 0:
                         #     print "Added %d..." % count
-                    self.log.debug("Filling mailing queue: selected %d recipients from mailing [%d]", len(rcpt_ids),
-                                   mailing.id)
+                    self.log.debug("Filling mailing queue: selected %d recipients from mailing [%d] (in %.1f seconds)",
+                                   len(rcpt_ids), mailing.id, time.time() - t1)
                     if rcpt_ids:
                         n = 100
                         for i in range(0, len(rcpt_ids), n):

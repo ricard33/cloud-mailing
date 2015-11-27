@@ -38,7 +38,7 @@ from twisted.internet.threads import deferToThread
 from twisted.web import xmlrpc, resource, http, static
 from .api_common import log_cfg, log_security, log_api, pause_mailing, delete_mailing
 from .api_common import set_mailing_properties, start_mailing
-from cloud_mailing.master.serializers import MailingSerializer
+from .serializers import MailingSerializer
 
 from ..common import settings
 from .mailing_manager import MailingManager

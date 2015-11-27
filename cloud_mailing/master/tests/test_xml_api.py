@@ -24,7 +24,7 @@ import os
 from twisted.internet import reactor
 from twisted.trial.unittest import TestCase
 from twisted.web import server, xmlrpc
-from cloud_mailing.master.tests import factories
+from . import factories
 
 from ...common.unittest_mixins import DatabaseMixin
 from ..cloud_master import MailingManagerView

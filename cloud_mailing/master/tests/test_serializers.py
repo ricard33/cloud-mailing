@@ -18,10 +18,11 @@
 from datetime import datetime
 from twisted.trial.unittest import TestCase
 
-from cloud_mailing.master.models import RECIPIENT_STATUS, MAILING_STATUS
+from ..models import RECIPIENT_STATUS, MAILING_STATUS
 from . import factories
 from ..serializers import RecipientSerializer, Serializer, MailingSerializer
-from ...common.unittest_mixins import CommonTestMixin, DatabaseMixin, RestApiTestMixin
+from ...common.unittest_mixins import CommonTestMixin, DatabaseMixin
+from .unittest_mixins import RestApiTestMixin
 
 __author__ = 'Cedric RICARD'
 

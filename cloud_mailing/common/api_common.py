@@ -14,16 +14,22 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
-from cStringIO import StringIO
 import inspect
-from twisted.web import xmlrpc, resource, http, static
+import logging
+from cStringIO import StringIO
+
+from twisted.cred import error
+from twisted.web import xmlrpc, resource, static
+from twisted.web.server import Site
+from zope.interface import Interface, Attribute
 
 __author__ = 'Cedric RICARD'
+
 
 class HomePage(resource.Resource):
     sub_services = []
 
-    def put_child(self, folder, rpc, add_introspection = False):
+    def put_child(self, folder, rpc, add_introspection=False):
         if add_introspection:
             self.sub_services.append([folder, rpc])
             xmlrpc.addIntrospection(rpc)
@@ -55,3 +61,61 @@ class HomePage(resource.Resource):
         self.putChild("", home)
 
 
+class ICurrentUser(Interface):
+    """
+    Currently logged user. Object stored in session.
+    """
+    username = Attribute("Logged username")
+    is_authenticated = Attribute("Is current user authenticated?")
+    is_superuser = Attribute("Is current user a superuser with powerfull rights?")
+
+
+class AuthenticatedSite(Site):
+    credentialsCheckers = []
+    credentialFactories = []
+
+    def _selectParseHeader(self, header):
+        """
+        Choose an C{ICredentialFactory} from C{credentialFactories}
+        suitable to use to decode the given I{Authenticate} header.
+
+        @return: A two-tuple of a factory and the remaining portion of the
+            header value to be decoded or a two-tuple of C{None} if no
+            factory can decode the header value.
+        """
+        elements = header.split(' ')
+        scheme = elements[0].lower()
+        for fact in self.credentialFactories:
+            if fact.scheme == scheme:
+                return (fact, ' '.join(elements[1:]))
+        return (None, None)
+
+    def check_authentication(self, request):
+        session = request.getSession()
+        user = ICurrentUser(session)
+        if user.is_authenticated:
+            return user
+
+        authheader = request.getHeader('authorization')
+        if not authheader:
+            return None
+
+        factory, respString = self._selectParseHeader(authheader)
+        if factory is None:
+            return None
+        try:
+            credentials = factory.decode(respString, request)
+        except error.LoginFailed:
+            return None
+        except:
+            logging.error("Unexpected failure from credentials factory")
+            return None
+
+        for checker in self.credentialsCheckers:
+            user.username = checker.check_credentials(credentials)
+            if user.username:
+                user.is_authenticated = True
+                user.is_superuser = user.username == 'admin'
+                return user
+
+        return None

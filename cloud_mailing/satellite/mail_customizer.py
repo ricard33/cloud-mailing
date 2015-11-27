@@ -29,7 +29,7 @@ import re
 import threading
 import urllib
 
-from cloud_mailing.common.email_tools import header_to_unicode
+from ..common.email_tools import header_to_unicode
 from ..common import settings
 from .models import MailingRecipient
 

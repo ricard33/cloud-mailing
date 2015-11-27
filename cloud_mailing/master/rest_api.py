@@ -20,23 +20,28 @@ import re
 from datetime import datetime
 from xmlrpclib import Fault
 
-from bson import json_util
-from twisted.web import server, error as web_error
-
+from twisted.python.components import registerAdapter
+from twisted.web import server
 from twisted.web.resource import Resource
+from twisted.web.server import Session
 from twisted.web.xmlrpc import Proxy
+from zope.interface import implements
 
-from ..common.json_tools import json_default
-from .api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing, delete_mailing
-from .models import relay_status, Mailing
-from .serializers import MailingSerializer, RecipientSerializer
-from ..common import http_status
-from ..common.rest_api_common import ApiResource, log, regroup_args, ListModelMixin, RetrieveModelMixin
+from ..common.api_common import ICurrentUser
+from ..common.config_file import ConfigFile
+from ..common.permissions import AllowAny
+from . import serializers
+from .api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing, delete_mailing, \
+    log_security
 from .. import __version__
+from ..common import http_status
 from ..common import settings
+from ..common.json_tools import json_default
+from ..common.rest_api_common import ApiResource, log, ListModelMixin, RetrieveModelMixin
 
 __author__ = 'Cedric RICARD'
 
+API_VERSION = 1
 DATE_FORMAT = "%Y-%m-%dT%H:%M:%S"
 date_re = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 int_re = re.compile(r'^\d+$')
@@ -62,13 +67,12 @@ class RestApiHome(ApiResource):
         self.proxy = Proxy(url, user='admin', password=api_key, allowNone=True,
                        useDateTime=True, connectTimeout=30.0)
 
-
     def render_GET(self, request):
         self.log_call(request)
         data = {
             'product_name': "CloudMailing",
             'product_version': __version__,
-            'api_version': '0.1',
+            'api_version': API_VERSION,
         }
         self.write_headers(request)
         return json.dumps(data)
@@ -92,12 +96,54 @@ class RestApiHome(ApiResource):
         return server.NOT_DONE_YET
 
 
+class AuthenticateApi(ApiResource):
+    """
+    Resource to handle authentication requests
+    """
+    # isLeaf = True
+    serializer_class = serializers.UserSerializer
+    permission_classes = (AllowAny,)
+
+    def __init__(self):
+        Resource.__init__(self)
+
+    def render_POST(self, request):
+        assert(isinstance(request, server.Request))
+        content = request.content.read()
+        self.log_call(request, content=content)
+        data = json.loads(content)
+        username = data.get('username')
+        if username == 'admin':
+            config = ConfigFile()
+            config.read(settings.CONFIG_FILE)
+
+            key = config.get('CM_MASTER', 'API_KEY', '')
+            if key and data.get('password') == key:
+                result = {
+                    'username': 'admin',
+                    'is_superuser': True,
+                    # 'groups': []
+                }
+                log_security.info("REST authentication success for user '%s' (%s)" % (username, request.getClientIP()))
+                user = self.get_user(request)
+                user.username = username
+                user.is_superuser = True
+                self.write_headers(request)
+                return json.dumps(result, default=json_default)
+
+        request.getSession().expire()
+        request.setResponseCode(http_status.HTTP_401_UNAUTHORIZED)
+        self.write_headers(request)
+        log_security.warn("REST authentication failed for user '%s' (%s)" % (username, request.getClientIP()))
+        return json.dumps({'error': "Authorization Failed!"})
+
+
 class ListMailingsApi(ListModelMixin, ApiResource):
     """
     Resource to handle requests on mailings
     """
     # isLeaf = True
-    serializer_class = MailingSerializer
+    serializer_class = serializers.MailingSerializer
 
     def __init__(self):
         Resource.__init__(self)
@@ -116,7 +162,7 @@ class MailingApi(RetrieveModelMixin, ApiResource):
     """
     Resource handling request on a specific mailing
     """
-    serializer_class = MailingSerializer
+    serializer_class = serializers.MailingSerializer
 
     def __init__(self, mailing_id):
         Resource.__init__(self)
@@ -170,7 +216,7 @@ class MailingApi(RetrieveModelMixin, ApiResource):
 
         # finally returns the modified mailing
         self.write_headers(request)
-        result = MailingSerializer().get(mailing.id)
+        result = serializers.MailingSerializer().get(mailing.id)
         return json.dumps(result, default=json_default)
 
     def render_DELETE(self, request):
@@ -181,13 +227,12 @@ class MailingApi(RetrieveModelMixin, ApiResource):
         return ""
 
 
-
 class ListRecipientsApi(ListModelMixin, ApiResource):
     """
     Resource to handle requests on recipients
     """
     # isLeaf = True
-    serializer_class = RecipientSerializer
+    serializer_class = serializers.RecipientSerializer
 
     def __init__(self, mailing_id=None):
         Resource.__init__(self)
@@ -207,7 +252,7 @@ class ListRecipientsApi(ListModelMixin, ApiResource):
 
 
 class RecipientApi(RetrieveModelMixin, ApiResource):
-    serializer_class = RecipientSerializer
+    serializer_class = serializers.RecipientSerializer
 
     def __init__(self, recipient_id):
         Resource.__init__(self)
@@ -277,8 +322,22 @@ class OsApi(ApiResource):
         return json.dumps(data)
 
 
+class CurrentUser(object):
+    implements(ICurrentUser)
+
+    def __init__(self, session):
+        self.username = ''
+        self.is_authenticated = False
+        self.is_superuser = False
+
+
+registerAdapter(CurrentUser, Session, ICurrentUser)
+
+
 def make_rest_api(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
-    api = RestApiHome(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=api_key)
+
+    api = RestApiHome(xmlrpc_port=xmlrpc_port, xmlrpc_use_ssl=True, api_key=api_key)
+    api.putChild('authenticate', AuthenticateApi())
     api.putChild('mailings', ListMailingsApi())
     api.putChild('recipients', ListRecipientsApi())
     api.putChild('os', OsApi())

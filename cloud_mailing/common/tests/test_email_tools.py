@@ -16,7 +16,7 @@
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 
 from twisted.trial.unittest import TestCase
-from cloud_mailing.common.email_tools import header_to_unicode
+from ..email_tools import header_to_unicode
 
 __author__ = 'Cedric RICARD'
 

@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-from cloud_mailing.common.email_tools import header_to_unicode
+from ...common.email_tools import header_to_unicode
 from ...common.unittest_mixins import DatabaseMixin
 from ..models import Mailing
 from twisted.trial import unittest

@@ -6,8 +6,10 @@ from xmlrpclib import Fault
 
 import pymongo
 from twisted.web.resource import Resource
-from twisted.web import error as web_error
+from twisted.web import error as web_error, server
 
+from .api_common import ICurrentUser, AuthenticatedSite
+from .permissions import IsAuthenticated, BasePermission
 from .json_tools import json_default
 from . import http_status
 from . import settings
@@ -57,6 +59,7 @@ class ApiResource(Resource):
     request = None
     object_id = None
     log = log
+    permission_classes = (IsAuthenticated,)
 
     def get_serializer(self, *args, **kwargs):
         """
@@ -87,6 +90,7 @@ class ApiResource(Resource):
         """
         Extra context provided to the serializer class.
         """
+        assert(self.request is not None)
         return {
             'request': self.request,
             'view': self
@@ -107,7 +111,6 @@ class ApiResource(Resource):
         )
 
         return self.object_id
-
 
     def getChild(self, name, request):
         """Allows this resource to be selected with a trailing '/'."""
@@ -140,11 +143,49 @@ class ApiResource(Resource):
         else:
             log.debug('%s: %s (%s)', request.method.upper(), request.path, request.args)
 
+    def get_permissions(self):
+        """
+        Instantiates and returns the list of permissions that this view requires.
+        """
+        return [permission() for permission in self.permission_classes]
+
+    def check_permissions(self):
+        for perm in self.get_permissions():
+            assert(isinstance(perm, BasePermission))
+            if not perm.has_permission(self.request, self):
+                return False
+        return True
+
+    def render(self, request):
+        assert(isinstance(request, server.Request))
+        assert(isinstance(request.site, AuthenticatedSite))
+        self.request = request
+        request.user = request.site.check_authentication(request)
+
+        request.user = None
+        if not self.check_permissions():
+            request.setResponseCode(http_status.HTTP_403_FORBIDDEN)
+            self.write_headers(request)
+            self.log.warn("Access forbidden for resource '%s' (user=%s; ip=%s)" % (request.path, request.user, request.getClientIP()))
+            return json.dumps({'error': "Forbidden"})
+
+        return Resource.render(self, request)
+
     def render_OPTIONS(self, request):
         self.log_call(request)
         self.write_headers(request)
         # request.setHeader('Access-Control-Allow-Origin', '*')
         return ''
+
+    def get_user(self, request):
+        """
+        Returns the current logged user (from session).
+        :param request: the twisted.web.server.Request object
+        :return: a ICurrentUser instance
+        """
+        assert(isinstance(request, server.Request))
+        session = request.getSession()
+        return ICurrentUser(session)
 
 
 # View Mixins

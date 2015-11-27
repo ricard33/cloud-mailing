@@ -20,10 +20,10 @@ import json
 import logging
 import re
 
-from cloud_mailing.common import settings
-from cloud_mailing.common.email_tools import header_to_unicode
-from cloud_mailing.common.rest_api_common import NotFound
-from cloud_mailing.master import models
+from ..common import settings
+from ..common.email_tools import header_to_unicode
+from ..common.rest_api_common import NotFound
+from . import models
 
 __author__ = 'Cedric RICARD'
 
@@ -111,6 +111,13 @@ class Serializer(object):
         if '.total' in self._fields_filter:
             response['total'] = cursor.count()
         return response
+
+
+class UserSerializer(Serializer):
+    model_class = models.User
+    fields = (
+        '_id', 'username', 'is_superuser', 'groups'
+    )
 
 
 class MailingSerializer(Serializer):

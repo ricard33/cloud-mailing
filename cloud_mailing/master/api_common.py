@@ -22,9 +22,9 @@ import dateutil.parser
 
 from twisted.web import http
 from twisted.internet.threads import deferToThread
-from cloud_mailing.master.mailing_manager import MailingManager
+from .mailing_manager import MailingManager
 
-from cloud_mailing.master.models import Mailing, MAILING_STATUS
+from .models import Mailing, MAILING_STATUS
 
 __author__ = 'Cedric RICARD'
 

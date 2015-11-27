@@ -75,9 +75,8 @@ def make_SSL_context():
             logging.warn("SSL certificate not found!")
             if not os.path.exists(settings.SSL_CERTIFICATE_PATH):
                 os.makedirs(settings.SSL_CERTIFICATE_PATH)
-            from cloud_mailing.common import ssl_tools
             logging.info("Generating self signed SSL certificate...")
-            ssl_tools.create_self_signed_cert(settings.SSL_CERTIFICATE_PATH,
+            create_self_signed_cert(settings.SSL_CERTIFICATE_PATH,
                                               settings.SSL_CERTIFICATE_NAME)
         if os.path.exists(ssl_crt_file) or os.path.exists(ssl_key_file):
             from twisted.internet.ssl import DefaultOpenSSLContextFactory, PrivateCertificate
