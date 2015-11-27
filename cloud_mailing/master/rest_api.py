@@ -20,6 +20,7 @@ import re
 from datetime import datetime
 from xmlrpclib import Fault
 
+from twisted.cred import credentials
 from twisted.python.components import registerAdapter
 from twisted.web import server
 from twisted.web.resource import Resource
@@ -29,7 +30,7 @@ from zope.interface import implements
 
 from ..common.api_common import ICurrentUser
 from ..common.config_file import ConfigFile
-from ..common.permissions import AllowAny
+from ..common.permissions import AllowAny, IsAdminUser
 from . import serializers
 from .api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing, delete_mailing, \
     log_security
@@ -60,6 +61,7 @@ def datetime_parser(dct):
 
 
 class RestApiHome(ApiResource):
+    permission_classes = (AllowAny,)
 
     def __init__(self, xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
         Resource.__init__(self)
@@ -85,6 +87,9 @@ class RestApiHome(ApiResource):
         request.finish()
 
     def render_POST(self, request):
+        if not self.check_permissions([IsAdminUser()]):
+            return self.access_forbidden(request)
+
         self.log_call(request)
         data = json.loads(request.content.read(), object_hook=datetime_parser)
         function = data['function']
@@ -113,29 +118,43 @@ class AuthenticateApi(ApiResource):
         self.log_call(request, content=content)
         data = json.loads(content)
         username = data.get('username')
-        if username == 'admin':
-            config = ConfigFile()
-            config.read(settings.CONFIG_FILE)
+        creds = credentials.UsernamePassword(username, data.get('password'))
+        user = request.site.check_authentication(request, credentials=creds)
 
-            key = config.get('CM_MASTER', 'API_KEY', '')
-            if key and data.get('password') == key:
-                result = {
-                    'username': 'admin',
-                    'is_superuser': True,
-                    # 'groups': []
-                }
-                log_security.info("REST authentication success for user '%s' (%s)" % (username, request.getClientIP()))
-                user = self.get_user(request)
-                user.username = username
-                user.is_superuser = True
-                self.write_headers(request)
-                return json.dumps(result, default=json_default)
+        if user:
+            log_security.info("REST authentication success for user '%s' (%s)" % (username, request.getClientIP()))
+            result = {
+                'username': 'admin',
+                'is_superuser': True,
+                # 'groups': []
+            }
+            self.write_headers(request)
+            return json.dumps(result, default=json_default)
 
         request.getSession().expire()
         request.setResponseCode(http_status.HTTP_401_UNAUTHORIZED)
         self.write_headers(request)
         log_security.warn("REST authentication failed for user '%s' (%s)" % (username, request.getClientIP()))
         return json.dumps({'error': "Authorization Failed!"})
+
+
+class LogoutApi(ApiResource):
+    """
+    Resource to handle logout requests
+    """
+    # isLeaf = True
+    permission_classes = (AllowAny,)
+
+    def render_POST(self, request):
+        assert(isinstance(request, server.Request))
+        self.log_call(request)
+        username = self.get_user(request).username
+
+        request.getSession().expire()
+        request.setResponseCode(http_status.HTTP_200_OK)
+        self.write_headers(request)
+        log_security.info("User '%s' logged out (%s)" % (username, request.getClientIP()))
+        return json.dumps({'status': "Logged out"})
 
 
 class ListMailingsApi(ListModelMixin, ApiResource):
@@ -338,6 +357,7 @@ def make_rest_api(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
 
     api = RestApiHome(xmlrpc_port=xmlrpc_port, xmlrpc_use_ssl=True, api_key=api_key)
     api.putChild('authenticate', AuthenticateApi())
+    api.putChild('logout', LogoutApi())
     api.putChild('mailings', ListMailingsApi())
     api.putChild('recipients', ListRecipientsApi())
     api.putChild('os', OsApi())

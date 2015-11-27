@@ -90,26 +90,27 @@ class AuthenticatedSite(Site):
                 return (fact, ' '.join(elements[1:]))
         return (None, None)
 
-    def check_authentication(self, request):
+    def check_authentication(self, request, credentials=None):
         session = request.getSession()
         user = ICurrentUser(session)
         if user.is_authenticated:
             return user
 
-        authheader = request.getHeader('authorization')
-        if not authheader:
-            return None
+        if credentials is None:
+            authheader = request.getHeader('authorization')
+            if not authheader:
+                return None
 
-        factory, respString = self._selectParseHeader(authheader)
-        if factory is None:
-            return None
-        try:
-            credentials = factory.decode(respString, request)
-        except error.LoginFailed:
-            return None
-        except:
-            logging.error("Unexpected failure from credentials factory")
-            return None
+            factory, respString = self._selectParseHeader(authheader)
+            if factory is None:
+                return None
+            try:
+                credentials = factory.decode(respString, request)
+            except error.LoginFailed:
+                return None
+            except:
+                logging.error("Unexpected failure from credentials factory")
+                return None
 
         for checker in self.credentialsCheckers:
             user.username = checker.check_credentials(credentials)

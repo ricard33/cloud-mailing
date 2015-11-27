@@ -149,8 +149,10 @@ class ApiResource(Resource):
         """
         return [permission() for permission in self.permission_classes]
 
-    def check_permissions(self):
-        for perm in self.get_permissions():
+    def check_permissions(self, permissions=None):
+        if permissions is None:
+            permissions = self.get_permissions()
+        for perm in permissions:
             assert(isinstance(perm, BasePermission))
             if not perm.has_permission(self.request, self):
                 return False
@@ -164,12 +166,16 @@ class ApiResource(Resource):
 
         request.user = None
         if not self.check_permissions():
-            request.setResponseCode(http_status.HTTP_403_FORBIDDEN)
-            self.write_headers(request)
-            self.log.warn("Access forbidden for resource '%s' (user=%s; ip=%s)" % (request.path, request.user, request.getClientIP()))
-            return json.dumps({'error': "Forbidden"})
+            return self.access_forbidden(request)
 
         return Resource.render(self, request)
+
+    def access_forbidden(self, request):
+        request.setResponseCode(http_status.HTTP_403_FORBIDDEN)
+        self.write_headers(request)
+        self.log.warn(
+            "Access forbidden for resource '%s' (user=%s; ip=%s)" % (request.path, request.user, request.getClientIP()))
+        return json.dumps({'error': "Forbidden"})
 
     def render_OPTIONS(self, request):
         self.log_call(request)
