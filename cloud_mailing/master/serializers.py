@@ -84,7 +84,7 @@ class Serializer(object):
 
     def get(self, id):
         try:
-            obj = self.model_class._get_collection().find(self.make_get_filter(id), fields=self.filtered_fields)[0]
+            obj = self.model_class._get_collection().find(self.make_get_filter(id), projection=self.filtered_fields)[0]
             if obj:
                 obj['id'] = obj.pop('_id')
                 if 'subject' not in obj and 'subject' in self.filtered_fields and 'header' in obj:
@@ -98,7 +98,7 @@ class Serializer(object):
 
     def find(self, spec, skip=0, limit=settings.PAGE_SIZE, sort=None):
         _filter = self.make_filter(spec)
-        cursor = self.model_class._get_collection().find(_filter, fields=self.filtered_fields, skip=skip, limit=limit,
+        cursor = self.model_class._get_collection().find(_filter, projection=self.filtered_fields, skip=skip, limit=limit,
                                                          sort=sort)
         items = []
         for obj in cursor:

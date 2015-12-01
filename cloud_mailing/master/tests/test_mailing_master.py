@@ -380,7 +380,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         d2 = defer.Deferred()
         d = self.connect_client(disconnectedDeferred=d2)
 
-        self.cloud_client.recipients = map(lambda x: x['_id'], MailingRecipient._get_collection().find(fields=[]))
+        self.cloud_client.recipients = map(lambda x: x['_id'], MailingRecipient._get_collection().find(projection=[]))
 
         d.addCallback(self.cb_connected)
 

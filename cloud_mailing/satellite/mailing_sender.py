@@ -373,7 +373,7 @@ class MailingSender(pb.Referenceable):
     @staticmethod
     def make_queue_filter():
         mailing_ids = map(lambda x: x['_id'],
-                          Mailing._get_collection().find({'body_downloaded': True}, fields=('_id',)))
+                          Mailing._get_collection().find({'body_downloaded': True}, projection=('_id',)))
         queue_filter = {'$or': [{'in_progress': False}, {'in_progress': None}],
                         'finished': False,
                         'mailing.$id': {'$in': mailing_ids}}
@@ -467,7 +467,7 @@ class MailingSender(pb.Referenceable):
 
             Queue.mxcalc.cleanupBadMXs()
 
-            testing_mailings = map(lambda x: x['_id'], Mailing._get_collection().find({'testing': True}, fields=('_id',)))
+            testing_mailings = map(lambda x: x['_id'], Mailing._get_collection().find({'testing': True}, projection=('_id',)))
             testing_queue_filter = queue_filter.copy()
             queue_filter.setdefault('$and', []).append({'mailing.$id': {'$nin': testing_mailings}})
             testing_queue_filter.setdefault('$and', []).append({'mailing.$id': {'$in': testing_mailings}})

@@ -92,7 +92,7 @@ class CloudClient(pb.Referenceable):
         """
         Returns the list of currently handled recipient ids.
         """
-        return map(lambda x: str(x['_id']), MailingRecipient._get_collection().find(fields=('_id',)))
+        return map(lambda x: str(x['_id']), MailingRecipient._get_collection().find(projection=('_id',)))
 
     def remote_check_recipients(self, recipient_ids):
         """

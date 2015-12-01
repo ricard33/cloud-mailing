@@ -15,27 +15,27 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-import logging
 import cPickle as pickle
-from datetime import datetime, timedelta
+import logging
 import os
-import time
 import re
+import time
+from datetime import datetime, timedelta
 
-from bson import ObjectId
 import pymongo
+from bson import ObjectId
+from twisted.cred import checkers, portal, error as cred_error, credentials
+from twisted.internet import reactor, defer
+from twisted.internet.threads import deferToThreadPool
+from twisted.python import failure
+from twisted.python import threadpool
+from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
-from twisted.spread import pb, util
-from twisted.internet import reactor, defer
-from twisted.python import failure
-from twisted.cred import checkers, portal, error as cred_error, credentials
-from twisted.internet.threads import deferToThreadPool
-from twisted.python import threadpool
 
-from ..common import settings
-from .models import RECIPIENT_STATUS, MAILING_STATUS, MailingTempQueue
 from .models import CloudClient, MailingRecipient, Mailing
+from .models import RECIPIENT_STATUS, MAILING_STATUS, MailingTempQueue
+from ..common import settings
 
 mailing_portal = None
 unit_test_mode = False   # used to make delays shorter
@@ -278,7 +278,7 @@ class MailingManagerView(pb.Viewable):
         }
         # if satellite_group:
         # mailing_filter['satellite_group'] = satellite_group
-        mailing_ids = map(lambda x: x['_id'], Mailing._get_collection().find(mailing_filter, fields=[]))
+        mailing_ids = map(lambda x: x['_id'], Mailing._get_collection().find(mailing_filter, projection=[]))
         query = {
             '$and': [{'$or': [{'in_progress': False}, {'in_progress': {'$exists': False}}]},
                      {'$or': [{'client': False}, {'client': {'$exists': False}}]},
@@ -587,8 +587,8 @@ class CloudRealm:
             self.log.warn("Found orphan recipient [%d] handled from client [%s]. Removing it...", id, serial)
 
         MailingRecipient.update({'_id': {'$in': unhandled}},
-                                {'client': None,
-                                 'in_progress': False},
+                                {'$set': {'client': None,
+                                          'in_progress': False}},
                                 multi=True)
 
     def _check_recipients_eb(self, err):

@@ -57,7 +57,7 @@ class DatabaseMixin(object):
             db.drop_collection(col)
 
     def disconnect_from_db(self):
-        self.db_conn.disconnect()
+        self.db_conn.close()
 
 
 class JsonProducer(object):

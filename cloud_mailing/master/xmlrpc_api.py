@@ -317,7 +317,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         l = []
 
-        for mailing in Mailing._get_collection().find(mailings_filter, fields=MailingSerializer.fields):
+        for mailing in Mailing._get_collection().find(mailings_filter, projection=MailingSerializer.fields):
             mailing['id'] = mailing.pop('_id')
             ensure_no_null_values(mailing)
             #print mailing
@@ -514,7 +514,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             if filter is not None:
                 if not isinstance(filter, filter_type):
                     raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
-                ids = map(lambda x: x['_id'], Mailing._collection.find({field: {op: qs_mapper(filter)}}, fields=[]))
+                ids = map(lambda x: x['_id'], Mailing._collection.find({field: {op: qs_mapper(filter)}}, projection=[]))
                 filters.setdefault('mailings', []).extend(ids)
 
         apply_mailing_filter(filters, 'owners', (list, tuple), 'an array of strings', 'owner_guid', '$in')
@@ -944,7 +944,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 'tries': {'$sum': '$tries'},
             }},
             {'$sort': SON([('_id', pymongo.ASCENDING), ('sender', pymongo.ASCENDING)])},
-        ])['result']:
+        ]):
             # print "AGGREGATE:", s
             current_epoch_hour = fill_until(all_stats, current_epoch_hour, s['_id'])
             stats = {
@@ -1066,7 +1066,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                       collection, filter, projection, skip, limit, sort)
         conn = Connection.instance()
         coll = conn.get_collection(collection)
-        return list(coll.find(spec=filter, fields=projection, skip=skip, limit=limit, sort=sort))
+        return list(coll.find(spec=filter, projection=projection, skip=skip, limit=limit, sort=sort))
 
 
 class HomePage(resource.Resource):
