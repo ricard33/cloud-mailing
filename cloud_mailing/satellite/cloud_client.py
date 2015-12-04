@@ -34,7 +34,9 @@ from .mail_customizer import MailCustomizer
 from .models import MailingRecipient, Mailing
 from ..common.config_file import ConfigFile
 from ..common import settings
+from ..common.models import Settings
 from mailing_sender import MailingSender, getAllPages
+from .. import __version__ as VERSION
 
 log = logging.getLogger("cloud")
 
@@ -61,7 +63,11 @@ class CloudClient(pb.Referenceable):
         if not self.mailing_queue:
             self.mailing_queue = MailingSender(self, timer_delay = self.ut_mode and 1 or 5,
                                               delay_if_empty = self.ut_mode and 1 or 10)
-        self.master.callRemote('get_mailing_manager') \
+        self.master.callRemote('get_mailing_manager', {
+            'version': VERSION,
+            'settings': dict([(s['var_name'], s['var_value'])
+                              for s in Settings._get_collection().find({}, projection={'_id': False, 'var_name': True, 'var_value': True})])
+        }) \
             .addCallback(self.mailing_queue.cb_get_mailing_manager)
 
     def remote_activate_unittest_mode(self, activated):

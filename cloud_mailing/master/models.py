@@ -47,6 +47,8 @@ class CloudClient(Model):
     shared_key      = Field()
     domain_affinity = Field()
     group           = Field()  # group name, empty for default
+    version         = Field()
+    settings        = Field()
 
     _id_type = int
 

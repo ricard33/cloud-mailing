@@ -186,8 +186,13 @@ class ClientAvatar(pb.Avatar):
             return getAllPages(self.clients[0], 'get_customized_content', mailing_id, recipient_id)
         return defer.fail()
 
-    def perspective_get_mailing_manager(self):
+    def perspective_get_mailing_manager(self, satellite_config=None):
         # maybe insert here more rights management
+        if satellite_config:
+            self.cloud_client = CloudClient.grab(self.cloud_client.id)  # reload object
+            self.cloud_client.version = satellite_config.get('version')
+            self.cloud_client.settings = satellite_config.get('settings')
+            self.cloud_client.save()
         if not self.mailing_manager:
             self.mailing_manager = MailingManagerView(self.cloud_client)
         return self.mailing_manager

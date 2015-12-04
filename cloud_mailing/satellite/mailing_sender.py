@@ -234,7 +234,7 @@ class MailingSender(pb.Referenceable):
         if mailing:
             mailing_id = mailing._id
         else:
-            existing_mailings_ids = map(lambda m: m._id, Mailing.find({}, fields=[]))
+            existing_mailings_ids = map(lambda m: m._id, Mailing.find({}, projection=[]))
             orphan_recipient = MailingRecipient._collection.find_one({'mailing.$id': {'$not': {'$in': existing_mailings_ids}}})
             if orphan_recipient:
                 print orphan_recipient['mailing']
