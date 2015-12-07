@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-
+import os
 import smtplib
 import dns.resolver
 from dns.exception import DNSException
@@ -232,6 +232,9 @@ class RelayerMixin:
         n = self.factory.getNextEmail()
         if n:
             fromEmail, toEmails, file, deferred = n
+            if not os.path.exists(file.name):
+                # content is removed from disk as soon as the mailing is closed
+                raise smtp.SMTPClientError(471, "Sending aborted. Mailing stopped.")
             self.fromEmail = fromEmail
             self.toEmails = toEmails
             self.file = file
@@ -251,6 +254,9 @@ class RelayerMixin:
         """
         # Rewind the file in case part of it was read while attempting to
         # send the message.
+        if not os.path.exists(self.file.name):
+            # content is removed from disk as soon as the mailing is closed
+            raise smtp.SMTPClientError(471, "Sending aborted. Mailing stopped.")
         self.file.seek(0, 0)
         return self.file
 
@@ -273,7 +279,8 @@ class RelayerMixin:
         
         if hasattr(self, 'file') and self.file:
             self.file.close()
-        self.result.errback(exc)
+        if hasattr(self, 'result'):
+            self.result.errback(exc)
 
     def sentMail(self, code, resp, numOk, addresses, log):
         """Called when an attempt to send an email is completed.

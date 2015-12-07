@@ -911,6 +911,7 @@ class RecipientManager(object):
         self.log = log
         self.email_from = recipient.mail_from
         self.email_to   = recipient.email
+        self.mailing_id = recipient.mailing.id
         self.temp_filename = None
         
     def send(self):
@@ -919,7 +920,7 @@ class RecipientManager(object):
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking).customize()
             self.temp_filename = path
-            self.factory.send_email(self.email_from, (self.email_to,), file(path, 'rt'))\
+            self.factory.send_email(self.email_from, (self.email_to,), open(path, 'rt'))\
                 .addCallbacks(self.onSuccess, self.onFailure)
 
         except OSError, ex:
@@ -948,15 +949,15 @@ class RecipientManager(object):
         return self.deferred
 
     def onSuccess(self, data):
-        logging.getLogger('mailing.out').info("MAILING [%d] SENT FROM <%s> TO <%s>", self.recipient.mailing.id,
+        logging.getLogger('mailing.out').info("MAILING [%d] SENT FROM <%s> TO <%s>", self.mailing_id,
                                               self.email_from, self.email_to)
         self.recipient.update_send_status(RECIPIENT_STATUS.FINISHED, smtp_message = '')
         self.recipient.mark_as_finished()
         HourlyStats.add_sent()
         DomainStats.add_sent(self.factory.targetDomain)
-        print Mailing._get_collection().find({'_id': self.recipient.mailing.id}, {'backup_customized_emails': True})[0]
+        # print Mailing._get_collection().find({'_id': self.mailing_id}, {'backup_customized_emails': True})[0]
         if self.temp_filename and os.path.exists(self.temp_filename):
-            if Mailing._get_collection().find({'_id': self.recipient.mailing.id}, {'backup_customized_emails': True})[0].get('backup_customized_emails', False):
+            if Mailing._get_collection().find({'_id': self.mailing_id}, {'backup_customized_emails': True})[0].get('backup_customized_emails', False):
                 self.log.debug("Moving customized content '%s' to '%s' folder", os.path.basename(self.temp_filename), settings.CUSTOMIZED_CONTENT_FOLDER)
                 os.rename(self.temp_filename, os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, os.path.basename(self.temp_filename)))
                 self.log.debug(os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, os.path.basename(self.temp_filename)))
@@ -973,6 +974,7 @@ class RecipientManager(object):
             self.log.debug("Deleting customized content: '%s'", self.temp_filename)
             os.remove(self.temp_filename)
         self.deferred.errback(err)
+
 
 def handle_recipient_failure(err, recipient, email_from, email_to, log):
     assert(isinstance(recipient, MailingRecipient))
