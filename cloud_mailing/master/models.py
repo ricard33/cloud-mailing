@@ -207,10 +207,15 @@ class Mailing(Model):
         self.update(status=MAILING_STATUS.READY)
 
     def update_stats(self):
-        self.total_recipient = MailingRecipient.find({'mailing.$id': self.id}).count()
-        self.total_pending = MailingRecipient.find({'mailing.$id': self.id, 'send_status': {'$in': [RECIPIENT_STATUS.READY, RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.WARNING]}}).count()
-        self.total_sent = MailingRecipient.find({'mailing.$id': self.id, 'send_status': RECIPIENT_STATUS.FINISHED}).count()
-        self.total_error = self.total_recipient - self.total_pending - self.total_sent
+        results = MailingRecipient._get_collection().aggregate([
+            {'$match': { 'mailing.$id': self.id}},
+            {'$group': {'_id': "$send_status", 'count': {'$sum': 1}}}
+        ])
+        values = dict([(d['_id'], d['count']) for d in results])
+        self.total_recipient = sum(values.values())
+        self.total_pending = values.get('READY', 0) + values.get('IN_PROGRESS', 0) + values.get('WARNING', 0)
+        self.total_sent = values.get('FINISHED', 0)
+        self.total_error = values.get('ERROR', 0) + values.get('GENERAL_ERROR', 0)
 
     def get_message(self):
         """
