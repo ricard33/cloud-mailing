@@ -96,8 +96,6 @@ def start_master_service(application=None, master_port=33620, ssl_context_factor
     global service_master, service_manager
     from mailing_manager import start_mailing_manager
     service_manager = start_mailing_manager()
-    if application:
-        service_manager.setServiceParent(application)
 
     from cloud_master import get_cloud_master_factory
     factory = get_cloud_master_factory()
@@ -127,7 +125,7 @@ def stop_master_service():
             # print "REACTOR"
             service_master.stopListening()
     if service_manager:
-        service_manager.stopService()
+        service_manager.stop_tasks()
     from cloud_master import stop_all_threadpools
     stop_all_threadpools()
 

@@ -20,7 +20,7 @@ import logging
 import time
 from datetime import datetime, timedelta
 
-from twisted.application import internet
+from twisted.internet import task
 from twisted.internet.threads import deferToThread
 
 from . import settings_vars
@@ -52,6 +52,25 @@ class MailingManager(Singleton):
         self.nextTime = 0
         self.filling_queue_running = False
         self.next_time_for_check_orphan_recipients = time.time() + 60
+        self.tasks = []
+
+    def start_tasks(self):
+        for fn, delay, startNow in ((self.checkState, 5, False),
+                                    (self.update_status_for_finished_mailings, 60, False),
+                                    (self.check_orphan_recipients, 60, False),
+                                    (self.purge_temp_queue_from_finished_and_paused_mailings, 60, False),
+                                    (self.retrieve_customized_content, 60, False),
+                                    ):
+            t = task.LoopingCall(fn)
+            t.start(delay, now=startNow)
+            self.tasks.append(t)
+        self.log.info("Mailing manager started")
+
+    def stop_tasks(self):
+        for t in self.tasks:
+            t.stop()
+        self.tasks = []
+        self.log.info("Mailing manager stopped")
 
     def forceToCheck(self):
         self.nextTime = 0
@@ -173,19 +192,6 @@ class MailingManager(Singleton):
         if time.time() < self.nextTime:
             return
         try:
-            cp.check_point()
-            # TODO Check why it seems to be broken with very big DB
-            self.check_orphan_recipients()
-            cp.check_point()
-            self.retrieve_customized_content()
-            cp.check_point()
-
-            # Delay this call because master port is not ready at startup
-            if time.time() - self.startTime > 1 * 60:
-                self.update_status_for_finished_mailings()
-            self.purge_temp_queue_from_finished_and_paused_mailings()
-
-            cp.check_point()
             mailing_queue_max_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MAX_SIZE)
             mailing_queue_min_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MIN_SIZE)
 
@@ -216,7 +222,7 @@ class MailingManager(Singleton):
                     self.log.debug("Filling temps queue: no eligible recipient. Release filling queue lock.")
                     self.filling_queue_running = False
                     if temp_queue_count == 0:
-                        self.nextTime = time.time() + 60
+                        self.nextTime = time.time() + 20
                         return
                 else:
                     self.log.debug("Filling temps queue: %d recipients are eligible.", rcpt_count)
@@ -249,20 +255,21 @@ class MailingManager(Singleton):
     def update_status_for_finished_mailings(self):
         self.log.debug("update_status_for_finished_mailings")
         t0 = time.time()
-        unfinished_queues = Mailing.find({'status': {'$in': [MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED]}})
-                                         # projection=('_id', 'start_time', 'scheduled_end', 'scheduled_duration'))
+        unfinished_queues = Mailing._get_collection().find({'status': {'$in': [MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED]}},
+                                         projection=('_id', 'start_time', 'scheduled_end', 'scheduled_duration', 'type',
+                                                     'dont_close_if_empty', 'mail_from'))
         for mailing in unfinished_queues:
-            assert (isinstance(mailing, Mailing))
+            # assert (isinstance(mailing, Mailing))
             unfinished_recipients_filter = {
-                'mailing.$id': mailing.id,
+                'mailing.$id': mailing['_id'],
                 '$or': [{'send_status': {'$in': [RECIPIENT_STATUS.READY, RECIPIENT_STATUS.WARNING]}},
                         {'in_progress': True}]}
-            if mailing.scheduled_end and mailing.scheduled_end <= datetime.utcnow() \
-                    or mailing.scheduled_duration and mailing.start_time and (
-                                mailing.start_time + timedelta(
-                                    minutes=mailing.scheduled_duration)) <= datetime.utcnow():
-                self.log.info("Mailing mailing '%s' started on %s has reach its time limit. Closing it.",
-                              mailing, mailing.start_time and mailing.start_time.strftime("%Y-%m-%d") or "???")
+            if mailing.get('scheduled_end') and mailing['scheduled_end'] <= datetime.utcnow() \
+                    or mailing.get('scheduled_duration') and mailing.get('start_time') and (
+                                mailing['start_time'] + timedelta(
+                                minutes=mailing['scheduled_duration'])) <= datetime.utcnow():
+                self.log.info("Mailing mailing '%s:%s' started on %s has reach its time limit. Closing it.",
+                              mailing['_id'], mailing['mail_from'], mailing.get('start_time') and mailing['start_time'].strftime("%Y-%m-%d") or "???")
                 MailingRecipient.update(unfinished_recipients_filter,
                                         {'$set': {'send_status': RECIPIENT_STATUS.TIMEOUT,
                                                   'in_progress': False,
@@ -271,29 +278,37 @@ class MailingManager(Singleton):
                                                   'reply_text': None}
                                          },
                                         multi=True)
-                self.log.debug("finished_mailing(%d): recipients updated", mailing.id)
-                self.close_mailing(mailing)
-                self.log.debug("finished_mailing(%d): mailing closed", mailing.id)
+                self.log.debug("finished_mailing(%d): recipients updated", mailing['_id'])
+                self.close_mailing(mailing['_id'])
+                self.log.debug("finished_mailing(%d): mailing closed", mailing['_id'])
 
-            elif mailing.type != MAILING_TYPE.OPENED and not mailing.dont_close_if_empty \
+            elif mailing['type'] != MAILING_TYPE.OPENED and not mailing['dont_close_if_empty'] \
                     and MailingRecipient.find_one(unfinished_recipients_filter) is None:
-                self.log.info("Mailing '%s' started on %s has no more recipient. Closing it.",
-                              mailing, mailing.start_time and mailing.start_time.strftime("%Y-%m-%d") or "???")
-                self.close_mailing(mailing)
-                # print "update_status_for_finished_mailings: %.1fs" % (time.time() - t0)
+                self.log.info("Mailing '%s:%s' started on %s has no more recipient. Closing it.",
+                              mailing['_id'], mailing['mail_from'], mailing.get('start_time') and mailing['start_time'].strftime("%Y-%m-%d") or "???")
+                self.close_mailing(mailing['_id'])
+        self.log.debug("update_status_for_finished_mailings() in %.1fs", time.time() - t0)
 
     def purge_temp_queue_from_finished_and_paused_mailings(self):
         self.log.debug("purge_temp_queue_from_finished_and_paused_mailings")
         t0 = time.time()
-        stopped_mailing_ids = list(Mailing.find(
-            {'mailing__status': {'$in': (MAILING_STATUS.PAUSED, MAILING_STATUS.FINISHED)}}))
-        if(stopped_mailing_ids):
-            remove_result = MailingTempQueue.remove({'mailing.$id': {'$in': stopped_mailing_ids}})
-            if remove_result['nRemoved'] > 0:
-                MailingRecipient.update({'mailing.$id': {'$in': stopped_mailing_ids}, 'in_progress': True},
-                                        {'$set': {'in_progress': False}},
-                                        multi=True)
-                self.log.info("purge_temp_queue_from_finished_and_paused_mailings: %.1fs", (time.time() - t0))
+        running_mailing_ids = [m['_id'] for m in Mailing._get_collection().find(
+            {'status': {'$nin': (MAILING_STATUS.PAUSED, MAILING_STATUS.FINISHED)}},
+            projection=[]
+        )]
+        all_ids = zip(*[(r['_id'], r['recipient']['_id']) for r in MailingTempQueue._get_collection().find(
+            {'mailing.$id': {'$nin': running_mailing_ids}},
+            projection=['_id', 'recipient._id'])])
+
+
+        if all_ids:
+            ids_to_remove, recipient_ids = all_ids
+            MailingTempQueue.remove({'_id': {'$in': ids_to_remove}})
+            MailingRecipient.update({'_id': {'$in': recipient_ids}, 'in_progress': True},
+                                    {'$set': {'in_progress': False, 'send_status': RECIPIENT_STATUS.READY}},
+                                    multi=True)
+
+            self.log.info("purge_temp_queue_from_finished_and_paused_mailings() in %.1fs", time.time() - t0)
 
     def pause_mailing(self, mailing):
         """
@@ -313,8 +328,9 @@ class MailingManager(Singleton):
 
         MailingRecipient.update({'mailing.$id': mailing.id, 'in_progress': True}, {'$set': {'in_progress': False}}, multi=True)
 
-    def close_mailing(self, mailing):
-        self.log.debug("Close mailing %d", mailing.id)
+    def close_mailing(self, mailing_id):
+        self.log.debug("Close mailing %d", mailing_id)
+        mailing = Mailing.grab(mailing_id)
         mailing.status = MAILING_STATUS.FINISHED
         mailing.end_time = datetime.utcnow()
         mailing.update_stats()
@@ -329,8 +345,13 @@ class MailingManager(Singleton):
             mailing_master.close_mailing_on_satellites(mailing)
 
     def check_orphan_recipients(self):
+        # TODO Check why it seems to be broken with very big DB
         if time.time() > self.next_time_for_check_orphan_recipients:
+            self.log.debug("check_orphan_recipients")
+            t0 = time.time()
+
             def _set_next_time(result, delay):
+                self.log.debug("check_orphan_recipients() finished in %.1fs", time.time() - t0)
                 self.next_time_for_check_orphan_recipients = time.time() + delay
 
             from .cloud_master import mailing_portal
@@ -353,19 +374,11 @@ class MailingManager(Singleton):
             self.log.error("Can't get MailingPortal object!")
 
 
-def _checkState(manager):
-    manager.checkState()
-
-
-def RelayStateHelper(manager, delay):
-    return internet.TimerService(delay, _checkState, manager)
-
-
 def start_mailing_manager():
     manager = MailingManager.getInstance()
-    helper = RelayStateHelper(manager, 5)
-    manager.log.info("Mailing manager started")
-    helper.startService()
-    return helper
+    assert(isinstance(manager, MailingManager))
+    manager.start_tasks()
+
+    return manager
 
 

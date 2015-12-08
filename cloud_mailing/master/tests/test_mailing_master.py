@@ -472,9 +472,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         d.addErrback(self.do_disconnect_on_error, d2)
 
         manager = MailingManager.getInstance()
-        manager.startTime = 0  # hack to authorize the check of finished mailings
-        manager.forceToCheck()
-        manager.checkState()
+        manager.update_status_for_finished_mailings()
 
         return d
 

@@ -446,7 +446,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         c = 0
         for mailing in mailings:
             manager = MailingManager.getInstance()
-            manager.close_mailing(mailing)
+            manager.close_mailing(mailing.id)
             mailing.full_remove()
             c += 1
         return c

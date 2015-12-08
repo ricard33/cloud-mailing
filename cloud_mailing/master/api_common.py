@@ -193,9 +193,9 @@ def close_mailing(mailing_id, sync=False):
     manager = MailingManager.getInstance()
     assert(isinstance(manager, MailingManager))
     if sync:
-        manager.close_mailing(mailing)
+        manager.close_mailing(mailing.id)
     else:
-        deferToThread(manager.close_mailing, mailing)
+        deferToThread(manager.close_mailing, mailing.id)
     return mailing
 
 def delete_mailing(mailing_id):
