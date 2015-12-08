@@ -701,7 +701,7 @@ class ActiveQueuesList(object):
             self.log.warn("Found %d zombie queues (older than %d seconds)", len(ids), max_age)
             for _id in ids:
                 queue = self.managed[_id]
-                self.log.warn("Deleting queue for '%d' that contains %d recipients", queue.domain, len(queue.recipients))
+                self.log.warn("Deleting queue for '%s' that contains %d recipients", queue.domain, len(queue.recipients))
                 queue._ebExchange(defer.failure.Failure(defer.TimeoutError), queue.factory, queue.domain, queue.recipients)
                 self.removeActiveRelay(_id)
 
