@@ -121,6 +121,7 @@ class MailingSender(pb.Referenceable):
         for fn, delay, startNow in ((self.check_mailing, self.timer_delay, False),
                                     (self.remove_closed_mailings, 33600, False),
                                     (self.relay_manager.check_for_zombie_queues, 60, False),
+                                    (self.check_for_new_recipients, 10, False),
                                     (self.check_for_missing_mailing, 10, False),
                                     (self.send_report_for_finished_recipients, 20, False),
                                     (self.send_statistics, 30, False),
