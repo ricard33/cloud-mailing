@@ -105,9 +105,7 @@ class MailingSender(pb.Referenceable):
         self.relay_manager = ActiveQueuesList(self.log)
         self.nextTime = 0
         self.handlingQueueLock = threading.Lock()
-        self.handling_check_for_new_recipients = False
         self.handling_get_mailing_next_time = 0
-        self.handling_finished_recipients = False  # no need for locker as it is in same thread
         if settings.TEST_FAKE_DNS:
             Queue.mxcalc = FakedMXCalculator()
         else:
@@ -124,6 +122,8 @@ class MailingSender(pb.Referenceable):
                                     (self.remove_closed_mailings, 33600, False),
                                     (self.relay_manager.check_for_zombie_queues, 60, False),
                                     (self.check_for_missing_mailing, 10, False),
+                                    (self.send_report_for_finished_recipients, 20, False),
+                                    (self.send_statistics, 30, False),
                                     ):
             t = task.LoopingCall(fn)
             t.start(delay, now=startNow)
@@ -157,13 +157,13 @@ class MailingSender(pb.Referenceable):
         t0 = time.time()
         if not self.mailing_manager:
             self.log.info("MailingManager not connected (NULL). Can't get new recipients. Waiting...")
-            self.handling_check_for_new_recipients = False  # HACK Avoid a bug: lock is not always released on connection lost
             return
-        if self.handling_check_for_new_recipients:
-            self.log.debug("check_for_new_recipients() is locked...")
-            # already processing
+
+        temp_queue_count = MailingRecipient.search(finished=False).count()
+        mailing_queue_min_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MIN_SIZE)
+        if temp_queue_count >= mailing_queue_min_size:
             return
-        self.handling_check_for_new_recipients = True
+
         try:
             max_recipients = min(settings_vars.get_int(settings_vars.MAILING_MAX_NEW_RECIPIENTS), 1000)
             # d = self.mailing_manager.callRemote('get_recipients', max_recipients)
@@ -173,16 +173,13 @@ class MailingSender(pb.Referenceable):
         except pb.DeadReferenceError:
             self.log.info( "MailingManager not connected. Can't get new recipients. Waiting..." )
             self.is_connected = False
-            self.handling_check_for_new_recipients = False
         except Exception:
             self.log.exception("Unknown exception in check_for_new_recipients()")
-            self.handling_check_for_new_recipients = False
 
     def cb_get_recipients(self, data_list, t0):
         try:
             recipients = pickle.loads(''.join(data_list))
             self.log.debug("Received %d new recipients from Manager in %.1fs.", len(recipients), time.time() - t0)
-            self.handling_check_for_new_recipients = False
             mailings = {}   # dict(mailing_id, mailing)
             c = 0
             for r in recipients:
@@ -223,7 +220,6 @@ class MailingSender(pb.Referenceable):
         return None
 
     def eb_get_recipients(self, err):
-        self.handling_check_for_new_recipients = False
         err_msg = str(err.value) or str(err)
         self.log.error("Error getting new recipients: %s", err_msg)
         
@@ -309,7 +305,7 @@ class MailingSender(pb.Referenceable):
         err_msg = str(err.value) or str(err)
         self.log.error("Error getting mailing data: %s", err_msg)
         
-    def send_report_for_finished_recipients(self, finished_recipients):
+    def send_report_for_finished_recipients(self):
         """
         Send status report for finished recipients to the master. 
         
@@ -320,9 +316,9 @@ class MailingSender(pb.Referenceable):
         if not self.mailing_manager:
             self.log.info( "MailingManager not connected (NULL). Can't send reports. Waiting..." )
             return
-        self.handling_finished_recipients = True
+
+        finished_recipients = MailingRecipient.search(in_progress=False, finished=True)
         try:
-            list_of_deferred = []
             rcpts = []
             max_reports = min(settings_vars.get_int(settings_vars.MAILING_MAX_REPORTS), 5000)
             for recipient in finished_recipients[0:max_reports]:
@@ -334,34 +330,15 @@ class MailingSender(pb.Referenceable):
                 rcpts.append(rcpt)
             if rcpts:
                 self.log.debug("Sending reports for %d recipients", len(rcpts))
-                d1 = self.mailing_manager.callRemote('send_reports', rcpts)
-                d1.addCallbacks(self.cb_send_reports, self.eb_send_reports)
-                list_of_deferred.append(d1)
-
-            stats = []
-            for stat in HourlyStats.search(up_to_date=False):
-                s = dict(stat)
-                s.pop('up_to_date',None)
-                stats.append(s)
-            if stats:
-                d2 = self.mailing_manager.callRemote('send_statistics', stats)
-                d2.addCallbacks(self.cb_send_statistics, self.eb_send_statistics)
-                list_of_deferred.append(d2)
-            
-            if list_of_deferred:
-                d = defer.DeferredList(list_of_deferred)
-                d.addCallback(self.cb_end_handling_finished_recipients)
-            else:
-                self.handling_finished_recipients = False
+                d = self.mailing_manager.callRemote('send_reports', rcpts)
+                d.addCallbacks(self.cb_send_reports, self.eb_send_reports)
 
             self.is_connected = True
         except pb.DeadReferenceError:
             self.log.info("MailingManager not connected. Waiting...")
             self.is_connected = False
-            self.handling_finished_recipients = False
         except Exception:
             self.log.exception("Error in send_report_for_finished_recipients()")
-            self.handling_finished_recipients = False
 
     def cb_send_reports(self, recipient_ids):
         try:
@@ -372,7 +349,25 @@ class MailingSender(pb.Referenceable):
     def eb_send_reports(self, err):
         err_msg = str(err.value) or str(err)
         self.log.error("Error while reporting finished recipients: %s", err_msg)
-        
+
+    def send_statistics(self):
+        try:
+            stats = []
+            for stat in HourlyStats.search(up_to_date=False):
+                s = dict(stat)
+                s.pop('up_to_date',None)
+                stats.append(s)
+            if stats:
+                d = self.mailing_manager.callRemote('send_statistics', stats)
+                d.addCallbacks(self.cb_send_statistics, self.eb_send_statistics)
+
+            self.is_connected = True
+        except pb.DeadReferenceError:
+            self.log.info("MailingManager not connected. Waiting...")
+            self.is_connected = False
+        except Exception:
+            self.log.exception("Error in send_report_for_finished_recipients()")
+
     def cb_send_statistics(self, stats_ids):
         # BUG possible loose of statistics if row updated since it was sent to master
         try:
@@ -384,9 +379,6 @@ class MailingSender(pb.Referenceable):
         err_msg = str(err.value) or str(err)
         self.log.error("Error while reporting finished recipients: %s", err_msg)
         
-    def cb_end_handling_finished_recipients(self, dummy):
-        self.handling_finished_recipients = False
-            
     # KEEP ?
     def forceToCheck(self):
         self.nextTime = 0
@@ -421,8 +413,6 @@ class MailingSender(pb.Referenceable):
             need_to_release = True
             
             self.maxConnections = settings_vars.get_int(settings_vars.MAILING_QUEUE_MAX_THREAD)
-            #mailing_queue_max_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MAX_SIZE)
-            mailing_queue_min_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MIN_SIZE)
             self.maxMessagesPerConnection = settings_vars.get_int(settings_vars.MAILING_QUEUE_MAX_THREAD_SIZE)
             
             in_progress = MailingRecipient.search(in_progress=True).count()
@@ -434,16 +424,6 @@ class MailingSender(pb.Referenceable):
                            "In progress = %d / Queue size = %d / ReportsQueue % d",
                            active_relay_count, self.maxConnections, self.maxMessagesPerConnection, in_progress,
                            temp_queue_count, to_report_count)
-
-            if temp_queue_count < mailing_queue_min_size:
-                self.check_for_new_recipients()
-
-            if not self.handling_finished_recipients:
-                finished = MailingRecipient.search(in_progress=False, finished=True)
-                outdated_stats = HourlyStats.search(up_to_date=False)
-                if finished.first() or outdated_stats.first():
-                    self.send_report_for_finished_recipients(finished.clone())
-                    delay_for_next_time = 0
 
             if active_relay_count >= (int(self.maxConnections / 2) or 1):
                 # this is to limit the number of database queries. Assuming that there is a sufficient
