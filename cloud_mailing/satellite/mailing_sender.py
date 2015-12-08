@@ -629,7 +629,7 @@ class ActiveQueuesList(object):
     def __init__(self, logger):
         self.log = logger
         self.managed = {}  # SMTP clients we're managing (key = ObjectId, value = Queue)
-        ActiveQueue.remove({})
+        ActiveQueue.remove({})  # purge at startup
 
     def add_queue(self, queue):
         """
@@ -637,6 +637,7 @@ class ActiveQueuesList(object):
         """
         active_queue = ActiveQueue.create(domain_name=queue.domain, recipients=queue.recipients)
         self.managed[active_queue.id] = queue
+        self.log.debug("add_queue(%s)", active_queue.id)
         return active_queue.id
 
     def activeRelayCount(self):
@@ -645,6 +646,7 @@ class ActiveQueuesList(object):
 
     def removeActiveRelay(self, queue_id):
         def _remove(queue_id):
+            self.log.debug("removeActiveRelay(%s)", queue_id)
             ActiveQueue.remove({'_id': queue_id})
             del self.managed[queue_id]
 
