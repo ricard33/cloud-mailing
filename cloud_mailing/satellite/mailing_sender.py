@@ -32,33 +32,31 @@ accepting mail for a small set of domains.
 The classes here are meant to facilitate support for such a configuration
 for the twisted.mail SMTP server
 """
-import os
-import time
-import logging
 import cPickle as pickle
+import logging
+import os
 import threading
-from bson import DBRef, ObjectId
+import time
 from datetime import datetime
 from datetime import timedelta
 
-from twisted.python.failure import Failure
+from bson import DBRef, ObjectId
+from twisted.internet import defer, task, reactor
 from twisted.internet import error #import DNSLookupError, TimeoutError, ConnectionLost, ConnectionRefusedError, ConnectError
-from twisted.mail import smtp
-from twisted.application import internet
-from twisted.internet import defer
 from twisted.internet.threads import deferToThread
-from twisted.internet import reactor
+from twisted.mail import smtp
+from twisted.python.failure import Failure
 from twisted.spread import pb
 from twisted.spread.util import CallbackPageCollector
 
+from . import settings_vars
+from .models import Mailing, MailingRecipient, RECIPIENT_STATUS, HourlyStats, DomainStats, DomainConfiguration, \
+    ActiveQueue
+from .sendmail import SMTPRelayerFactory
+from .mail_customizer import MailCustomizer
 from .mx import MXCalculator, FakedMXCalculator
-from sendmail import SMTPRelayerFactory
 from ..common import settings
 from ..common.config_file import ConfigFile
-import settings_vars
-from .mail_customizer import MailCustomizer
-from models import Mailing, MailingRecipient, RECIPIENT_STATUS, HourlyStats, DomainStats, DomainConfiguration, \
-    ActiveQueue
 
 
 class EmtpyFactory(Exception):
@@ -87,7 +85,7 @@ class MailingSender(pb.Referenceable):
     Someone should press .checkState periodically
     """
 
-    def __init__(self, cloud_client, timer_delay = 5, delay_if_empty = 20, maxConnections = 2):
+    def __init__(self, cloud_client, timer_delay=5, delay_if_empty=20, maxConnections=2):
         """
         @type maxConnections: C{int}
         @param maxConnections: The maximum number of SMTP connections to
@@ -108,7 +106,6 @@ class MailingSender(pb.Referenceable):
         self.nextTime = 0
         self.handlingQueueLock = threading.Lock()
         self.handling_check_for_new_recipients = False
-        self.handling_get_mailing = False  # no need for locker as it is in same thread
         self.handling_get_mailing_next_time = 0
         self.handling_finished_recipients = False  # no need for locker as it is in same thread
         if settings.TEST_FAKE_DNS:
@@ -120,6 +117,24 @@ class MailingSender(pb.Referenceable):
         self.invalidate_all_mailing_content()
         self.delete_all_customized_temp_files()
         self.clear_all_send_mail_in_progress()
+        self.tasks = []
+
+    def start_tasks(self):
+        for fn, delay, startNow in ((self.check_mailing, self.timer_delay, False),
+                                    (self.remove_closed_mailings, 33600, False),
+                                    (self.relay_manager.check_for_zombie_queues, 60, False),
+                                    (self.check_for_missing_mailing, 10, False),
+                                    ):
+            t = task.LoopingCall(fn)
+            t.start(delay, now=startNow)
+            self.tasks.append(t)
+        self.log.info("Mailing sender started")
+
+    def stop_tasks(self):
+        for t in self.tasks:
+            t.stop()
+        self.tasks = []
+        self.log.info("Mailing sender stopped")
 
     def disconnected(self, remoteRef):
         self.log.warn("MailingManager disconnected!! %s", remoteRef)
@@ -134,12 +149,8 @@ class MailingSender(pb.Referenceable):
     def cb_get_mailing_manager(self, mailing_manager):
         self.mailing_manager = mailing_manager
         self.mailing_manager .notifyOnDisconnect(self.disconnected)
-        if not self.timer:
-            self.timer = internet.TimerService(self.timer_delay, self.check_mailing)
-            self.timer.startService()
-            t = internet.TimerService(3600, self.remove_closed_mailings)
-            t.startService()
-            internet.TimerService(60, self.relay_manager.check_for_zombie_queues).startService()
+        if not self.tasks:
+            self.start_tasks()
 
     def check_for_new_recipients(self):
         self.log.debug("check_for_new_recipients()")
@@ -223,12 +234,8 @@ class MailingSender(pb.Referenceable):
         if not self.mailing_manager:
             self.log.info( "MailingManager not connected (NULL). Can't get mailing bodies. Waiting..." )
             return
-        if self.handling_get_mailing:
-            # already processing
-            return
         if time.time() < self.handling_get_mailing_next_time:
             return
-        self.handling_get_mailing = True
         mailing_id = None
         mailing = Mailing.find({'$or': [{'header': None}, {'body_downloaded': False}], 'deleted': False}).first()
         if mailing:
@@ -237,28 +244,24 @@ class MailingSender(pb.Referenceable):
             existing_mailings_ids = map(lambda m: m._id, Mailing.find({}, projection=[]))
             orphan_recipient = MailingRecipient._collection.find_one({'mailing.$id': {'$not': {'$in': existing_mailings_ids}}})
             if orphan_recipient:
-                print orphan_recipient['mailing']
+                self.log.warning("Found recipient without mailing for mailing [%s]", orphan_recipient['mailing'])
                 mailing_id = orphan_recipient['mailing'].id
         if mailing_id is None:
-            self.handling_get_mailing = False
             self.handling_get_mailing_next_time = time.time() + self.delay_if_empty
-            #print "check_for_missing_mailing: Waiting for %d seconds..." % self.delay_if_empty
+            # print "check_for_missing_mailing: Waiting for %d seconds..." % self.delay_if_empty
             return
             
         try:
             self.log.info("Requesting content for mailing [%d]", mailing_id)
-#            d = self.mailing_manager.callRemote('get_mailing', mailing_id)
             d = getAllPages(self.mailing_manager, "get_mailing", mailing_id)
             d.addCallbacks(self.cb_get_mailing, self.eb_get_mailing)
             self.is_connected = True
         except pb.DeadReferenceError:
             self.log.info( "MailingManager not connected. Can't get mailing bodies. Waiting..." )
             self.is_connected = False
-            self.handling_get_mailing = False
-            
+
     def cb_get_mailing(self, data_list):
         data = ''.join(data_list)
-        self.handling_get_mailing = False
         mailing_id = None
         #noinspection PyBroadException
         try:
@@ -303,7 +306,6 @@ class MailingSender(pb.Referenceable):
         return None
         
     def eb_get_mailing(self, err):
-        self.handling_get_mailing = False
         err_msg = str(err.value) or str(err)
         self.log.error("Error getting mailing data: %s", err_msg)
         
@@ -436,8 +438,6 @@ class MailingSender(pb.Referenceable):
             if temp_queue_count < mailing_queue_min_size:
                 self.check_for_new_recipients()
 
-            self.check_for_missing_mailing()
-    
             if not self.handling_finished_recipients:
                 finished = MailingRecipient.search(in_progress=False, finished=True)
                 outdated_stats = HourlyStats.search(up_to_date=False)
