@@ -20,9 +20,10 @@ import logging
 import time
 from datetime import datetime, timedelta
 
-from twisted.internet import task
+from twisted.internet import task, defer
 from twisted.internet.threads import deferToThread
 
+from ..common.db_common import get_db
 from . import settings_vars
 from .models import Mailing, MailingTempQueue, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
 from ..common.singletonmixin import Singleton
@@ -252,14 +253,15 @@ class MailingManager(Singleton):
         self.log.debug("Clearing temp queue from obsolete entries...")
         MailingTempQueue.remove({'mailing__status': MAILING_STATUS.FINISHED})
 
+    @defer.inlineCallbacks
     def update_status_for_finished_mailings(self):
         self.log.debug("update_status_for_finished_mailings")
         t0 = time.time()
-        unfinished_queues = Mailing._get_collection().find({'status': {'$in': [MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED]}},
-                                         projection=('_id', 'start_time', 'scheduled_end', 'scheduled_duration', 'type',
-                                                     'dont_close_if_empty', 'mail_from'))
+        db = get_db()
+        unfinished_queues = yield db.mailing.find({'status': {'$in': [MAILING_STATUS.READY, MAILING_STATUS.RUNNING, MAILING_STATUS.PAUSED]}},
+                                         fields=['_id', 'start_time', 'scheduled_end', 'scheduled_duration', 'type',
+                                                     'dont_close_if_empty', 'mail_from'])
         for mailing in unfinished_queues:
-            # assert (isinstance(mailing, Mailing))
             unfinished_recipients_filter = {
                 'mailing.$id': mailing['_id'],
                 '$or': [{'send_status': {'$in': [RECIPIENT_STATUS.READY, RECIPIENT_STATUS.WARNING]}},
@@ -270,7 +272,7 @@ class MailingManager(Singleton):
                                 minutes=mailing['scheduled_duration'])) <= datetime.utcnow():
                 self.log.info("Mailing mailing '%s:%s' started on %s has reach its time limit. Closing it.",
                               mailing['_id'], mailing['mail_from'], mailing.get('start_time') and mailing['start_time'].strftime("%Y-%m-%d") or "???")
-                MailingRecipient.update(unfinished_recipients_filter,
+                yield db.mailingrecipient.update(unfinished_recipients_filter,
                                         {'$set': {'send_status': RECIPIENT_STATUS.TIMEOUT,
                                                   'in_progress': False,
                                                   'reply_code': None,
@@ -282,11 +284,12 @@ class MailingManager(Singleton):
                 self.close_mailing(mailing['_id'])
                 self.log.debug("finished_mailing(%d): mailing closed", mailing['_id'])
 
-            elif mailing['type'] != MAILING_TYPE.OPENED and not mailing['dont_close_if_empty'] \
-                    and MailingRecipient.find_one(unfinished_recipients_filter) is None:
-                self.log.info("Mailing '%s:%s' started on %s has no more recipient. Closing it.",
-                              mailing['_id'], mailing['mail_from'], mailing.get('start_time') and mailing['start_time'].strftime("%Y-%m-%d") or "???")
-                self.close_mailing(mailing['_id'])
+            elif mailing['type'] != MAILING_TYPE.OPENED and not mailing['dont_close_if_empty']:
+                rcpt = yield db.mailingrecipient.find_one(unfinished_recipients_filter)
+                if rcpt is None:
+                    self.log.info("Mailing '%s:%s' started on %s has no more recipient. Closing it.",
+                                  mailing['_id'], mailing['mail_from'], mailing.get('start_time') and mailing['start_time'].strftime("%Y-%m-%d") or "???")
+                    self.close_mailing(mailing['_id'])
         self.log.debug("update_status_for_finished_mailings() in %.1fs", time.time() - t0)
 
     def purge_temp_queue_from_finished_and_paused_mailings(self):

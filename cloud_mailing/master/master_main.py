@@ -32,6 +32,7 @@ from twisted.internet import reactor
 from twisted.python.log import PythonLoggingObserver
 from twisted.web import server
 
+from cloud_mailing.common.db_common import Db
 from .api_authentication import AdminChecker
 from .. import __version__ as VERSION
 from ..common.api_common import HomePage, AuthenticatedSite
@@ -175,6 +176,7 @@ def main(application=None):
             else:
                 log.info("   Trying again in 5 seconds...")
                 time.sleep(5)
+    Db.getInstance(settings.MASTER_DATABASE)
 
     # attach the service to its parent application
     apiService = get_api_service(application, port=args.api_port,

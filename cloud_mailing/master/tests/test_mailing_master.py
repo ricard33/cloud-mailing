@@ -178,7 +178,12 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         # Mailing.drop()
         # MailingHourlyStats.drop()
         self.cloud_client = None
-        return defer.maybeDeferred(stop_all_threadpools)
+        return defer.maybeDeferred(stop_all_threadpools)\
+            .addBoth(lambda x: self.disconnect_from_db())
+
+    def log(self, msg):
+        print msg
+        return msg
 
     def connect_client(self, disconnectedDeferred = None):
         d = defer.Deferred()
@@ -199,20 +204,20 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         return d
 
     def cb_connected(self, manager):
-        #print 'Connected!!'
+        # print 'Connected!!'
         return manager
 
     def do_get_recipients(self, manager, recipients_count, t0):
-        #print "do_get_recipients", MailingTempQueue.objects.count()
+        # print "do_get_recipients"
         if MailingTempQueue.count() >= recipients_count:
             return util.getAllPages(manager, 'get_recipients', 100)
         elif time.time() < t0 + 10.0:
             return task.deferLater(reactor, 0.1, self.do_get_recipients, manager, recipients_count, t0)
         print "MailingTempQueue.objects.count() = %d / recipients_count = %d" % (MailingTempQueue.count(), recipients_count)
-        raise defer.fail()
+        return defer.fail()
 
     def cb_get_recipients(self, data_list, recipients_count):
-        #print "cb_get_recipients", len(recipients)
+        # print "cb_get_recipients"
         recipients = pickle.loads(''.join(data_list))
         self.assertEquals(len(recipients), recipients_count)
         for recipient in recipients:
@@ -438,18 +443,18 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         self.assertEquals(MailingRecipient.count(), recipients_count*2)
 
         t0 = time.time()
+        manager = MailingManager.getInstance()
+        manager.forceToCheck()
 
         d2 = defer.Deferred()
-        d = self.connect_client(disconnectedDeferred=d2)
+        d = manager.update_status_for_finished_mailings()
+        d.addCallback(lambda x: manager.checkState())
+        d.addCallback(lambda x: self.connect_client(disconnectedDeferred=d2))
         d.addCallback(self.cb_connected)
         d.addCallback(self.do_get_recipients, recipients_count, t0)
         d.addCallback(self.cb_get_recipients, recipients_count)  # only 10 recipient due to scheduled_end in the past
         d.addCallback(self.do_disconnect, d2)
         d.addErrback(self.do_disconnect_on_error, d2)
-
-        manager = MailingManager.getInstance()
-        manager.forceToCheck()
-        manager.checkState()
 
         return d
 
@@ -462,17 +467,18 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         self.assertEquals(MailingRecipient.count(), recipients_count*2)
 
         t0 = time.time()
+        manager = MailingManager.getInstance()
+        manager.forceToCheck()
 
         d2 = defer.Deferred()
-        d = self.connect_client(disconnectedDeferred=d2)
+        d = manager.update_status_for_finished_mailings()
+        d.addCallback(lambda x: manager.checkState())
+        d.addCallback(lambda x: self.connect_client(disconnectedDeferred=d2))
         d.addCallback(self.cb_connected)
         d.addCallback(self.do_get_recipients, recipients_count, t0)
         d.addCallback(self.cb_get_recipients, recipients_count)  # only 10 recipient due to low scheduled_duration
         d.addCallback(self.do_disconnect, d2)
         d.addErrback(self.do_disconnect_on_error, d2)
-
-        manager = MailingManager.getInstance()
-        manager.update_status_for_finished_mailings()
 
         return d
 

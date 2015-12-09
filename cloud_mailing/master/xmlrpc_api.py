@@ -801,7 +801,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             filters.setdefault('status',
                                [RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.FINISHED, RECIPIENT_STATUS.GENERAL_ERROR,
                                 RECIPIENT_STATUS.IN_PROGRESS, RECIPIENT_STATUS.TIMEOUT, RECIPIENT_STATUS.WARNING])
-            recipients_filter = self._make_recipients_filter(filters)
+            recipients_filter = self._make_recipients_filter(filters, for_reports=True)
             if from_date:
                 recipients_filter['modified'] = {'$gte': from_date}
 

@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
+
 import json
 import os
 
@@ -26,6 +27,7 @@ from zope.interface import implements
 from .config_file import ConfigFile
 from .models import Settings
 from . import settings
+from .db_common import Db
 
 __author__ = 'ricard'
 
@@ -51,6 +53,7 @@ class CommonTestMixin(object):
 class DatabaseMixin(object):
     def connect_to_db(self):
         self.db_conn = connect(settings.TEST_DATABASE)
+        self.db_pool = Db.getInstance(settings.TEST_DATABASE, pool_size=1)
         # self.db_conn.drop_database(settings.TEST_DATABASE)
         db = Connection.instance().get_database()
         for col in db.collection_names(include_system_collections=False):
@@ -58,6 +61,8 @@ class DatabaseMixin(object):
 
     def disconnect_from_db(self):
         self.db_conn.close()
+        return Db.disconnect()\
+            .addBoth(lambda x: Db._forgetClassInstanceReferenceForTesting())
 
 
 class JsonProducer(object):

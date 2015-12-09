@@ -536,7 +536,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         ids = []
         ids.append(RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="2@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
-        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED, report_ready=True).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
@@ -556,7 +556,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         ids.append(RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.READY).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="2@2.fr", send_status=RECIPIENT_STATUS.IN_PROGRESS).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
-        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED).tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="4@2.fr", send_status=RECIPIENT_STATUS.FINISHED, report_ready=True).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="5@2.fr", send_status=RECIPIENT_STATUS.WARNING).tracking_id)
         ids.append(RecipientFactory(mailing=mailing2, email="6@2.fr", send_status=RECIPIENT_STATUS.ERROR).tracking_id)
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
@@ -579,6 +579,9 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'sender_domains': (mailing.domain_name, 'other.com',)}))
         d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 5) and x)
+
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'mailings': [mailing.id]}))
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 4) and x)
 
         return d
 

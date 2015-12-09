@@ -16,6 +16,7 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import cPickle as pickle
+import exceptions
 import logging
 import os
 import re
@@ -36,6 +37,7 @@ from zope.interface import implements
 from .models import CloudClient, MailingRecipient, Mailing
 from .models import RECIPIENT_STATUS, MAILING_STATUS, MailingTempQueue
 from ..common import settings
+from ..common.db_common import get_db
 
 mailing_portal = None
 unit_test_mode = False   # used to make delays shorter
@@ -501,7 +503,6 @@ class CloudRealm:
         self.avatars = {}
         self.max_connections = max_connections
         self.__check_for_orphan_recipients = False
-        self.__content_retrieving = 0
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         global unit_test_mode
@@ -600,9 +601,9 @@ class CloudRealm:
         self.log.error("Error in check_recipients_in_clients: %s", err)
         return err
 
+    @defer.inlineCallbacks
     def retrieve_customized_content(self):
-        if self.__content_retrieving >= 10:
-            return
+        db = get_db()
 
         def _save_customized_content(data_list, file_name):
             if os.path.exists(file_name):
@@ -616,31 +617,42 @@ class CloudRealm:
             return file_name
 
         def _update_recipient(file_name, recipient):
-            recipient.report_ready = True
-            recipient.save()
+            # recipient.report_ready = True
+            # recipient.save()
+            return db.mailingrecipient.update_one({'_id': recipient['_id']},
+                                                  {'$set': {'report_ready': True, 'modified': datetime.utcnow()}})
 
-        def _handle_failure(err):
+        def _handle_failure(err, recipient):
             self.log.error("Error in retrieve_customized_content: %s", err)
+            if err.check(exceptions.IOError):
+                self.log.error("Can't get customized content for recipient [%s @ %s]",
+                               recipient['email'], recipient['mailing'].id)
+                return _update_recipient(None, recipient)
             return err
 
-        def _release_count(data_or_error):
-            self.__content_retrieving -= 1
-
-        for recipient in MailingRecipient.find({'send_status': RECIPIENT_STATUS.FINISHED, 'report_ready': False},
-                                               limit=10-self.__content_retrieving):
-            file_name = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, make_customized_file_name(recipient.mailing.id, str(recipient.id)))
-            if os.path.exists(file_name):
-                self.log.debug("Customized file '%s' already exists, skipping it...", file_name)
-                _update_recipient(file_name, recipient)
-            else:
-                self.__content_retrieving += 1
-                avatar = self.avatars[recipient.cloud_client]
-                avatar.retrieve_customized_content(recipient.mailing.id, str(recipient.id)) \
-                    .addCallback(_save_customized_content, file_name) \
-                    .addCallback(_update_recipient, recipient) \
-                    .addErrback(_handle_failure) \
-                    .addBoth(_release_count)
-
+        try:
+            dl = []
+            # for recipient in MailingRecipient.find({'send_status': RECIPIENT_STATUS.FINISHED, 'report_ready': False},
+            #                                        limit=10-self.__content_retrieving):
+            recipients = yield db.mailingrecipient.find({'send_status': RECIPIENT_STATUS.FINISHED, 'report_ready': False},
+                                                        limit=10)
+            for recipient in recipients:
+                file_name = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, make_customized_file_name(recipient['mailing'].id, str(recipient['_id'])))
+                if os.path.exists(file_name):
+                    self.log.debug("Customized file '%s' already exists, skipping it...", file_name)
+                    dl.append(_update_recipient(file_name, recipient))
+                else:
+                    avatar = self.avatars[recipient['cloud_client']]
+                    dl.append(avatar.retrieve_customized_content(recipient['mailing'].id, str(recipient['_id']))
+                              .addCallback(_save_customized_content, file_name)
+                              .addCallback(_update_recipient, recipient)
+                              .addErrback(_handle_failure, recipient)
+                              )
+            if dl:
+                self.log.debug("retrieve_customized_content() for %d recipients", len(dl))
+                yield defer.DeferredList(dl)
+        except Exception, ex:
+            self.log.exception("Error in retrieve_customized_content()")
 
 class CmCloudCredentialsChecker:
     implements(checkers.ICredentialsChecker)
