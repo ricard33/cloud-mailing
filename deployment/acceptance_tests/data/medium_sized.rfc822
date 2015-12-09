@@ -92,7 +92,7 @@ l'Informatique et des Libertés (CNIL) sous le numéro *1244139.*
 Conformément à l'article 34 de la Loi du 6 janvier 1978, modifiée le 6 
 août 2004, vous disposez d'un droit d'accès, de modification, de 
 rectification et de suppression des données qui vous concernent. Vous 
-pouvez l'exercer en cliquant ICI <%%UNSUBSCRIBE%%> ou en écrivant au 
+pouvez l'exercer en cliquant ICI <{{unsubscribe}}> ou en écrivant au
 siège de la société.
 Copyright © Calexium 2013
 Cet email est envoyé par la fonction e-mailing de mailfountain
@@ -507,7 +507,7 @@ style="color:#dfdfd2;background-color:#1f4c59;-moz-border-radius:3px;cursor:poin
               modifiée le 6 août 2004, vous disposez d'un droit d'accès,
               de modification, de rectification et de suppression des
               données qui vous concernent. Vous pouvez l'exercer en
-              cliquant <a href="%%UNSUBSCRIBE%%" class="Style9">ICI</a>
+              cliquant <a href="{{unsubscribe}}" class="Style9">ICI</a>
               ou en écrivant au siège de la société.<br>
               Copyright © Calexium 2013<br>
               Cet email est envoyé par la fonction e-mailing de <img

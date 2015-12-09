@@ -8,7 +8,7 @@ From: =?UTF-8?B?Q8OpZHJpYyBSSUNBUkQ=?= <my-mailing@cm-unittest.net>
 User-Agent: Mozilla/5.0 (Windows; U; Windows NT 6.1; fr; rv:1.9.2.13) Gecko/20101207 Thunderbird/3.1.7
 MIME-Version: 1.0
 To: test3@ma-societe.fr
-Subject: Test mailing %%FIRSTNAME%% %%LASTNAME%%
+Subject: Test mailing {{firstname}} {{lastname}}
 Content-Type: multipart/alternative;
  boundary="------------080807050100070308060602"
 
@@ -19,7 +19,7 @@ Content-Transfer-Encoding: 8bit
 
 CADDIE
 
-*Bonjour*%%FIRSTNAME%% %%LASTNAME%%,
+*Bonjour*{{firstname}} {{lastname}},
 
 La réunion hebdomadaire du service marketing & communication abordera 
 les thèmes suivants :
@@ -38,7 +38,7 @@ _Merci de réunir toutes vos idées et votre inspiration___
 
 Cédric
 
-  Pour se désinscrire, _cliquez ici <%%UNSUBSCRIBE%%>_.
+  Pour se désinscrire, _cliquez ici <{{unsubscribe}}>_.
 
 
 --------------080807050100070308060602
@@ -484,8 +484,8 @@ ul
     <p class="MsoNormal"><b><span style="font-size: 10pt; font-family:
           &quot;Arial&quot;,&quot;sans-serif&quot;;">Bonjour</span></b><span
         style="font-size: 10pt; font-family:
-        &quot;Arial&quot;,&quot;sans-serif&quot;;"> %%FIRSTNAME%%
-        %%LASTNAME%%,<o:p></o:p></span></p>
+        &quot;Arial&quot;,&quot;sans-serif&quot;;"> {{firstname}}
+        {{lastname}},<o:p></o:p></span></p>
     <p class="MsoNormal"><span style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;"><o:p> </o:p></span></p>
     <p class="MsoNormal"><span style="font-size: 10pt; font-family:
@@ -539,7 +539,7 @@ ul
     <p class="MsoNormal">Cédric</p>
     <p class="MsoNormal"><o:p> </o:p></p>
     <p class="MsoNormal"><o:p> Pour se désinscrire, <u><a
-            href="%%UNSUBSCRIBE%%">cliquez ici</a></u>.<br>
+            href="{{unsubscribe}}">cliquez ici</a></u>.<br>
       </o:p></p>
     <img src="cid:part2.03020206.03060504@cm-unittest.net" alt=""
       width="1" border="0" height="1">

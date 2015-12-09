@@ -8,7 +8,7 @@ From: =?UTF-8?B?Q8OpZHJpYyBSSUNBUkQ=?= <ricard@ma-societe.fr>
 User-Agent: Mozilla/5.0 (Windows; U; Windows NT 6.1; fr; rv:1.9.2.13) Gecko/20101207 Thunderbird/3.1.7
 MIME-Version: 1.0
 To: test3@ma-societe.fr
-Subject: Test mailing %%FIRSTNAME%% %%LASTNAME%%
+Subject: Test mailing {{firstname}} {{lastname}}
 Content-Type: multipart/alternative;
  boundary="------------080807050100070308060602"
 
@@ -19,26 +19,26 @@ Content-Transfer-Encoding: 8bit
 
 CADDIE
 
-*Bonjour*%%FIRSTNAME%% %%LASTNAME%%,
+*Bonjour*{{firstname}} {{lastname}},
 
-La réunion hebdomadaire du service marketing & communication abordera 
-les thèmes suivants :
+La rï¿½union hebdomadaire du service marketing & communication abordera 
+les thï¿½mes suivants :
 
--Refonte de la page d’accueil du site Internet ;
+-Refonte de la page dï¿½accueil du site Internet ;
 
 -Illustrations du site Internet ;
 
--Création d’une rubrique « Pourquoi devenir revendeurs » ;
+-Crï¿½ation dï¿½une rubrique ï¿½ Pourquoi devenir revendeurs ï¿½ ;
 
 -Refonte de la plaquette commerciale ;
 
 -Objectifs de la semaine.
 
-_Merci de réunir toutes vos idées et votre inspiration___
+_Merci de rï¿½unir toutes vos idï¿½es et votre inspiration___
 
-Cédric
+Cï¿½dric
 
-  Pour se désinscrire, _cliquez ici <%%UNSUBSCRIBE%%>_.
+  Pour se dï¿½sinscrire, _cliquez ici <{{unsubscribe}}>_.
 
 
 --------------080807050100070308060602
@@ -484,62 +484,62 @@ ul
     <p class="MsoNormal"><b><span style="font-size: 10pt; font-family:
           &quot;Arial&quot;,&quot;sans-serif&quot;;">Bonjour</span></b><span
         style="font-size: 10pt; font-family:
-        &quot;Arial&quot;,&quot;sans-serif&quot;;"> %%FIRSTNAME%%
-        %%LASTNAME%%,<o:p></o:p></span></p>
+        &quot;Arial&quot;,&quot;sans-serif&quot;;"> {{firstname}}
+        {{lastname}},<o:p></o:p></span></p>
     <p class="MsoNormal"><span style="font-size: 10pt; font-family:
-        &quot;Arial&quot;,&quot;sans-serif&quot;;"><o:p> </o:p></span></p>
+        &quot;Arial&quot;,&quot;sans-serif&quot;;"><o:p>ï¿½</o:p></span></p>
     <p class="MsoNormal"><span style="font-size: 10pt; font-family:
-        &quot;Arial&quot;,&quot;sans-serif&quot;;">La réunion
+        &quot;Arial&quot;,&quot;sans-serif&quot;;">La rï¿½union
         hebdomadaire du service marketing &amp; communication abordera
-        les thèmes suivants :<o:p></o:p></span></p>
+        les thï¿½mes suivantsï¿½:<o:p></o:p></span></p>
     <p class="MsoNormal"><span style="font-size: 10pt; font-family:
-        &quot;Arial&quot;,&quot;sans-serif&quot;;"><o:p> </o:p></span></p>
+        &quot;Arial&quot;,&quot;sans-serif&quot;;"><o:p>ï¿½</o:p></span></p>
     <p class="MsoNormal" style="margin-left: 36pt; text-indent: -18pt;"><!--[if !supportLists]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;"><span style="">-<span
-            style="font: 7pt &quot;Times New Roman&quot;;">       </span></span></span><!--[endif]--><span
+            style="font: 7pt &quot;Times New Roman&quot;;">ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ </span></span></span><!--[endif]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;">Refonte de la page
-        d’accueil du site Internet ;<o:p></o:p></span></p>
+        dï¿½accueil du site Internetï¿½;<o:p></o:p></span></p>
     <p class="MsoNormal" style="margin-left: 36pt; text-indent: -18pt;"><!--[if !supportLists]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;"><span style="">-<span
-            style="font: 7pt &quot;Times New Roman&quot;;">       </span></span></span><!--[endif]--><span
+            style="font: 7pt &quot;Times New Roman&quot;;">ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ </span></span></span><!--[endif]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;">Illustrations du site
-        Internet ;<o:p></o:p></span></p>
+        Internetï¿½;<o:p></o:p></span></p>
     <p class="MsoNormal" style="margin-left: 36pt; text-indent: -18pt;"><!--[if !supportLists]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;"><span style="">-<span
-            style="font: 7pt &quot;Times New Roman&quot;;">       </span></span></span><!--[endif]--><span
+            style="font: 7pt &quot;Times New Roman&quot;;">ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ </span></span></span><!--[endif]--><span
         style="font-size: 10pt; font-family:
-        &quot;Arial&quot;,&quot;sans-serif&quot;;">Création d’une
-        rubrique « Pourquoi devenir revendeurs » ;<o:p></o:p></span></p>
+        &quot;Arial&quot;,&quot;sans-serif&quot;;">Crï¿½ation dï¿½une
+        rubrique ï¿½ï¿½Pourquoi devenir revendeursï¿½ï¿½ï¿½;<o:p></o:p></span></p>
     <p class="MsoNormal" style="margin-left: 36pt; text-indent: -18pt;"><!--[if !supportLists]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;"><span style="">-<span
-            style="font: 7pt &quot;Times New Roman&quot;;">       </span></span></span><!--[endif]--><span
+            style="font: 7pt &quot;Times New Roman&quot;;">ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ </span></span></span><!--[endif]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;">Refonte de la
-        plaquette commerciale ;<o:p></o:p></span></p>
+        plaquette commercialeï¿½;<o:p></o:p></span></p>
     <p class="MsoNormal" style="margin-left: 36pt; text-indent: -18pt;"><!--[if !supportLists]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;"><span style="">-<span
-            style="font: 7pt &quot;Times New Roman&quot;;">       </span></span></span><!--[endif]--><span
+            style="font: 7pt &quot;Times New Roman&quot;;">ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½ </span></span></span><!--[endif]--><span
         style="font-size: 10pt; font-family:
         &quot;Arial&quot;,&quot;sans-serif&quot;;">Objectifs de la
         semaine.<o:p></o:p></span></p>
     <p class="MsoNormal"><span style="font-size: 10pt; font-family:
-        &quot;Arial&quot;,&quot;sans-serif&quot;;"><o:p> </o:p></span></p>
+        &quot;Arial&quot;,&quot;sans-serif&quot;;"><o:p>ï¿½</o:p></span></p>
     <p class="MsoNormal"><u><span style="font-size: 10pt; font-family:
-          &quot;Arial&quot;,&quot;sans-serif&quot;;">Merci de réunir
-          toutes vos idées et votre inspiration</span></u><u><span
+          &quot;Arial&quot;,&quot;sans-serif&quot;;">Merci de rï¿½unir
+          toutes vos idï¿½es et votre inspiration</span></u><u><span
           style="font-size: 12pt;"><o:p></o:p></span></u></p>
-    <p class="MsoNormal"><o:p> </o:p></p>
-    <p class="MsoNormal">Cédric</p>
-    <p class="MsoNormal"><o:p> </o:p></p>
-    <p class="MsoNormal"><o:p> Pour se désinscrire, <u><a
-            href="%%UNSUBSCRIBE%%">cliquez ici</a></u>.<br>
+    <p class="MsoNormal"><o:p>ï¿½</o:p></p>
+    <p class="MsoNormal">Cï¿½dric</p>
+    <p class="MsoNormal"><o:p>ï¿½</o:p></p>
+    <p class="MsoNormal"><o:p>ï¿½Pour se dï¿½sinscrire, <u><a
+            href="{{unsubscribe}}">cliquez ici</a></u>.<br>
       </o:p></p>
     <img src="cid:part2.03020206.03060504@ma-societe.fr" alt=""
       width="1" border="0" height="1">
