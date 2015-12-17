@@ -117,12 +117,14 @@ class MailingManager(Singleton):
         t0 = time.time()
         count = 0
         try:
+            db = get_db()
 
             for mailing in Mailing.find(mailing_filter):
                     if mailing.status == MAILING_STATUS.READY:
-                        mailing.status = MAILING_STATUS.RUNNING
-                        mailing.start_time = datetime.utcnow()
-                        mailing.save()
+                        db.mailing.update({'_id': mailing.id}, {'$set': {
+                            'status': MAILING_STATUS.RUNNING,
+                            'start_time': datetime.utcnow(),
+                        }})
                     # print "total_recipient: %d  / mailing_queue_max_size: %d / temp_queue_count: %d / rcpt_count: %d"\
                     # % (mailing.total_recipient, mailing_queue_max_size, temp_queue_count, rcpt_count)
                     nb_max = max(100, (mailing.total_pending or 0)
