@@ -170,7 +170,7 @@ class MailingSender(pb.Referenceable):
             # d = self.mailing_manager.callRemote('get_recipients', max_recipients)
             d = getAllPages(self.mailing_manager, 'get_recipients', max_recipients)
             d.addCallbacks(self.cb_get_recipients, self.eb_get_recipients, callbackArgs=[t0])
-            self.is_connected = True
+            return d
         except pb.DeadReferenceError:
             self.log.info( "MailingManager not connected. Can't get new recipients. Waiting..." )
             self.is_connected = False
@@ -178,6 +178,7 @@ class MailingSender(pb.Referenceable):
             self.log.exception("Unknown exception in check_for_new_recipients()")
 
     def cb_get_recipients(self, data_list, t0):
+        self.is_connected = True
         try:
             recipients = pickle.loads(''.join(data_list))
             self.log.debug("Received %d new recipients from Manager in %.1fs.", len(recipients), time.time() - t0)
@@ -207,7 +208,7 @@ class MailingSender(pb.Referenceable):
                     c += 1
                     #print r['id'], '-->', r['recipient']
                 except Exception, ex:
-                    print ex
+                    # print ex
                     self.log.warn("Recipient '%s' was ignored due to Exception: %s", r['email'], ex)
                     # should we inform the master ? it may be not necessary because it means that it is currently already handled
                     # and so, an update will be sent soon or late.
@@ -252,12 +253,13 @@ class MailingSender(pb.Referenceable):
             self.log.info("Requesting content for mailing [%d]", mailing_id)
             d = getAllPages(self.mailing_manager, "get_mailing", mailing_id)
             d.addCallbacks(self.cb_get_mailing, self.eb_get_mailing)
-            self.is_connected = True
+            return d
         except pb.DeadReferenceError:
             self.log.info( "MailingManager not connected. Can't get mailing bodies. Waiting..." )
             self.is_connected = False
 
     def cb_get_mailing(self, data_list):
+        self.is_connected = True
         data = ''.join(data_list)
         mailing_id = None
         #noinspection PyBroadException
@@ -334,8 +336,7 @@ class MailingSender(pb.Referenceable):
                 self.log.debug("Sending reports for %d recipients", len(rcpts))
                 d = self.mailing_manager.callRemote('send_reports', rcpts)
                 d.addCallbacks(self.cb_send_reports, self.eb_send_reports, callbackArgs=[t0])
-
-            self.is_connected = True
+                return d
         except pb.DeadReferenceError:
             self.log.info("MailingManager not connected. Waiting...")
             self.is_connected = False
@@ -343,6 +344,7 @@ class MailingSender(pb.Referenceable):
             self.log.exception("Error in send_report_for_finished_recipients()")
 
     def cb_send_reports(self, recipient_ids, t0):
+        self.is_connected = True
         try:
             MailingRecipient.remove({'_id': {'$in': map(lambda id: ObjectId(id), recipient_ids)}})
             self.log.debug("Reports for %d recipients sent in %.1f s", len(recipient_ids), time.time() - t0)
@@ -363,8 +365,7 @@ class MailingSender(pb.Referenceable):
             if stats:
                 d = self.mailing_manager.callRemote('send_statistics', stats)
                 d.addCallbacks(self.cb_send_statistics, self.eb_send_statistics)
-
-            self.is_connected = True
+                return d
         except pb.DeadReferenceError:
             self.log.info("MailingManager not connected. Waiting...")
             self.is_connected = False
@@ -372,6 +373,7 @@ class MailingSender(pb.Referenceable):
             self.log.exception("Error in send_report_for_finished_recipients()")
 
     def cb_send_statistics(self, stats_ids):
+        self.is_connected = True
         # BUG possible loose of statistics if row updated since it was sent to master
         try:
             HourlyStats.update({'_id': {'$in': stats_ids}}, {'$set': {'up_to_date': True}}, multi=True)
@@ -618,7 +620,7 @@ class MailingSender(pb.Referenceable):
         """Delete all customized files from temp folder."""
         self.log.debug("Delete all customized files from temp folder.")
         import glob
-        for entry in glob.glob(os.path.join(settings.MAIL_TEMP, "cust_ml_*.rfc822")):
+        for entry in glob.glob(os.path.join(settings.MAIL_TEMP, "cust_ml_*.rfc822*")):
             #noinspection PyBroadException
             try:
                 os.remove(entry)
@@ -910,8 +912,7 @@ class RecipientManager(object):
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking).customize()
             self.temp_filename = path
-            # TODO close file in callbacks instead of closing it in sendmail module (may solve 'Too many open files')
-            self.factory.send_email(self.email_from, (self.email_to,), open(path, 'rt'))\
+            self.factory.send_email(self.email_from, (self.email_to,), path)\
                 .addCallbacks(self.onSuccess, self.onFailure)
 
         except OSError, ex:
