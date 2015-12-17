@@ -231,13 +231,13 @@ class RelayerMixin:
                                             
         n = self.factory.getNextEmail()
         if n:
-            fromEmail, toEmails, file, deferred = n
-            if not os.path.exists(file.name):
+            fromEmail, toEmails, filename, deferred = n
+            if not os.path.exists(filename):
                 # content is removed from disk as soon as the mailing is closed
                 raise smtp.SMTPClientError(471, "Sending aborted. Mailing stopped.")
             self.fromEmail = fromEmail
             self.toEmails = toEmails
-            self.file = file
+            self.mailFile = open(filename, 'rt')
             self.result = deferred
             #WHY? self.result.addBoth(self._removeDeferred)
             return str(self.fromEmail)
@@ -254,11 +254,11 @@ class RelayerMixin:
         """
         # Rewind the file in case part of it was read while attempting to
         # send the message.
-        if not os.path.exists(self.file.name):
+        if not os.path.exists(self.mailFile.name):
             # content is removed from disk as soon as the mailing is closed
             raise smtp.SMTPClientError(471, "Sending aborted. Mailing stopped.")
-        self.file.seek(0, 0)
-        return self.file
+        self.mailFile.seek(0, 0)
+        return self.mailFile
 
     def sendError(self, exc):
         """
@@ -277,6 +277,9 @@ class RelayerMixin:
             # SMTP Server is broken so just close the transport connection
             self.smtpState_disconnect(-1, None)
         
+        if hasattr(self, 'mailFile') and self.mailFile:
+            self.mailFile.close()
+            self.mailFile = None
         if hasattr(self, 'result'):
             self.result.errback(exc)
 
@@ -295,6 +298,9 @@ class RelayerMixin:
                           the response to each RCPT command.
         @param log: is the SMTP session log
         """
+        if hasattr(self, 'mailFile') and self.mailFile:
+            self.mailFile.close()
+            self.mailFile = None
         # Do not retry, the SMTP server acknowledged the request
         if code not in smtp.SUCCESS:
             errlog = []
@@ -315,7 +321,9 @@ class RelayerMixin:
         """We are no longer connected"""
         ## Taken from SMTPClient
         self.setTimeout(None)
-        self.mailFile = None
+        if hasattr(self, 'mailFile') and self.mailFile:
+            self.mailFile.close()
+            self.mailFile = None
         ## end of SMTPClient
         # Disconnected after a QUIT command -> normal case
         logging.getLogger("sendmail").debug("[%s] Disconnected from '%s'",
@@ -469,7 +477,7 @@ class SMTPRelayerFactory(protocol.ClientFactory):
             p.registerAuthenticator(smtp.PLAINAuthenticator(self._username))
         return p
 
-    def send_email(self, fromEmail, toEmails, file):
+    def send_email(self, fromEmail, toEmails, fileName):
         """
         @param fromEmail: The RFC 2821 address from which to send this
         message.
@@ -477,14 +485,14 @@ class SMTPRelayerFactory(protocol.ClientFactory):
         @param toEmails: A sequence of RFC 2821 addresses to which to
         send this message.
 
-        @param file: A file-like object containing the message to send.
+        @param fileName: A full path to the file containing the message to send.
 
         @param deferred: A Deferred to callback or errback when sending
         of this message completes.
         """
         deferred = defer.Deferred()
         self.log.debug("Add %s into factory (%s)", ', '.join(toEmails), self.targetDomain)
-        self.mails.insert(0, (Address(fromEmail), map(Address, toEmails), file, deferred))
+        self.mails.insert(0, (Address(fromEmail), map(Address, toEmails), fileName, deferred))
         return deferred
     
     def getNextEmail(self):

@@ -170,7 +170,7 @@ class MailingSender(pb.Referenceable):
             # d = self.mailing_manager.callRemote('get_recipients', max_recipients)
             d = getAllPages(self.mailing_manager, 'get_recipients', max_recipients)
             d.addCallbacks(self.cb_get_recipients, self.eb_get_recipients, callbackArgs=[t0])
-            self.is_connected = True
+            return d
         except pb.DeadReferenceError:
             self.log.info( "MailingManager not connected. Can't get new recipients. Waiting..." )
             self.is_connected = False
@@ -178,6 +178,7 @@ class MailingSender(pb.Referenceable):
             self.log.exception("Unknown exception in check_for_new_recipients()")
 
     def cb_get_recipients(self, data_list, t0):
+        self.is_connected = True
         try:
             recipients = pickle.loads(''.join(data_list))
             self.log.debug("Received %d new recipients from Manager in %.1fs.", len(recipients), time.time() - t0)
@@ -252,12 +253,13 @@ class MailingSender(pb.Referenceable):
             self.log.info("Requesting content for mailing [%d]", mailing_id)
             d = getAllPages(self.mailing_manager, "get_mailing", mailing_id)
             d.addCallbacks(self.cb_get_mailing, self.eb_get_mailing)
-            self.is_connected = True
+            return d
         except pb.DeadReferenceError:
             self.log.info( "MailingManager not connected. Can't get mailing bodies. Waiting..." )
             self.is_connected = False
 
     def cb_get_mailing(self, data_list):
+        self.is_connected = True
         data = ''.join(data_list)
         mailing_id = None
         #noinspection PyBroadException
@@ -333,8 +335,7 @@ class MailingSender(pb.Referenceable):
                 self.log.debug("Sending reports for %d recipients", len(rcpts))
                 d = self.mailing_manager.callRemote('send_reports', rcpts)
                 d.addCallbacks(self.cb_send_reports, self.eb_send_reports)
-
-            self.is_connected = True
+                return d
         except pb.DeadReferenceError:
             self.log.info("MailingManager not connected. Waiting...")
             self.is_connected = False
@@ -342,6 +343,8 @@ class MailingSender(pb.Referenceable):
             self.log.exception("Error in send_report_for_finished_recipients()")
 
     def cb_send_reports(self, recipient_ids):
+        self.log.debug("reports CB for %d recipients (%s...)", len(recipient_ids), recipient_ids[:5])
+        self.is_connected = True
         try:
             MailingRecipient.remove({'_id': {'$in': map(lambda id: ObjectId(id), recipient_ids)}})
         except Exception:
@@ -361,8 +364,7 @@ class MailingSender(pb.Referenceable):
             if stats:
                 d = self.mailing_manager.callRemote('send_statistics', stats)
                 d.addCallbacks(self.cb_send_statistics, self.eb_send_statistics)
-
-            self.is_connected = True
+                return d
         except pb.DeadReferenceError:
             self.log.info("MailingManager not connected. Waiting...")
             self.is_connected = False
@@ -370,6 +372,7 @@ class MailingSender(pb.Referenceable):
             self.log.exception("Error in send_report_for_finished_recipients()")
 
     def cb_send_statistics(self, stats_ids):
+        self.is_connected = True
         # BUG possible loose of statistics if row updated since it was sent to master
         try:
             HourlyStats.update({'_id': {'$in': stats_ids}}, {'$set': {'up_to_date': True}}, multi=True)
@@ -903,9 +906,7 @@ class RecipientManager(object):
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking).customize()
             self.temp_filename = path
-            fd = open(path, 'rt')
-            self.factory.send_email(self.email_from, (self.email_to,), fd)\
-                .addBoth(self._close_file, fd) \
+            self.factory.send_email(self.email_from, (self.email_to,), path)\
                 .addCallbacks(self.onSuccess, self.onFailure)
 
         except OSError, ex:
@@ -932,11 +933,6 @@ class RecipientManager(object):
             self.deferred.errback(Failure(ex))
 
         return self.deferred
-
-    def _close_file(self, data, fd):
-        self.log.debug("Closing file [%s] (status=%s)", fd.name, isinstance(data, Failure) and data.getErrorMessage() or "SUCCESS")
-        fd.close()
-        return data
 
     def onSuccess(self, data):
         logging.getLogger('mailing.out').info("MAILING [%d] SENT FROM <%s> TO <%s>", self.mailing_id,
