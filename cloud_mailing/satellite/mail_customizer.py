@@ -257,8 +257,9 @@ class MailCustomizer:
             if os.path.exists(fullpath):
                 self.log.debug("Customized email found here: %s", fullpath)
                 parser = email.parser.Parser()
-                header = parser.parse(file(fullpath, 'rt'), headersonly=True)
-                return header['Message-ID'], fullpath
+                with file(fullpath, 'rt') as fd:
+                    header = parser.parse(fd, headersonly=True)
+                    return header['Message-ID'], fullpath
             contact_data = self.make_contact_data_dict(self.recipient)
             message = self._parse_message()
             assert(isinstance(contact_data, dict))
@@ -369,10 +370,10 @@ class MailCustomizer:
             message['Message-ID'] = "<%s.%d@cm.%s>" % (self.recipient.id, self.recipient.mailing.id, self.recipient.domain_name )
             message['List-Unsubscribe'] = self.unsubscribe_url
 
-            fp = open(fullpath+'.tmp', 'wt')
-            generator = email.generator.Generator(fp, mangle_from_ = False)
-            generator.flatten(message)
-            fp.close()
+            with open(fullpath+'.tmp', 'wt') as fp:
+                generator = email.generator.Generator(fp, mangle_from_ = False)
+                generator.flatten(message)
+                fp.close()
             if os.path.exists(fullpath):
                 os.remove(fullpath)
             os.rename(fullpath+'.tmp', fullpath)
