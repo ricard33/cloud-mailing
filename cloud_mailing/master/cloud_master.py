@@ -432,7 +432,7 @@ class MailingManagerView(pb.Viewable):
         if ids_ok:
             MailingTempQueue.remove({'recipient._id': {'$in': map(lambda x: ObjectId(x), ids_ok)}})
 
-        log.debug("Stored %d reports from satellite in %.2f s", len(ids_ok), time.time() - t0)
+        log.debug("Stored %d reports from satellite [%s] in %.2f s", len(ids_ok), serial, time.time() - t0)
         return ids_ok, mailings_stats
 
     @staticmethod

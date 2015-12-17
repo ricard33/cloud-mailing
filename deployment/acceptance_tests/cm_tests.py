@@ -403,8 +403,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         cursor = ''
         while len(recipients_status) < len(recipients_list):   # the unknown domain will take more time...
             # self.assertEqual(mailing['status'], 'FILLING_RECIPIENTS')
-            self.assertLess(time.time() - t0, 30) # 30 seconds max
-            results = self.cloudMailingsRpc.get_recipients_status_updated_since(cursor)
+            self.assertLess(time.time() - t0, 60) # 60 seconds max
+            results = self.cloudMailingsRpc.get_recipients_status_updated_since(cursor, {'mailings': [mailing['id']]})
             cursor = results['cursor']
             recipients = results['recipients']
             for recipient in recipients:

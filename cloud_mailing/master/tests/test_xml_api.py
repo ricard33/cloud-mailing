@@ -94,7 +94,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
 
     def test_add_satellite(self):
         CloudClientFactory()
-        d = self.proxy().callRemote("cloud_add_satellite", 'CXM_OHTER', {'enabled': False})
+        d = self.proxy().callRemote("cloud_add_satellite", 'CXM_OTHER', {'enabled': False})
         d.addCallback(lambda x: self.proxy().callRemote("cloud_list_satellites"))
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
         d.addCallback(lambda x: self.assertEqual(len(x), 2) and x)

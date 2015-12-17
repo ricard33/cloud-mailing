@@ -31,6 +31,7 @@ MAILING_MAX_NEW_RECIPIENTS = 'mailing_max_new_recipients'
 # DEFAULT_CNX_PER_MX = 'default_connection_per_mx'
 # DEFAULT_MAX_MX = 'default_max_mx'
 DEFAULT_MAX_QUEUE_PER_DOMAIN = 'default_max_queue_per_domain'
+ZOMBIE_QUEUE_CHECKING = 'zombie_queue_checking'
 ZOMBIE_QUEUE_AGE_IN_SECONDS = 'zombie_queue_age_in_seconds'
 MAILING_QUEUE_ENDING_DELAY = 'mailing_queue_ending_delay'
 
@@ -46,6 +47,7 @@ default = {
     # DEFAULT_CNX_PER_MX: 1
     # DEFAULT_MAX_MX: 2
     DEFAULT_MAX_QUEUE_PER_DOMAIN: 1,  #2
+    ZOMBIE_QUEUE_CHECKING: False,
     ZOMBIE_QUEUE_AGE_IN_SECONDS: 300,
     MAILING_QUEUE_ENDING_DELAY: 0,
 }

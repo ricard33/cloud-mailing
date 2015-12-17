@@ -318,6 +318,7 @@ class MailingSender(pb.Referenceable):
             self.log.info( "MailingManager not connected (NULL). Can't send reports. Waiting..." )
             return
 
+        t0 = time.time()
         finished_recipients = MailingRecipient.search(in_progress=False, finished=True)
         try:
             rcpts = []
@@ -332,7 +333,7 @@ class MailingSender(pb.Referenceable):
             if rcpts:
                 self.log.debug("Sending reports for %d recipients", len(rcpts))
                 d = self.mailing_manager.callRemote('send_reports', rcpts)
-                d.addCallbacks(self.cb_send_reports, self.eb_send_reports)
+                d.addCallbacks(self.cb_send_reports, self.eb_send_reports, callbackArgs=[t0])
 
             self.is_connected = True
         except pb.DeadReferenceError:
@@ -341,9 +342,10 @@ class MailingSender(pb.Referenceable):
         except Exception:
             self.log.exception("Error in send_report_for_finished_recipients()")
 
-    def cb_send_reports(self, recipient_ids):
+    def cb_send_reports(self, recipient_ids, t0):
         try:
             MailingRecipient.remove({'_id': {'$in': map(lambda id: ObjectId(id), recipient_ids)}})
+            self.log.debug("Reports for %d recipients sent in %.1f s", len(recipient_ids), time.time() - t0)
         except Exception:
             self.log.exception("Error while removing finished recipients.")
         
@@ -648,6 +650,9 @@ class ActiveQueuesList(object):
     def removeActiveRelay(self, queue_id):
         def _remove(queue_id):
             self.log.debug("removeActiveRelay(%s)", queue_id)
+            queue = ActiveQueue.grab(queue_id)
+            age = datetime.utcnow() - queue.created
+            self.log.debug("Queue [%s:%s] was %d seconds old", queue.id, queue.domain_name, age.seconds)
             ActiveQueue.remove({'_id': queue_id})
             del self.managed[queue_id]
 
@@ -677,6 +682,8 @@ class ActiveQueuesList(object):
         return None
 
     def check_for_zombie_queues(self):
+        if not settings_vars.ZOMBIE_QUEUE_CHECKING:
+            return
         self.log.debug("Check for zombie queues")
         max_age = settings_vars.get_int(settings_vars.ZOMBIE_QUEUE_AGE_IN_SECONDS)
         ids = [queue.id for queue in ActiveQueue.find({'created': {'$lt': datetime.utcnow() - timedelta(seconds=max_age)}})]
@@ -903,6 +910,7 @@ class RecipientManager(object):
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking).customize()
             self.temp_filename = path
+            # TODO close file in callbacks instead of closing it in sendmail module (may solve 'Too many open files')
             self.factory.send_email(self.email_from, (self.email_to,), open(path, 'rt'))\
                 .addCallbacks(self.onSuccess, self.onFailure)
 
