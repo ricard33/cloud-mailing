@@ -684,7 +684,7 @@ class ActiveQueuesList(object):
         return None
 
     def check_for_zombie_queues(self):
-        if not settings_vars.ZOMBIE_QUEUE_CHECKING:
+        if not settings_vars.get_bool(settings_vars.ZOMBIE_QUEUE_CHECKING):
             return
         self.log.debug("Check for zombie queues")
         max_age = settings_vars.get_int(settings_vars.ZOMBIE_QUEUE_AGE_IN_SECONDS)
