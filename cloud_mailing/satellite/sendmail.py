@@ -277,8 +277,6 @@ class RelayerMixin:
             # SMTP Server is broken so just close the transport connection
             self.smtpState_disconnect(-1, None)
         
-        if hasattr(self, 'file') and self.file:
-            self.file.close()
         if hasattr(self, 'result'):
             self.result.errback(exc)
 
@@ -297,8 +295,6 @@ class RelayerMixin:
                           the response to each RCPT command.
         @param log: is the SMTP session log
         """
-        if hasattr(self, 'file') and self.file:
-            self.file.close()
         # Do not retry, the SMTP server acknowledged the request
         if code not in smtp.SUCCESS:
             errlog = []

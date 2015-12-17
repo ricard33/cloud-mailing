@@ -903,7 +903,9 @@ class RecipientManager(object):
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking).customize()
             self.temp_filename = path
-            self.factory.send_email(self.email_from, (self.email_to,), open(path, 'rt'))\
+            fd = open(path, 'rt')
+            self.factory.send_email(self.email_from, (self.email_to,), fd)\
+                .addBoth(self._close_file, fd) \
                 .addCallbacks(self.onSuccess, self.onFailure)
 
         except OSError, ex:
@@ -930,6 +932,11 @@ class RecipientManager(object):
             self.deferred.errback(Failure(ex))
 
         return self.deferred
+
+    def _close_file(self, data, fd):
+        self.log.debug("Closing file [%s] (status=%s)", fd.name, isinstance(data, Failure) and data.getErrorMessage() or "SUCCESS")
+        fd.close()
+        return data
 
     def onSuccess(self, data):
         logging.getLogger('mailing.out').info("MAILING [%d] SENT FROM <%s> TO <%s>", self.mailing_id,
