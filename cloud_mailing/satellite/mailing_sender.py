@@ -616,7 +616,7 @@ class MailingSender(pb.Referenceable):
         """Delete all customized files from temp folder."""
         self.log.debug("Delete all customized files from temp folder.")
         import glob
-        for entry in glob.glob(os.path.join(settings.MAIL_TEMP, "cust_ml_*.rfc822")):
+        for entry in glob.glob(os.path.join(settings.MAIL_TEMP, "cust_ml_*.rfc822*")):
             #noinspection PyBroadException
             try:
                 os.remove(entry)

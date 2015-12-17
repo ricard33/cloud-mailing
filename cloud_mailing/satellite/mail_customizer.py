@@ -82,7 +82,7 @@ class MailCustomizer:
     @staticmethod
     def make_patten_for_queue(queue_id):
         """compose the pattern that match with all filenames generated for this queue."""
-        return 'cust_ml_%d_rcpt_*.rfc822' % queue_id
+        return 'cust_ml_%d_rcpt_*.rfc822*' % queue_id
 
     def make_unsubscribe_url(self, base_url, contact_sha1):
         return "%(base_url)su/%(sha1)s" % {'base_url': base_url,
