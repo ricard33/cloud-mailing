@@ -580,7 +580,7 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
     def test_make_recipients_queryset(self):
         mq = self._fill_database(10)
         mailing = Mailing.find_one(MailingManager.make_mailings_queryset())
-        qs = MailingRecipient.find(MailingManager.make_recipients_queryset(mailing))
+        qs = MailingRecipient.find(MailingManager.make_recipients_queryset(mailing.id))
         self.assertEqual(10, qs.count())
 
     def test_make_recipients_queryset_on_greylisted_entries(self):
@@ -592,5 +592,5 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
                                                            'next_try': datetime.utcnow() + timedelta(hours=1),
                                                            'send_status': RECIPIENT_STATUS.WARNING}})
         mailing = Mailing.find_one(MailingManager.make_mailings_queryset())
-        qs = MailingRecipient.find(MailingManager.make_recipients_queryset(mailing))
+        qs = MailingRecipient.find(MailingManager.make_recipients_queryset(mailing.id))
         self.assertEqual(9, qs.count())

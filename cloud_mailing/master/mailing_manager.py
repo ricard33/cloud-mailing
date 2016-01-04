@@ -89,7 +89,7 @@ class MailingManager(Singleton):
         return filter
 
     @staticmethod
-    def make_recipients_queryset(mailing):
+    def make_recipients_queryset(mailing_id):
         filter = {
             '$and': [
                 {'$or': [{'next_try': {'$lte': datetime.utcnow()}},
@@ -98,20 +98,11 @@ class MailingManager(Singleton):
             ],
             'send_status': {'$in': (RECIPIENT_STATUS.READY,
                                     RECIPIENT_STATUS.WARNING), },
-            'mailing.$id': mailing.id,
+            'mailing.$id': mailing_id,
         }
-        # TODO Missing 'exclude' but it should be useless if 'in_progress' is well filled.
-        # queue = MailingRecipient.objects.filter(
-        #     Q(smtp_next_time__lte=datetime.utcnow()) | Q(smtp_next_time__isnull=True),
-        #     Q(in_progress=False) | Q(in_progress__isnull=True),
-        #     send_status__in=(RECIPIENT_STATUS.READY,
-        #                      RECIPIENT_STATUS.WARNING),Fill
-        #     mailing__in=mailings_qs,
-        # ).exclude(
-        #     id__in=MailingTempQueue.objects.values_list('recipient__id', flat=True)
-        # )
         return filter
 
+    @defer.inlineCallbacks
     def filling_mailing_queue(self, mailing_filter, rcpt_count, temp_queue_count, mailing_queue_max_size):
         self.log.debug("Starting filling mailing queue...")
         t0 = time.time()
@@ -120,43 +111,43 @@ class MailingManager(Singleton):
             db = get_db()
 
             for mailing in Mailing.find(mailing_filter):
-                    if mailing.status == MAILING_STATUS.READY:
-                        db.mailing.update({'_id': mailing.id}, {'$set': {
-                            'status': MAILING_STATUS.RUNNING,
-                            'start_time': datetime.utcnow(),
-                        }})
-                    # print "total_recipient: %d  / mailing_queue_max_size: %d / temp_queue_count: %d / rcpt_count: %d"\
-                    # % (mailing.total_recipient, mailing_queue_max_size, temp_queue_count, rcpt_count)
-                    nb_max = max(100, (mailing.total_pending or 0)
-                                 * (mailing_queue_max_size - temp_queue_count) / rcpt_count)
-                    # Quick starter for empty queue
-                    if temp_queue_count == 0:
-                        nb_max = min(1000, nb_max)
-                    elif temp_queue_count <= 1000:
-                        nb_max = min(10000, nb_max)
-                    # print "nb_max = %d" % nb_max
-                    rcpt_ids = []
-                    self.log.debug("Filling mailing queue: selecting max %d recipients from mailing [%d]", nb_max,
-                                   mailing.id)
-                    filter = MailingManager.make_recipients_queryset(mailing)
-                    t1 = time.time()
-                    selected_recipients = MailingRecipient.find(filter).sort('next_try').limit(nb_max)
-                    for rcpt in selected_recipients:
-                        MailingTempQueue.add_recipient(mailing=mailing, recipient=rcpt)
-                        rcpt_ids.append(rcpt.id)
-                        count += 1
-                        # if count % 100 == 0:
-                        #     print "Added %d..." % count
-                    self.log.debug("Filling mailing queue: selected %d recipients from mailing [%d] (in %.1f seconds)",
-                                   len(rcpt_ids), mailing.id, time.time() - t1)
-                    if rcpt_ids:
-                        n = 100
-                        for i in range(0, len(rcpt_ids), n):
-                            MailingRecipient.update({'_id': {'$in': rcpt_ids[i:i + n]}}, {'$set': {'in_progress': True}}, multi=True)
+                if mailing['status'] == MAILING_STATUS.READY:
+                    yield db.mailing.update({'_id': mailing['_id']}, {'$set': {
+                        'status': MAILING_STATUS.RUNNING,
+                        'start_time': datetime.utcnow(),
+                    }})
+                # print "total_recipient: %d  / mailing_queue_max_size: %d / temp_queue_count: %d / rcpt_count: %d"\
+                # % (mailing['total_recipient'], mailing_queue_max_size, temp_queue_count, rcpt_count)
+                nb_max = max(100, mailing.get('total_pending', 0)
+                             * (mailing_queue_max_size - temp_queue_count) / rcpt_count)
+                # Quick starter for empty queue
+                if temp_queue_count == 0:
+                    nb_max = min(1000, nb_max)
+                elif temp_queue_count <= 1000:
+                    nb_max = min(10000, nb_max)
+                # print "nb_max = %d" % nb_max
+                rcpt_ids = []
+                self.log.debug("Filling mailing queue: selecting max %d recipients from mailing [%d]", nb_max,
+                               mailing['_id'])
+                filter = MailingManager.make_recipients_queryset(mailing['_id'])
+                t1 = time.time()
+                selected_recipients = yield db.mailingrecipient.find(filter, sort='next_try', limit=nb_max)
+                for rcpt in selected_recipients:
+                    yield MailingTempQueue.add_recipient(db, mailing=mailing, recipient=rcpt)
+                    rcpt_ids.append(rcpt['_id'])
+                    count += 1
+                    # if count % 100 == 0:
+                    #     print "Added %d..." % count
+                self.log.debug("Filling mailing queue: selected %d recipients from mailing [%d] (in %.1f seconds)",
+                               len(rcpt_ids), mailing['_id'], time.time() - t1)
+                if rcpt_ids:
+                    n = 100
+                    for i in range(0, len(rcpt_ids), n):
+                        MailingRecipient.update({'_id': {'$in': rcpt_ids[i:i + n]}}, {'$set': {'in_progress': True}}, multi=True)
 
-                    # Ultimate check before to commit. Maybe mailing has changed its state
-                    # if Mailing.search(id=mailing.id, status=MAILING_STATUS.RUNNING).count() == 0:
-                    #     transaction.rollback()
+                # Ultimate check before to commit. Maybe mailing has changed its state
+                # if Mailing.search(id=mailing.id, status=MAILING_STATUS.RUNNING).count() == 0:
+                #     transaction.rollback()
 
             if count:
                 self.log.info("Mailing queue successfully filled %d recipients in %.1f seconds.", count,
@@ -235,7 +226,9 @@ class MailingManager(Singleton):
                         self.filling_queue_running = False
 
                     cp.check_point()
-                    return deferToThread(self.filling_mailing_queue, mailing_filter, rcpt_count, temp_queue_count,
+                    # return deferToThread(self.filling_mailing_queue, mailing_filter, rcpt_count, temp_queue_count,
+                    #                      mailing_queue_max_size).addBoth(lambda x: _release_lock())
+                    return self.filling_mailing_queue(mailing_filter, rcpt_count, temp_queue_count,
                                          mailing_queue_max_size).addBoth(lambda x: _release_lock())
 
         except:

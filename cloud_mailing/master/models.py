@@ -17,10 +17,12 @@
 
 import email
 import email.parser
-from datetime import datetime, timedelta
 import time
+from datetime import datetime, timedelta
 
+from bson import DBRef
 from mogo import Model, Field, EnumField, ReferenceField
+from twisted.internet import defer
 
 from ..common.email_tools import header_to_unicode
 from ..common.models import Sequence
@@ -317,15 +319,18 @@ class MailingTempQueue(Model):
     #     )
 
     @staticmethod
-    def add_recipient(mailing, recipient):
-        MailingTempQueue.create(mailing=mailing,
-                     mail_from=mailing.mail_from,
-                     sender_name=mailing.sender_name,
-                     recipient=recipient,
-                     email=recipient.email,
-                     domain_name=recipient.email.split('@', 1)[1],
-                     next_try=recipient.next_try,
-                     in_progress=False)
+    @defer.inlineCallbacks
+    def add_recipient(db, mailing, recipient):
+        yield db.mailingtempqueue.insert_one({
+            'mailing': DBRef('mailing', mailing['_id']),
+            'mail_from': mailing['mail_from'],
+            'sender_name': mailing['sender_name'],
+            'recipient': recipient,
+            'email': recipient['email'],
+            'domain_name': recipient['email'].split('@', 1)[1],
+            'next_try': recipient['next_try'],
+            'in_progress': False
+        })
 
 
 class MailingHourlyStats(Model):

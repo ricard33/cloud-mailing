@@ -16,38 +16,39 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 # coding=utf-8
-from StringIO import StringIO
-import inspect
-import logging
-import email
 import base64
-import email.mime
+import email
 import email.header
-import email.mime.text
+import email.mime
 import email.mime.multipart
-from datetime import datetime, timedelta
-import time
+import email.mime.text
+import inspect
 import os
-import xmlrpclib
 import re
-from bson import SON
-from mogo.connection import Connection
+import time
+import xmlrpclib
+from StringIO import StringIO
+from datetime import datetime, timedelta
 
 import pymongo
+from bson import SON, DBRef
+from mogo.connection import Connection
+from twisted.internet import defer
 from twisted.internet.threads import deferToThread
 from twisted.web import xmlrpc, resource, http, static
+
+from ..common.db_common import get_db
 from .api_common import log_cfg, log_security, log_api, pause_mailing, delete_mailing
 from .api_common import set_mailing_properties, start_mailing
-from .serializers import MailingSerializer
-
-from ..common import settings
-from .mailing_manager import MailingManager
-from ..common.html_tools import strip_tags
-from ..common.config_file import ConfigFile
-from ..common.xml_api_common import withRequest, doc_signature, BasicHttpAuthXMLRPC, XMLRPCDocGenerator, doc_hide
 from .cloud_master import make_customized_file_name
+from .mailing_manager import MailingManager
 from .models import CloudClient, Mailing, relay_status, MAILING_STATUS, MailingRecipient, RECIPIENT_STATUS, \
     MailingTempQueue, recipient_status, MailingHourlyStats
+from .serializers import MailingSerializer
+from ..common import settings
+from ..common.config_file import ConfigFile
+from ..common.html_tools import strip_tags
+from ..common.xml_api_common import withRequest, doc_signature, BasicHttpAuthXMLRPC, XMLRPCDocGenerator, doc_hide
 
 Fault = xmlrpclib.Fault
 Binary = xmlrpclib.Binary
@@ -317,7 +318,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         l = []
 
-        for mailing in Mailing._get_collection().find(mailings_filter, projection=MailingSerializer.fields):
+        for mailing in Mailing._get_collection().find(mailings_filter, projection=MailingSerializer.fields,
+                                                      sort=[('_id', pymongo.ASCENDING), ]):
             mailing['id'] = mailing.pop('_id')
             ensure_no_null_values(mailing)
             #print mailing
@@ -524,8 +526,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         return recipients_filter
 
     def _update_pending_recipients(self, result):
-        recipients, mailing, total_added = result
-        Mailing.update({'_id': mailing.id}, {'$inc': {
+        recipients, mailing_id, total_added = result
+        Mailing.update({'_id': mailing_id}, {'$inc': {
             'total_recipient': total_added,
             'total_pending': total_added
         }})
@@ -592,7 +594,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         log_api.debug("XMLRPC: add_recipients(%d, %s%s)", mailing_id, repr(recipients[:3])[:-1],
                       len(recipients) > 3 and "... count=%d]" % len(recipients) or "]")
-        return deferToThread(self._add_recipients, request, mailing_id, recipients)\
+        # return deferToThread(self._add_recipients, request, mailing_id, recipients)\
+        #     .addCallback(self._update_pending_recipients)
+        return self._add_recipients(request, mailing_id, recipients) \
             .addCallback(self._update_pending_recipients)
 
     @withRequest
@@ -606,25 +610,31 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         """
         log_api.debug("XMLRPC: send_test(%d, %s%s)", mailing_id, repr(recipients[:3])[:-1],
                       len(recipients) > 3 and "... count=%d]" % len(recipients) or "]")
+
+        @defer.inlineCallbacks
         def _send_test(request, mailing_id, recipients):
-            rcpts = self._add_recipients(request, mailing_id, recipients, immediate=True)
+            rcpts = yield self._add_recipients(request, mailing_id, recipients, immediate=True)
 
             from .cloud_master import mailing_portal
             if mailing_portal:
                 mailing_master = mailing_portal.realm
                 for avatar in mailing_master.avatars.values():
                     avatar.force_check_for_new_recipients()
+            defer.returnValue(rcpts)
 
-            return rcpts
-        return deferToThread(_send_test, request, mailing_id, recipients)\
+        # return deferToThread(_send_test, request, mailing_id, recipients)\
+        #     .addCallback(self._update_pending_recipients)
+        return _send_test(request, mailing_id, recipients) \
             .addCallback(self._update_pending_recipients)
 
+    @defer.inlineCallbacks
     def _add_recipients(self, request, mailing_id, recipients, immediate=False):
-        mailing = Mailing.grab(mailing_id)
+        db = get_db()
+        mailing = yield db.mailing.find_one({'_id': mailing_id}, fields=['status', 'mail_from', 'sender_name'])
         if not mailing:
             request.setResponseCode(http.NOT_FOUND)
             raise Fault(http.NOT_FOUND, 'Mailing not found!')
-        if mailing.status == MAILING_STATUS.FINISHED:
+        if mailing['status'] == MAILING_STATUS.FINISHED:
             log_api.warning("Trying to add recipients into finished mailing. Refused!")
             raise Fault(http.BAD_REQUEST, "Mailing finished!")
 
@@ -666,19 +676,21 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 tracking_id = str(uuid.uuid4())
             else:
                 tracking_id = fields.pop('tracking_id')
-            rcpt = MailingRecipient.create(mailing=mailing,
-                                           tracking_id=tracking_id,
-                                           contact=fields,
-                                           email=fields['email'],
-                                           send_status=RECIPIENT_STATUS.READY,
-                                           next_try=immediate and datetime(2000, 1, 1) or datetime.utcnow(),
-            )
+            rcpt = {
+                'mailing': DBRef('mailing', mailing['_id']),
+                'tracking_id': tracking_id,
+                'contact': fields,
+                'email': fields['email'],
+                'send_status': RECIPIENT_STATUS.READY,
+                'next_try': immediate and datetime(2000, 1, 1) or datetime.utcnow(),
+            }
+            insert_result = yield db.mailingrecipient.insert_one(rcpt)
+            rcpt['_id'] = insert_result.inserted_id
             total_added += 1
             # TODO add recipient to temp queue if there is some place
             if immediate:
-                MailingTempQueue.add_recipient(mailing=rcpt.mailing, recipient=rcpt)
-                rcpt.in_progress = True
-                rcpt.save()
+                yield MailingTempQueue.add_recipient(db, mailing=mailing, recipient=rcpt)
+                yield db.mailingrecipient.update_one({'_id': rcpt['_id']}, {'$set': {'in_progress': True}})
 
             c['id'] = tracking_id
             c['tracking_id'] = tracking_id
@@ -686,7 +698,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         manager = MailingManager.getInstance()
         manager.forceToCheck()
-        return result, mailing, total_added
+        defer.returnValue((result, mailing['_id'], total_added))
 
     @withRequest
     @doc_signature('<i>array</i> recipient_ids', '<i>array</i> recipients status')
@@ -1007,8 +1019,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         log_api.debug("XMLRPC: force_purge_empty_mailings()")
         manager = MailingManager.getInstance()
         assert(isinstance(manager, MailingManager))
-        manager.update_status_for_finished_mailings()
-        return 0
+        return manager.update_status_for_finished_mailings()\
+            .addCallback(lambda x: 0)  # force to return a '0' instead of 'None'
 
     @withRequest
     @doc_hide
