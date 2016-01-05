@@ -66,6 +66,8 @@ CONFIG = {'ip': test_config.get("TARGET", "ip", "127.0.0.1"),
 OFFLINE_TESTS=True
 PURGE_OLD_MAILING = test_config.getboolean("SETTINGS", "purge_old_tests", True)
 
+TOTAL_RECIPIENTS_FOR_BIG_MAILING = test_config.getint("SETTINGS", "total_recipients_for_big_mailing", 100000)
+
 domains = (
     'free.fr',
     'orange.fr',
@@ -259,7 +261,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         """
         Test that should be run locally only, due to memory check.
         """
-        start_memory = self._get_memory_for_process('runmailings')
+        start_memory = self._get_memory_for_process('cm_satellite')
+        self.assertIsNotNone(start_memory, "Can't get memory information")
         max_delta_memory = 50000
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'medium_sized.rfc822')
@@ -290,7 +293,7 @@ class CloudMailingsTestCase(unittest.TestCase):
             self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(2)
             mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
-            memory = self._get_memory_for_process('runmailings')
+            memory = self._get_memory_for_process('cm_satellite')
             self.assertLess(memory, start_memory + max_delta_memory)
         self.cloudMailingsRpc.mailing_manager_force_check()
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
@@ -332,8 +335,8 @@ class CloudMailingsTestCase(unittest.TestCase):
                                                                   'dont_close_if_empty': True})
         self.cloudMailingsRpc.start_mailing(mailing_id)
 
-        TOTAL_RECIPIENTS = 1000000
-        recipients_list = self._generate_recipients_list(TOTAL_RECIPIENTS)
+        total_recipients = TOTAL_RECIPIENTS_FOR_BIG_MAILING
+        recipients_list = self._generate_recipients_list(total_recipients)
         rcpts_list2 = []
 
         def _add_recipients(rcpts_list):
@@ -348,13 +351,13 @@ class CloudMailingsTestCase(unittest.TestCase):
             if len(rcpts_list2) >= 1000:
                 _add_recipients(rcpts_list2)
                 count += len(rcpts_list2)
-                print("Sent %d recipients over %d" % (count, TOTAL_RECIPIENTS))
+                print("Sent %d recipients over %d" % (count, total_recipients))
                 rcpts_list2 = []
         if len(rcpts_list2):
             _add_recipients(rcpts_list2)
 
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
-        self.assertEqual(mailing['total_recipient'], TOTAL_RECIPIENTS)
+        self.assertEqual(mailing['total_recipient'], total_recipients)
 
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'dont_close_if_empty': False})
 
@@ -374,9 +377,9 @@ class CloudMailingsTestCase(unittest.TestCase):
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         #self.assertEqual(mailing['status'], 'FINISHED')
         #print repr(mailing)
-        self.assertEqual(mailing['total_recipient'], TOTAL_RECIPIENTS)
+        self.assertEqual(mailing['total_recipient'], total_recipients)
         self.assertEqual(mailing['total_pending'], 0)
-        self.assertEqual(mailing['total_sent'], TOTAL_RECIPIENTS)
+        self.assertEqual(mailing['total_sent'], total_recipients)
         self.assertEqual(mailing['total_error'], 0)
 
     def test_get_full_reports_with_email_content(self):
