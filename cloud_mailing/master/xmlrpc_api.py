@@ -702,10 +702,17 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
     @withRequest
     @doc_signature('<i>array</i> recipient_ids', '<i>array</i> recipients status')
-    def xmlrpc_get_recipients_status(self, request, recipient_ids):
+    def xmlrpc_get_recipients_status(self, request, recipient_ids, options=None):
         """
         Returns the status of a list of recipients.
         :param recipient_ids: Array of recipient ids
+        :param options: a struct containing options for retrieved data. Available keys are:
+            - with_contact_data: by default, contact data are send back with report because there are useless. But if
+                    this option is set to True, contact data are returned.
+            - with_customized_content: if the customized email has been kept (mailing option), this flag allow to
+                    retrieve this content along with the recipient report
+            - delete_customized_content: if the customizer content exists and has been retrieved, setting this flag to
+                    True ask CloudMailing to delete it and free disk space.
         :return: Returns an array of recipient status.
             A status is a structure containing following keys:
                 - id: recipient id
@@ -721,32 +728,54 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - try_count: Tentatives count
                 - in_progress: This recipient is currently handled by a Satellite
                 - cloud_client: Sender Satellite which did (or is doing) the sent
+                - contact: OPTIONAL: contact data given at recipient creation. Used for email customization
+                - customized_content: OPTIONAL: if mailing is configured to backup customized emails, this field contains
+                    the email in RFC822 format. Warning: due to high volume data, email content can be retrieved only
+                    once. Its content is destroyed just after this call.
         """
-        log_api.debug("XMLRPC: get_recipients_status(%s)", repr(recipient_ids))
+        log_api.debug("XMLRPC: get_recipients_status(%s, options=%s)", repr(recipient_ids), repr(options))
+        options = options or {}
         def _get_recipients_status(recipient_ids):
             all_status = []
             for recipient in MailingRecipient.find({'tracking_id': {'$in': recipient_ids}}):
-                status = self.make_recipient_status_structure(recipient)
+                status = self.make_recipient_status_structure(recipient, options.get('with_contact_data'))
+                if options.get('with_customized_content'):
+                    status['customized_content'] = self.get_customized_content(recipient.mailing.id, recipient.id,
+                                                                               options.get('delete_customized_content'))
                 all_status.append(status)
             return all_status
         return deferToThread(_get_recipients_status, recipient_ids)
 
-    def make_recipient_status_structure(self, recipient):
+    def make_recipient_status_structure(self, recipient, with_contact_data=False):
         status = recipient.copy()
         status.pop('_id')
         status['id'] = status.pop('tracking_id')
         status.pop('mailing', None)
-        status.pop('contact', None)
+        if not with_contact_data:
+            status.pop('contact', None)
         status.pop('send_status', None)
         status['status'] = recipient.send_status
         ensure_no_null_values(status)
         return status
 
+    def get_customized_content(self, mailing_id, recipient_id, delete_customized_content=False):
+        data = None
+        file_name = make_customized_file_name(mailing_id, recipient_id)
+        fullpath = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, file_name)
+        if os.path.exists(fullpath):
+            with file(fullpath, 'rt') as f:
+                data = f.read()
+                f.close()
+            if delete_customized_content:
+                log_api.debug("Removing customized content: %s", fullpath)
+                os.remove(fullpath)
+        return data
+
     @withRequest
     @doc_signature('<i>string</i> cursor', '<i>string array</i> filters',
                    '<i>int</i> max_results=1000',
                    '<i>struct</i> recipients status')
-    def xmlrpc_get_recipients_status_updated_since(self, request, cursor=None, filters=None, max_results=1000):
+    def xmlrpc_get_recipients_status_updated_since(self, request, cursor=None, filters=None, max_results=1000, options=None):
         """
         Returns the status of all recipients that changed since the last call. The function will limit to 1000
         results and returns the cursor allowing to get next entries on the next call. 'cursor' is an obscure string and
@@ -762,6 +791,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             - sender_domains: list of domain names. Only recipients contained in mailings whose sender are from these
                       domains are selected.
         :param max_results: How many results do you want ? There is a default and hard limit to 1000 results.
+        :param options: a struct containing options for retrieved data. Available keys are:
+            - with_contact_data: by default, contact data are send back with report because there are useless. But if
+                    this option is set to True, contact data are returned.
+            - with_customized_content: if the customized email has been kept (mailing option), this flag allow to
+                    retrieve this content along with the recipient report
+            - delete_customized_content: if the customizer content exists and has been retrieved, setting this flag to
+                    True ask CloudMailing to delete it and free disk space.
         :return: Returns a struct with following fields:
             - cursor: the cursor string
             - recipients: an array of recipient status.
@@ -779,16 +815,18 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - try_count: Tentatives count
                 - in_progress: This recipient is currently handled by a Satellite
                 - cloud_client: Sender Satellite which did (or is doing) the sent
+                - contact: OPTIONAL: contact data given at recipient creation. Used for email customization
                 - customized_content: OPTIONAL: if mailing is configured to backup customized emails, this field contains
                     the email in RFC822 format. Warning: due to high volume data, email content can be retrieved only
                     once. Its content is destroyed just after this call.
         """
-        log_api.debug("XMLRPC: get_recipients_status_updated_since(%s, %s, %d)", cursor, repr(filters), max_results)
+        log_api.debug("XMLRPC: get_recipients_status_updated_since(%s, %s, %d, %s)", cursor, repr(filters), max_results, options)
+        options = options or {}
 
         def _count_recipient_for_a_date(from_date, recipients_filter):
-            filter = recipients_filter.copy()
-            filter['modified'] = from_date
-            new_count = MailingRecipient.find(filter).count()
+            _filter = recipients_filter.copy()
+            _filter['modified'] = from_date
+            new_count = MailingRecipient.find(_filter).count()
             return new_count
 
         def _get_recipients_status(cursor, filters, max_results):
@@ -829,16 +867,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                     count = new_count
             all_status = []
             for recipient in MailingRecipient.find(recipients_filter).sort('modified').skip(offset).limit(max_results):
-                status = self.make_recipient_status_structure(recipient)
+                status = self.make_recipient_status_structure(recipient, options.get('with_contact_data'))
                 # print status
-                file_name = make_customized_file_name(recipient.mailing.id, recipient.id)
-                fullpath = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, file_name)
-                if os.path.exists(fullpath):
-                    with file(fullpath, 'rt') as f:
-                        status['customized_content'] = f.read()
-                        f.close()
-                    log_api.debug("Removing customized content: %s", fullpath)
-                    os.remove(fullpath)
+                if options.get('with_customized_content'):
+                    status['customized_content'] = self.get_customized_content(recipient.mailing.id, recipient.id,
+                                                                               options.get('delete_customized_content'))
 
                 all_status.append(status)
             if all_status:
@@ -869,6 +902,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             log_api.debug("XMLRPC: get_recipients_status_updated_since returned %d results (count=%d, offset=%d)", len(all_status), count, offset)
             # print r
             return r
+
         return deferToThread(_get_recipients_status, cursor, filters, max_results)
 
     @withRequest

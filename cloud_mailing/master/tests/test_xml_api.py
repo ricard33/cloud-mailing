@@ -517,7 +517,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         ids = []
         ids.append(RecipientFactory(mailing=mailing, email="1@2.fr").tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="2@2.fr").tracking_id)
-        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr").tracking_id)
+        ids.append(RecipientFactory(mailing=mailing, email="3@2.fr", contact={'first_name': 'John', 'last_name': 'DOE'}).tracking_id)
         ids.append(RecipientFactory(mailing=mailing, email="4@2.fr").tracking_id)
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
@@ -525,6 +525,15 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status", map(str, ids)))
         d.addCallback(lambda x: self.assertEqual(len(x), 4) and x)
         d.addCallback(lambda x: self.assertEqual(x[0]['status'], RECIPIENT_STATUS.READY) and x)
+
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status", [str(ids[2])]))
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+        d.addCallback(lambda x: self.assertNotIn('contact', x[0]) and x)
+
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status", [str(ids[2])], {'with_contact_data': True}))
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+        d.addCallback(lambda x: self.assertIn('contact', x[0]) and x)
+        d.addCallback(lambda x: self.assertEqual(x[0]['contact']['first_name'], 'John') and x)
 
         return d
 
@@ -582,6 +591,27 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
 
         d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {'mailings': [mailing.id]}))
         d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 4) and x)
+
+        return d
+
+    def test_get_recipients_status_updated_since_with_options(self):
+        """
+        Tests recipient status retrieve
+        """
+        mailing = MailingFactory(owner_guid='the_owner')
+        rcpt1 = RecipientFactory(mailing=mailing, email="1@2.fr", send_status=RECIPIENT_STATUS.FINISHED,
+                                 contact={'first_name': 'John', 'last_name': 'DOE'})
+        d = self.proxy().callRemote("list_mailings", "my-company.biz")
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {}, 1000, {}))
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 1) and x['recipients'])
+        d.addCallback(lambda x: self.assertNotIn('contact', x[0]) and x)
+
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status_updated_since", None, {}, 1000, {'with_contact_data': True}))
+        d.addCallback(lambda x: self.assertEqual(len(x['recipients']), 1) and x['recipients'])
+        d.addCallback(lambda x: self.assertIn('contact', x[0]) and x)
+        d.addCallback(lambda x: self.assertEqual(x[0]['contact']['first_name'], 'John') and x)
 
         return d
 
