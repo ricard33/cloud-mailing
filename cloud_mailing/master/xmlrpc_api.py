@@ -522,7 +522,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         apply_mailing_filter(filters, 'owners', (list, tuple), 'an array of strings', 'owner_guid', '$in')
         apply_mailing_filter(filters, 'sender_domains', (list, tuple), 'an array of strings', 'domain_name', '$in')
         recipients_filter.update(
-            apply_filter(filters, 'mailings', (list, tuple), 'an array of mailing_ids', 'mailing.$id', '$in'))
+            apply_filter(filters, 'mailings', (list, tuple), 'an array of mailing_ids', 'mailing.$id', '$in', qs_mapper=lambda x: map(int, x)))
         return recipients_filter
 
     def _update_pending_recipients(self, result):
