@@ -350,7 +350,7 @@ class MailingManagerView(pb.Viewable):
 
             #noinspection PyUnboundLocalVariable
             # print "results: %d items" % len(result)
-            #self.log.debug("get_recipients(%d) finished with %d recipients", _count, len(result))
+            self.log.debug("get_recipients(%d) finished with %d recipients", _count, len(recipients))
             return recipients, t0
 
         def show_time_at_end(t0, rcpts_count, data_len):
@@ -358,6 +358,7 @@ class MailingManagerView(pb.Viewable):
 
         def send_results(result, _collector, _show_time_at_end):
             recipients, t0 = result
+            self.log.debug("get_recipients(): starting sending %d recipients at %.2f s" % (len(recipients), time.time() - t0))
             data = pickle.dumps(recipients)
             util.StringPager(_collector, data, 262144, _show_time_at_end, t0, len(recipients), len(data))
 
@@ -548,6 +549,7 @@ class CloudRealm:
         """
         if self.__check_for_orphan_recipients:
             self.log.debug("Already checking for orphan recipients!")
+            return defer.succeed(None)
         self.__check_for_orphan_recipients = True
         from models import MailingTempQueue
         d = None

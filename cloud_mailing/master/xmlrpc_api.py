@@ -629,6 +629,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
     @defer.inlineCallbacks
     def _add_recipients(self, request, mailing_id, recipients, immediate=False):
+        t0 = time.time()
         db = get_db()
         mailing = yield db.mailing.find_one({'_id': mailing_id}, fields=['status', 'mail_from', 'sender_name'])
         if not mailing:
@@ -641,6 +642,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         result = []
         total_added = 0
         for index, fields in enumerate(recipients):
+            t1 = time.time()
             c = {}
             if 'email' not in fields:
                 c['error'] = "'email' field is mandatory but not found in recipient [%d]" % index
@@ -695,9 +697,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             c['id'] = tracking_id
             c['tracking_id'] = tracking_id
             result.append(c)
+            log_api.debug("add_recipients() recipient %s added to mailing [%d] in %.1f seconds",
+                          fields['email'], mailing_id, time.time() - t1)
+
 
         manager = MailingManager.getInstance()
         manager.forceToCheck()
+        log_api.debug("add_recipients() %d recipients added in %.1f seconds", total_added, time.time() - t0)
         defer.returnValue((result, mailing['_id'], total_added))
 
     @withRequest
