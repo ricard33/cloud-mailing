@@ -24,7 +24,7 @@ import time
 from datetime import datetime, timedelta
 
 import pymongo
-from bson import ObjectId
+from bson import ObjectId, DBRef
 from twisted.cred import checkers, portal, error as cred_error, credentials
 from twisted.internet import reactor, defer
 from twisted.internet.threads import deferToThreadPool
@@ -35,7 +35,7 @@ from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
 
 from .models import CloudClient, MailingRecipient, Mailing
-from .models import RECIPIENT_STATUS, MAILING_STATUS, MailingTempQueue
+from .models import RECIPIENT_STATUS, MAILING_STATUS
 from ..common import settings
 from ..common.db_common import get_db
 
@@ -251,7 +251,8 @@ class MailingManagerView(pb.Viewable):
         #self.log.debug("get_mailing(%d) finished", mailing_id)
 
     @staticmethod
-    def _make_get_recipients_queryset(count, satellite_group, domain_affinity, log):
+    @defer.inlineCallbacks
+    def _make_get_recipients_queryset(db, count, satellite_group, domain_affinity, log):
         """Return a pymongo cursor"""
         included = []
         excluded = []
@@ -285,7 +286,8 @@ class MailingManagerView(pb.Viewable):
         }
         # if satellite_group:
         # mailing_filter['satellite_group'] = satellite_group
-        mailing_ids = map(lambda x: x['_id'], Mailing._get_collection().find(mailing_filter, projection=[]))
+        _list_of_mailings = yield db.mailing.find(mailing_filter, fields=[])
+        mailing_ids = map(lambda x: x['_id'], _list_of_mailings)
         query = {
             '$and': [{'$or': [{'in_progress': False}, {'in_progress': {'$exists': False}}]},
                      {'$or': [{'client': False}, {'client': {'$exists': False}}]},
@@ -308,17 +310,22 @@ class MailingManagerView(pb.Viewable):
             query['domain_name'] = {'$in': included}
         elif excluded:
             query['domain_name'] = {'$nin': excluded}
-        queue = MailingTempQueue.find(query).sort('next_try').limit(count)
-        return queue
+        # yield db.mailingtempqueue.find(query, sort='next_try', limit=count)
+        results = yield db.mailingtempqueue.find(query, sort='next_try', limit=count)
+        defer.returnValue(results)
 
+    @defer.inlineCallbacks
     def view_get_recipients(self, client, collector, count=1):
         """
         Returns an array of recipients. Each recipient is described by a dictionary with all its attributes.
         """
         # print "view_get_recipients"
+        @defer.inlineCallbacks
         def _send_new_recipients(_count):
             self.log.debug("get_recipients(count=%d)", count)
             t0 = time.time()
+
+            db = get_db()
 
             self.cloud_client = CloudClient.grab(self.cloud_client.id)  # reload object
             if not self.cloud_client.enabled:
@@ -326,44 +333,42 @@ class MailingManagerView(pb.Viewable):
                 raise pb.Error("Not allowed!")
             domain_affinity = self.cloud_client.domain_affinity
             satellite_group = self.cloud_client.group
-            queue = MailingManagerView._make_get_recipients_queryset(_count, satellite_group, domain_affinity, self.log)
+            queue = yield MailingManagerView._make_get_recipients_queryset(db, _count, satellite_group, domain_affinity, self.log)
 
             recipients = []
             for item in queue:
                 try:
-                    assert(isinstance(item, MailingTempQueue))
+                    # assert(isinstance(item, MailingTempQueue))
                     # mailing = item.mailing
                     # assert(isinstance(mailing, Mailing))
-                    rcpt = dict(item.recipient)
+                    rcpt = item['recipient']
                     for key in ('cloud_client', 'in_progress', 'read_time'):
                         rcpt.pop(key, None)
-                    rcpt['sender_name'] = item.sender_name
-                    rcpt['mail_from'] = item.mail_from
+                    rcpt['sender_name'] = item['sender_name']
+                    rcpt['mail_from'] = item['mail_from']
                     rcpt['mailing'] = item['mailing'].id
-                    item.client = self.cloud_client
-                    item.date_delegated = datetime.utcnow()
-                    item.in_progress = True
-                    item.save()
+                    update_item = {'$set': {
+                        'client': DBRef('cloudclient', self.cloud_client.id),
+                        'date_delegated': datetime.utcnow(),
+                        'in_progress': True,
+                    }}
+                    r = yield db.mailingtempqueue.update_one({'_id': item['_id']}, update_item)
                     recipients.append(rcpt)
                 except:
-                    self.log.exception("Error preparing recipient '%s'...", item.email)
+                    self.log.exception("Error preparing recipient '%s'...", item['email'])
 
             #noinspection PyUnboundLocalVariable
             # print "results: %d items" % len(result)
             self.log.debug("get_recipients(%d) finished with %d recipients", _count, len(recipients))
-            return recipients, t0
+            defer.returnValue((recipients, t0))
 
         def show_time_at_end(t0, rcpts_count, data_len):
             self.log.debug("get_recipients(): Sent %d recipients (%.2f Kb) in %.2f s" % (rcpts_count, data_len / 1024.0, time.time() - t0))
 
-        def send_results(result, _collector, _show_time_at_end):
-            recipients, t0 = result
-            self.log.debug("get_recipients(): starting sending %d recipients at %.2f s" % (len(recipients), time.time() - t0))
-            data = pickle.dumps(recipients)
-            util.StringPager(_collector, data, 262144, _show_time_at_end, t0, len(recipients), len(data))
-
-        return deferToThreadPool(reactor, get_new_recipients_threadpool(),
-                                 _send_new_recipients, count).addCallback(send_results, collector, show_time_at_end)
+        recipients, t0 = yield _send_new_recipients(count)
+        self.log.debug("get_recipients(): starting sending %d recipients at %.2f s" % (len(recipients), time.time() - t0))
+        data = pickle.dumps(recipients)
+        util.StringPager(collector, data, 262144, show_time_at_end, t0, len(recipients), len(data))
 
     @staticmethod
     def _store_reports(_recipients, serial, log):
