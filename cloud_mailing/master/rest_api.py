@@ -174,7 +174,11 @@ class ListMailingsApi(ListModelMixin, ApiResource):
 
     def render_GET(self, request):
         self.log_call(request)
-        return self.list(request)
+        self.list(request)\
+            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.finish()) \
+            .addErrback(self._on_error, request)
+        return server.NOT_DONE_YET
 
 
 class MailingApi(RetrieveModelMixin, ApiResource):
@@ -195,7 +199,11 @@ class MailingApi(RetrieveModelMixin, ApiResource):
 
     def render_GET(self, request):
         self.log_call(request)
-        return self.retrieve(request)
+        self.retrieve(request)\
+            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.finish()) \
+            .addErrback(self._on_error, request)
+        return server.NOT_DONE_YET
 
     def render_PATCH(self, request):
         return self.render_POST(request)
@@ -235,8 +243,12 @@ class MailingApi(RetrieveModelMixin, ApiResource):
 
         # finally returns the modified mailing
         self.write_headers(request)
-        result = serializers.MailingSerializer().get(mailing.id)
-        return json.dumps(result, default=json_default)
+        serializers.MailingSerializer().get(mailing.id)\
+            .addCallback(lambda result: json.dumps(result, default=json_default)) \
+            .addCallback(lambda data: request.write(data)) \
+            .addCallback(lambda data: request.finish()) \
+            .addErrback(self._on_error, request)
+        return server.NOT_DONE_YET
 
     def render_DELETE(self, request):
         self.log_call(request)
@@ -267,7 +279,11 @@ class ListRecipientsApi(ListModelMixin, ApiResource):
         kwargs = {}
         if self.mailing_id is not None:
             kwargs['mailing.$id'] = self.mailing_id
-        return self.list(request, **kwargs)
+        self.list(request, **kwargs)\
+            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.finish()) \
+            .addErrback(self._on_error, request)
+        return server.NOT_DONE_YET
 
 
 class RecipientApi(RetrieveModelMixin, ApiResource):
@@ -280,7 +296,11 @@ class RecipientApi(RetrieveModelMixin, ApiResource):
 
     def render_GET(self, request):
         self.log_call(request)
-        return self.retrieve(request)
+        self.retrieve(request) \
+            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.finish()) \
+            .addErrback(self._on_error, request)
+        return server.NOT_DONE_YET
 
 
 class SatelliteApi(ApiResource):

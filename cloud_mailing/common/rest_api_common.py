@@ -5,6 +5,7 @@ from datetime import datetime
 from xmlrpclib import Fault
 
 import pymongo
+from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web import error as web_error, server
 
@@ -201,6 +202,7 @@ class ListModelMixin(object):
     """
     List a queryset.
     """
+    @defer.inlineCallbacks
     def list(self, request, *args, **kwargs):
         _args = regroup_args(request.args)
         _args.update(kwargs)
@@ -211,8 +213,8 @@ class ListModelMixin(object):
         offset = _args.pop('.offset', 0)
         sort = make_sort_filter(_args.pop('.sort', None))
         try:
-            result = serializer.find(_args, skip = offset, limit = limit, sort=sort)
-            return json.dumps(result, default=json_default)
+            result = yield serializer.find(_args, skip = offset, limit = limit, sort=sort)
+            defer.returnValue(json.dumps(result, default=json_default))
         except ValueError, ex:
             raise web_error.Error(http_status.HTTP_406_NOT_ACCEPTABLE, ex.message)
 
@@ -221,12 +223,13 @@ class RetrieveModelMixin(object):
     """
     Retrieve a model instance.
     """
+    @defer.inlineCallbacks
     def retrieve(self, request, *args, **kwargs):
         try:
             _filter = request.args.get('.filter', 'default')
             serializer = self.get_serializer_class()(fields_filter=_filter)
             self.write_headers(request)
-            result = serializer.get(self.get_object_id())
-            return json.dumps(result, default=json_default)
+            result = yield serializer.get(self.get_object_id())
+            defer.returnValue(json.dumps(result, default=json_default))
         except NotFound:
             raise web_error.Error(http_status.HTTP_404_NOT_FOUND)

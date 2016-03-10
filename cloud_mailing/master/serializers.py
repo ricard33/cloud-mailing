@@ -20,6 +20,9 @@ import json
 import logging
 import re
 
+from twisted.internet import defer
+
+from cloud_mailing.common.db_common import get_db
 from ..common import settings
 from ..common.email_tools import header_to_unicode
 from ..common.rest_api_common import NotFound
@@ -40,6 +43,7 @@ class Serializer(object):
     id_field = '_id'
 
     def __init__(self, instance=None, data=None, fields_filter=None, many=False):
+        self._collection = self.model_class and get_db()[self.model_class._get_name()] or None
         self._instance = instance
         self._data = data
         self._fields_filter = fields_filter or []
@@ -82,26 +86,31 @@ class Serializer(object):
         """
         return {self.id_field: object_id}
 
+    @defer.inlineCallbacks
     def get(self, id):
         try:
-            obj = self.model_class._get_collection().find(self.make_get_filter(id), projection=self.filtered_fields)[0]
+            obj = yield self._collection.find_one(self.make_get_filter(id), fields=self.filtered_fields)
             if obj:
                 obj['id'] = obj.pop('_id')
                 if 'subject' not in obj and 'subject' in self.filtered_fields and 'header' in obj:
                     parser = email.parser.HeaderParser()
                     msg = parser.parsestr(obj['header'])
                     obj['subject'] = header_to_unicode(msg.get('Subject'))
-                return obj
+                defer.returnValue(obj)
             raise NotFound
         except IndexError:
             raise NotFound
+        except:
+            log.exception("Error in Serializer.get()")
+            raise
 
+    @defer.inlineCallbacks
     def find(self, spec, skip=0, limit=settings.PAGE_SIZE, sort=None):
         _filter = self.make_filter(spec)
-        cursor = self.model_class._get_collection().find(_filter, projection=self.filtered_fields, skip=skip, limit=limit,
+        results = yield self._collection.find(_filter, fields=self.filtered_fields, skip=skip, limit=limit,
                                                          sort=sort)
         items = []
-        for obj in cursor:
+        for obj in results:
             if '_id' in  obj:
                 obj['id'] = obj.pop('_id')
             items.append(obj)
@@ -109,8 +118,8 @@ class Serializer(object):
             'items': items
         }
         if '.total' in self._fields_filter:
-            response['total'] = cursor.count()
-        return response
+            response['total'] = yield self._collection.count(_filter)
+        defer.returnValue(response)
 
 
 class UserSerializer(Serializer):
@@ -201,11 +210,12 @@ class RecipientSerializer(Serializer):
     def filtered_fields(self):
         return list(set(self.fields) & (set(self._fields_filter) | {'tracking_id'}))
 
+    @defer.inlineCallbacks
     def get(self, id):
-        recipient = super(RecipientSerializer, self).get(id)
+        recipient = yield super(RecipientSerializer, self).get(id)
         recipient.pop('id')
         recipient['id'] = recipient.pop('tracking_id')
-        return recipient
+        defer.returnValue(recipient)
 
     def make_filter(self, args):
         _args = args.copy()
