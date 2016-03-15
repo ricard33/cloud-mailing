@@ -53,7 +53,7 @@ class CommonTestMixin(object):
 class DatabaseMixin(object):
     def connect_to_db(self):
         self.db_conn = connect(settings.TEST_DATABASE)
-        self.db_pool = Db.getInstance(settings.TEST_DATABASE, pool_size=1)
+        self.db = Db.getInstance(settings.TEST_DATABASE, pool_size=1).db
         # self.db_conn.drop_database(settings.TEST_DATABASE)
         db = Connection.instance().get_database()
         for col in db.collection_names(include_system_collections=False):

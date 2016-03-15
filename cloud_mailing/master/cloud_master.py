@@ -25,11 +25,13 @@ from datetime import datetime, timedelta
 
 import pymongo
 from bson import ObjectId, DBRef
+from twisted import Version
 from twisted.cred import checkers, portal, error as cred_error, credentials
 from twisted.internet import reactor, defer
 from twisted.internet.threads import deferToThreadPool
 from twisted.python import failure
 from twisted.python import threadpool
+from twisted.python.deprecate import deprecated
 from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
@@ -179,13 +181,20 @@ class ClientAvatar(pb.Avatar):
         return defer.DeferredList(l, fireOnOneErrback=True, consumeErrors=True)\
                     .addCallback(_check_recipients_cb)
 
-    def force_check_for_new_recipients(self):
-        for c in self.clients:
-            c.callRemote("force_check_for_new_recipients")
-
     def retrieve_customized_content(self, mailing_id, recipient_id):
         if self.clients:
             return getAllPages(self.clients[0], 'get_customized_content', mailing_id, recipient_id)
+        return defer.fail()
+
+    def prepare_getting_recipients(self, count):
+        """
+        Ask satellite for how many recipients he want, and for its paging collector.
+        The satellite should return a tuple (wanted_count, collector)
+        :param count: proposed recipients count
+        :return: a deferred
+        """
+        if self.clients:
+            return self.clients[0].callRemote('prepare_getting_recipients', count)
         return defer.fail()
 
     def perspective_get_mailing_manager(self, satellite_config=None):
@@ -250,125 +259,15 @@ class MailingManagerView(pb.Viewable):
             util.StringPager(collector, pickle.dumps({'id': mailing_id, 'delete': True}))
         #self.log.debug("get_mailing(%d) finished", mailing_id)
 
-    @staticmethod
-    @defer.inlineCallbacks
-    def _make_get_recipients_queryset(db, count, satellite_group, domain_affinity, log):
-        """Return a pymongo cursor"""
-        included = []
-        excluded = []
-        try:
-            affinity = domain_affinity and eval(domain_affinity)
-            if affinity:
-                if not isinstance(affinity, dict):
-                    raise TypeError, "Affinity is not a dictionary!"
-                domain_re = re.compile('^(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?$', re.IGNORECASE)
-                #                print self.cloud_client.serial, repr(affinity)
-                if affinity.get('enabled', True):
-                    for domain, value in affinity.items():
-                        if domain == 'enabled':
-                            continue
-                        if not domain_re.match(domain):
-                            log.warning("Wrong domain name format for '%s'. Ignored...", domain)
-                            continue
-                        if value:
-                            # print self.cloud_client.serial, "include", domain
-                            included.append(domain)
-                        else:
-                            # print self.cloud_client.serial, "exclude", domain
-                            excluded.append(domain)
-        except Exception:
-            log.exception("Error in Affinity format")
-        mailing_filter = {
-            'status': {'$in': [MAILING_STATUS.FILLING_RECIPIENTS,  # For Test recipients
-                               MAILING_STATUS.READY,  # For Test recipients
-                               MAILING_STATUS.RUNNING]},
-            'satellite_group': satellite_group
-        }
-        # if satellite_group:
-        # mailing_filter['satellite_group'] = satellite_group
-        _list_of_mailings = yield db.mailing.find(mailing_filter, fields=[])
-        mailing_ids = map(lambda x: x['_id'], _list_of_mailings)
-        query = {
-            '$and': [{'$or': [{'in_progress': False}, {'in_progress': {'$exists': False}}]},
-                     {'$or': [{'client': False}, {'client': {'$exists': False}}]},
-            ],
-            'mailing.$id': {'$in': mailing_ids},
-        }
-        # MailingTempQueue.objects.filter(Q(in_progress=False) | Q(in_progress__isnull=True),
-        #                                     client__isnull=True,
-        #                                     mailing__status__in=(
-        #                                         MAILING_STATUS.FILLING_RECIPIENTS, # For Test recipients
-        #                                         MAILING_STATUS.READY, # For Test recipients
-        #                                         MAILING_STATUS.RUNNING,
-        #                                     ))
-        if included and excluded:
-            query['$and'].extend([
-                {'domain_name': {'$in': included}},
-                {'domain_name': {'$nin': excluded}},
-            ])
-        elif included:
-            query['domain_name'] = {'$in': included}
-        elif excluded:
-            query['domain_name'] = {'$nin': excluded}
-        # yield db.mailingtempqueue.find(query, sort='next_try', limit=count)
-        results = yield db.mailingtempqueue.find(query, sort='next_try', limit=count)
-        defer.returnValue(results)
-
-    @defer.inlineCallbacks
+    @deprecated(Version('Twisted', 0, 5, 2),
+                "twisted.internet.defer.inlineCallbacks")
     def view_get_recipients(self, client, collector, count=1):
         """
         Returns an array of recipients. Each recipient is described by a dictionary with all its attributes.
         """
-        # print "view_get_recipients"
-        @defer.inlineCallbacks
-        def _send_new_recipients(_count):
-            self.log.debug("get_recipients(count=%d)", count)
-            t0 = time.time()
-
-            db = get_db()
-
-            self.cloud_client = CloudClient.grab(self.cloud_client.id)  # reload object
-            if not self.cloud_client.enabled:
-                self.log.warn("get_recipients() refused for disabled client [%s]", self.cloud_client.serial)
-                raise pb.Error("Not allowed!")
-            domain_affinity = self.cloud_client.domain_affinity
-            satellite_group = self.cloud_client.group
-            queue = yield MailingManagerView._make_get_recipients_queryset(db, _count, satellite_group, domain_affinity, self.log)
-
-            recipients = []
-            for item in queue:
-                try:
-                    # assert(isinstance(item, MailingTempQueue))
-                    # mailing = item.mailing
-                    # assert(isinstance(mailing, Mailing))
-                    rcpt = item['recipient']
-                    for key in ('cloud_client', 'in_progress', 'read_time'):
-                        rcpt.pop(key, None)
-                    rcpt['sender_name'] = item['sender_name']
-                    rcpt['mail_from'] = item['mail_from']
-                    rcpt['mailing'] = item['mailing'].id
-                    update_item = {'$set': {
-                        'client': DBRef('cloudclient', self.cloud_client.id),
-                        'date_delegated': datetime.utcnow(),
-                        'in_progress': True,
-                    }}
-                    r = yield db.mailingtempqueue.update_one({'_id': item['_id']}, update_item)
-                    recipients.append(rcpt)
-                except:
-                    self.log.exception("Error preparing recipient '%s'...", item['email'])
-
-            #noinspection PyUnboundLocalVariable
-            # print "results: %d items" % len(result)
-            self.log.debug("get_recipients(%d) finished with %d recipients", _count, len(recipients))
-            defer.returnValue((recipients, t0))
-
-        def show_time_at_end(t0, rcpts_count, data_len):
-            self.log.debug("get_recipients(): Sent %d recipients (%.2f Kb) in %.2f s" % (rcpts_count, data_len / 1024.0, time.time() - t0))
-
-        recipients, t0 = yield _send_new_recipients(count)
-        self.log.debug("get_recipients(): starting sending %d recipients at %.2f s" % (len(recipients), time.time() - t0))
-        data = pickle.dumps(recipients)
-        util.StringPager(collector, data, 262144, show_time_at_end, t0, len(recipients), len(data))
+        self.log.warning("get_recipients(count=%d) DEPRECATED", count)
+        data = pickle.dumps([])
+        util.StringPager(collector, data)
 
     @staticmethod
     def _store_reports(_recipients, serial, log):
@@ -660,6 +559,7 @@ class CloudRealm:
                 yield defer.DeferredList(dl)
         except Exception, ex:
             self.log.exception("Error in retrieve_customized_content()")
+
 
 class CmCloudCredentialsChecker:
     implements(checkers.ICredentialsChecker)

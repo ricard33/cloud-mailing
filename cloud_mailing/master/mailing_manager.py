@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 from twisted.internet import task, defer
 from twisted.internet.threads import deferToThread
 
+from cloud_mailing.master.send_recipients_task import SendRecipientsTask
 from ..common.db_common import get_db
 from . import settings_vars
 from .models import Mailing, MailingTempQueue, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
@@ -61,6 +62,7 @@ class MailingManager(Singleton):
                                     (self.check_orphan_recipients, 60, False),
                                     (self.purge_temp_queue_from_finished_and_paused_mailings, 60, False),
                                     (self.retrieve_customized_content, 60, False),
+                                    (SendRecipientsTask.getInstance().run, 10, False)
                                     ):
             t = task.LoopingCall(fn)
             t.start(delay, now=startNow)

@@ -19,7 +19,7 @@
 from datetime import datetime
 import uuid
 import factory
-from ..models import Mailing, MailingRecipient, CloudClient, RECIPIENT_STATUS
+from ..models import Mailing, MailingRecipient, CloudClient, RECIPIENT_STATUS, MailingTempQueue
 
 
 class CloudClientFactory(factory.MogoFactory):
@@ -55,3 +55,17 @@ class RecipientFactory(factory.MogoFactory):
     #                                                                        RECIPIENT_STATUS.GENERAL_ERROR,
     #                                                                        RECIPIENT_STATUS.FINISHED) or None)
     report_ready = None
+
+
+class MailingTempQueueFactory(factory.MogoFactory):
+    class Meta:
+        model = MailingTempQueue
+
+    mailing = factory.SubFactory(MailingFactory)
+    mail_from = "sender@my-company.biz"
+    email = "firstname.lastname@domain.com"
+    recipient = factory.LazyAttribute(lambda x: MailingRecipient(mailing=x.mailing, email=x.email))
+    domain_name = factory.LazyAttribute(lambda x: x.email.split('@')[1])
+    next_try = datetime.utcnow()
+    in_progress = True
+    client = factory.SubFactory(CloudClientFactory)

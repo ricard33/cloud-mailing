@@ -121,7 +121,6 @@ class MailingSender(pb.Referenceable):
         for fn, delay, startNow in ((self.check_mailing, self.timer_delay, False),
                                     (self.remove_closed_mailings, 33600, False),
                                     (self.relay_manager.check_for_zombie_queues, 60, False),
-                                    (self.check_for_new_recipients, 10, False),
                                     (self.check_for_missing_mailing, 10, False),
                                     (self.send_report_for_finished_recipients, 20, False),
                                     (self.send_statistics, 30, False),
@@ -152,30 +151,6 @@ class MailingSender(pb.Referenceable):
         self.mailing_manager .notifyOnDisconnect(self.disconnected)
         if not self.tasks:
             self.start_tasks()
-
-    def check_for_new_recipients(self):
-        self.log.debug("check_for_new_recipients()")
-        t0 = time.time()
-        if not self.mailing_manager:
-            self.log.info("MailingManager not connected (NULL). Can't get new recipients. Waiting...")
-            return
-
-        temp_queue_count = MailingRecipient.search(finished=False).count()
-        mailing_queue_min_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MIN_SIZE)
-        if temp_queue_count >= mailing_queue_min_size:
-            return
-
-        try:
-            max_recipients = min(settings_vars.get_int(settings_vars.MAILING_MAX_NEW_RECIPIENTS), 1000)
-            # d = self.mailing_manager.callRemote('get_recipients', max_recipients)
-            d = getAllPages(self.mailing_manager, 'get_recipients', max_recipients)
-            d.addCallbacks(self.cb_get_recipients, self.eb_get_recipients, callbackArgs=[t0])
-            return d
-        except pb.DeadReferenceError:
-            self.log.info( "MailingManager not connected. Can't get new recipients. Waiting..." )
-            self.is_connected = False
-        except Exception:
-            self.log.exception("Unknown exception in check_for_new_recipients()")
 
     def cb_get_recipients(self, data_list, t0):
         self.is_connected = True

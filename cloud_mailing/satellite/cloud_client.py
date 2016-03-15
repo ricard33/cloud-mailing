@@ -22,6 +22,8 @@
 import hmac
 import logging
 import os
+
+import time
 from bson import ObjectId
 import errno
 
@@ -30,6 +32,9 @@ from twisted.internet import reactor, defer
 from twisted.python import failure
 from twisted.cred import credentials
 from twisted.internet.protocol import ReconnectingClientFactory
+from twisted.spread.util import CallbackPageCollector
+
+from cloud_mailing.satellite import settings_vars
 from .mail_customizer import MailCustomizer
 from .models import MailingRecipient, Mailing
 from ..common.config_file import ConfigFile
@@ -115,14 +120,6 @@ class CloudClient(pb.Referenceable):
             recipients_dict[recipient['_id']] = recipient
         return recipients_dict
 
-    def remote_force_check_for_new_recipients(self):
-        """
-        Signals to a Satellite that Master has emails that have to be handled immediately.
-        So Satellites should ask for new recipients after they have received this call.
-        This is useful for test emails.
-        """
-        self.mailing_queue.check_for_new_recipients()
-
     def remote_get_all_configuration(self):
         """
         Asks the satellite for its configuration.
@@ -156,6 +153,29 @@ class CloudClient(pb.Referenceable):
         else:
             log.error("Requested customized content not found: %s", fullpath)
             return defer.fail(IOError(errno.ENOENT, "No such file or directory", fullpath))
+
+    def remote_prepare_getting_recipients(self, count):
+        """
+        Ask satellite for how many recipients he want, and for its paging collector.
+        The satellite should return a tuple (wanted_count, collector)
+        :param count: proposed recipients count
+        :return: a deferred
+        """
+        log.debug("prepare_getting_recipients(%d)", count)
+
+        temp_queue_count = MailingRecipient.search(finished=False).count()
+        mailing_queue_min_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MIN_SIZE)
+
+        if temp_queue_count >= mailing_queue_min_size:
+            log.debug("Queue is full. Cancelling recipients request.")
+            return 0, None
+        count = min(count, mailing_queue_min_size - temp_queue_count)
+        log.debug("Requesting %d recipients...", count)
+
+        d = defer.Deferred()
+        collector = CallbackPageCollector(d.callback)
+        d.addCallbacks(self.mailing_queue.cb_get_recipients, self.mailing_queue.eb_get_recipients, callbackArgs=[time.time()])
+        return count, collector
 
 
 class CloudClientFactory(pb.PBClientFactory, ReconnectingClientFactory):

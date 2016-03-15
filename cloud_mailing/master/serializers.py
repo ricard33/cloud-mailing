@@ -100,6 +100,8 @@ class Serializer(object):
             raise NotFound
         except IndexError:
             raise NotFound
+        except defer._DefGen_Return:
+            raise
         except:
             log.exception("Error in Serializer.get()")
             raise

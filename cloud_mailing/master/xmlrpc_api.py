@@ -615,11 +615,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         def _send_test(request, mailing_id, recipients):
             rcpts = yield self._add_recipients(request, mailing_id, recipients, immediate=True)
 
-            from .cloud_master import mailing_portal
-            if mailing_portal:
-                mailing_master = mailing_portal.realm
-                for avatar in mailing_master.avatars.values():
-                    avatar.force_check_for_new_recipients()
+            # TODO Maybe we should push new recipients immediately to satellites
             defer.returnValue(rcpts)
 
         # return deferToThread(_send_test, request, mailing_id, recipients)\
@@ -1046,11 +1042,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         assert(isinstance(manager, MailingManager))
         manager.forceToCheck()
 
-        from .cloud_master import mailing_portal
-        if mailing_portal:
-            mailing_master = mailing_portal.realm
-            for avatar in mailing_master.avatars.values():
-                avatar.force_check_for_new_recipients()
         return 0
 
     @doc_hide

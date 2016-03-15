@@ -17,6 +17,7 @@
 
 import unittest
 from bson import ObjectId
+from twisted.spread.util import CallbackPageCollector
 from twisted.trial.unittest import TestCase
 from twisted.test import proto_helpers
 from twisted.internet import reactor, defer, task
@@ -24,6 +25,7 @@ from twisted.spread import pb, util
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.cred import credentials
 
+from cloud_mailing.master.send_recipients_task import SendRecipientsTask
 from ...common import settings
 from ...common.html_tools import strip_tags
 from ...common.unittest_mixins import DatabaseMixin
@@ -75,6 +77,7 @@ class CloudClient(pb.Referenceable):
         self.recipients = []
         self.connectedDeferred = connectedDeferred
         self.disconnectedDeferred = disconnectedDeferred
+        self.get_recipients_deferred = defer.Deferred()
 
     def remote_is_ready(self):
         return True
@@ -127,6 +130,25 @@ class CloudClient(pb.Referenceable):
             recipient['mailing'] = recipient['mailing'].id
             recipients_dict[recipient['_id']] = recipient
         return recipients_dict
+
+    def remote_prepare_getting_recipients(self, count):
+        """
+        Ask satellite for how many recipients he want, and for its paging collector.
+        The satellite should return a tuple (wanted_count, collector)
+        :param count: proposed recipients count
+        :return: a deferred
+        """
+        d = defer.Deferred()
+        collector = CallbackPageCollector(d.callback)
+        d.addCallbacks(self.cb_get_recipients, None, callbackArgs=[time.time()])
+        return count, collector
+
+    def cb_get_recipients(self, data_list, t0):
+        recipients = pickle.loads(''.join(data_list))
+        # print "Received %d new recipients from Manager in %.1fs." % (len(recipients), time.time() - t0)
+        self.get_recipients_deferred.callback(recipients)
+
+
 
 
 class CloudClientFactory(pb.PBClientFactory):
@@ -210,15 +232,17 @@ class MailingMasterTest(DatabaseMixin, TestCase):
     def do_get_recipients(self, manager, recipients_count, t0):
         # print "do_get_recipients"
         if MailingTempQueue.count() >= recipients_count:
-            return util.getAllPages(manager, 'get_recipients', 100)
+            SendRecipientsTask.getInstance()._send_recipients_to_satellite(settings.SERIAL, 100)
+            return self.cloud_client.get_recipients_deferred
+            # return util.getAllPages(manager, 'get_recipients', 100)
         elif time.time() < t0 + 10.0:
             return task.deferLater(reactor, 0.1, self.do_get_recipients, manager, recipients_count, t0)
         print "MailingTempQueue.objects.count() = %d / recipients_count = %d" % (MailingTempQueue.count(), recipients_count)
         return defer.fail()
 
-    def cb_get_recipients(self, data_list, recipients_count):
-        # print "cb_get_recipients"
-        recipients = pickle.loads(''.join(data_list))
+    def cb_get_recipients(self, recipients, recipients_count):
+        # print "cb_get_recipients", type(data_list), data_list, recipients_count
+        # recipients = pickle.loads(''.join(data_list))
         self.assertEquals(len(recipients), recipients_count)
         for recipient in recipients:
             self.assertTrue(isinstance(recipient, dict))

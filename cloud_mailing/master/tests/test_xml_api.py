@@ -26,6 +26,7 @@ from twisted.trial.unittest import TestCase
 from twisted.web import server, xmlrpc
 
 from cloud_mailing.common.db_common import get_db
+from cloud_mailing.master.send_recipients_task import SendRecipientsTask
 from . import factories
 
 from ...common.unittest_mixins import DatabaseMixin
@@ -507,7 +508,8 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         # Test emails should already be in queue
         d.addCallback(lambda x: self.assertEquals(3, MailingTempQueue.find({'recipient.tracking_id': {'$in': [r['id'] for r in x]}}).count()) and x)
         # Test emails should be available for Satellites
-        d.addCallback(lambda x: MailingManagerView._make_get_recipients_queryset(get_db(), 10, None, None, logging.getLogger()))
+        d.addCallback(lambda x: SendRecipientsTask._make_get_recipients_queryset(self.db, None, None, logging.getLogger()))
+        d.addCallback(lambda x: self.db.mailingtempqueue.find(x, sort='next_try'))
         d.addCallback(lambda x: self.assertEquals(3, len(x)))
 
         return d
