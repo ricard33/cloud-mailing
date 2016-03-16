@@ -186,9 +186,9 @@ class SendRecipientsTask(Singleton):
         for _id, count in current_load.items():
             self.log.debug("    - %s: %d recipients", all_satellites_dict.get(_id, {}).get('serial', '?'), count)
 
-        # satellite_load = current_load.pop()
+        all_satellites.sort(key=lambda x: current_load.get(x['_id'], 0))
         max_count = settings_vars.get_int(settings_vars.SATELLITE_MAX_RECIPIENTS_TO_SEND)
         for satellite in all_satellites:
             if satellite['enabled'] and satellite['paired']:
-                recipients_count = current_load.get(satellite['_id'], 0)
+                # recipients_count = current_load.get(satellite['_id'], 0)
                 yield self._send_recipients_to_satellite(satellite['serial'], max_count)
