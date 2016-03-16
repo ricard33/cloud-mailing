@@ -25,7 +25,7 @@ from datetime import datetime, timedelta
 
 import pymongo
 from bson import ObjectId, DBRef
-from twisted import Version
+from twisted.python.versions import Version
 from twisted.cred import checkers, portal, error as cred_error, credentials
 from twisted.internet import reactor, defer
 from twisted.internet.threads import deferToThreadPool
@@ -259,7 +259,7 @@ class MailingManagerView(pb.Viewable):
             util.StringPager(collector, pickle.dumps({'id': mailing_id, 'delete': True}))
         #self.log.debug("get_mailing(%d) finished", mailing_id)
 
-    @deprecated(Version('Twisted', 0, 5, 2),
+    @deprecated(Version('cloud_mailing', 0, 5, 2),
                 "twisted.internet.defer.inlineCallbacks")
     def view_get_recipients(self, client, collector, count=1):
         """
