@@ -23,6 +23,7 @@ from twisted.application.service import IService
 from twisted.internet import reactor, ssl
 from twisted.python.log import PythonLoggingObserver
 
+from cloud_mailing.common.db_common import Db
 from .. import __version__ as VERSION
 from ..common import settings
 from ..common.cm_logging import configure_logging
@@ -95,6 +96,7 @@ def main(application=None):
 
     ssl_context_factory = ssl.ClientContextFactory()
     db_conn = connect(settings.SATELLITE_DATABASE)
+    Db.getInstance(settings.SATELLITE_DATABASE)
 
     # attach the service to its parent application
     start_satellite_service(application=application, master_ip=settings.MASTER_IP, master_port=settings.MASTER_PORT,

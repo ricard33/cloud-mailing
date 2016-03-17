@@ -37,7 +37,16 @@ except ImportError:
 
 FAB_PATH = os.path.dirname(os.path.abspath(__file__))
 WORKSPACE = os.path.abspath(os.path.join(FAB_PATH, "..", ".."))
-TARGET_PATH = '/usr/local/cm'
+DEFAULT_TARGET_PATH = '/usr/local/cm'
+
+
+def TARGET_PATH():
+    host_conf = local_settings.targets.get(env.host_string, {})
+    return host_conf.get('path', DEFAULT_TARGET_PATH)
+
+
+def get_host_conf():
+    return local_settings.targets.get(env.host_string, {})
 
 
 @task
@@ -47,12 +56,14 @@ def get_system_name():
 
 @task
 def cm_stop():
-    run("supervisorctl stop cm:*")
+    group_name = get_host_conf().get('supervisor_group', 'cm')
+    run("supervisorctl stop %s:*" % group_name)
 
 
 @task
 def cm_start():
-    run("supervisorctl start cm:*")
+    group_name = get_host_conf().get('supervisor_group', 'cm')
+    run("supervisorctl start %s:*" % group_name)
 
 
 @task
@@ -77,28 +88,30 @@ def start_satellite():
 
 @task
 def test():
-    with cd(TARGET_PATH):
+    host_conf = get_host_conf()
+    print host_conf
+    with cd(TARGET_PATH()):
         print 'exist:', os.path.exists('/Users')
 
 
 def clean_compiled_files():
     # cleanup *.pyc / *.pyo files
-    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH)
-    with cd(TARGET_PATH):
+    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH())
+    with cd(TARGET_PATH()):
         run("python cm_compile.py -c")
 
 
 def compile_python_files():
     # create *.pyc / *.pyo files
-    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH)
-    with cd(TARGET_PATH):
+    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH())
+    with cd(TARGET_PATH()):
         run("python -O cm_compile.py")
 
 
 def sync_sources(test_only=False):
 
     rsync_project(
-        TARGET_PATH,
+        TARGET_PATH(),
         local_dir=WORKSPACE + "/",
         delete=True,
         default_opts='-rvz',  # '-pthrvz'
@@ -113,21 +126,21 @@ def put_version():
     label = subprocess.check_output(["git", "describe"]).strip()
     stats = subprocess.check_output(['git', 'diff', '--shortstat'])
     dirty = len(stats) > 0 and stats[-1]
-    with cd(TARGET_PATH + '/cloud_mailing'):
+    with cd(TARGET_PATH() + '/cloud_mailing'):
         put(StringIO.StringIO('VERSION=%s%s\n' % (label, dirty and "-dirty" or "")), 'version.properties')
 
 
 @task
 def _deploy_cm():
-    run("mkdir -p %s" % TARGET_PATH)
+    run("mkdir -p %s" % TARGET_PATH())
     clean_compiled_files()
     sync_sources()
     put_version()
     compile_python_files()
 
-    # put(os.path.join(WORKSPACE, "requirements.txt"), TARGET_PATH)
+    # put(os.path.join(WORKSPACE, "requirements.txt"), TARGET_PATH())
 
-    with cd(TARGET_PATH):
+    with cd(TARGET_PATH()):
         with settings(warn_only=True):
             if run("test -d .env").failed:
                 run("virtualenv .env")
@@ -137,14 +150,14 @@ def _deploy_cm():
             run('pip install -r requirements.txt --upgrade')
             # run('pip install -r requirements-testing.txt')
 
-    # with cd(TARGET_PATH):
+    # with cd(TARGET_PATH()):
     #     with prefix('. .env/bin/activate'):
             # run('python manage.py syncdb --noinput')
             # run('python manage.py migrate')
             # run('python manage.py clearsessions')
             # run('python manage.py collectstatic --noinput')
 
-    run("chown -R cm:cm %s" % TARGET_PATH)
+    run("chown -R cm:cm %s" % TARGET_PATH())
 
 
 # @task
@@ -159,11 +172,16 @@ def create_user():
     create the 'cm' user and group on new system.
     @return:
     """
+    username = "cm"
+    if 'uid=' in run("id %s" % username):
+        print("User '%s' already exists" % username)
+        return
     remote_system = get_system_name()
     if remote_system == "Linux":
-        run("adduser --home %(TARGET_PATH)s --shell /bin/tcsh --disabled-password --disabled-login cm" % {'TARGET_PATH': TARGET_PATH})
+        run("adduser --home %(TARGET_PATH)s --shell /bin/tcsh --disabled-password --disabled-login %(username)s" % {
+            'TARGET_PATH': TARGET_PATH(), 'username': username})
     elif remote_system == "FreeBSD":
-        run("pw useradd cm -d %(TARGET_PATH)s -m -s /bin/tcsh -w no" % {'TARGET_PATH': TARGET_PATH})
+        run("pw useradd %(username)s -d %(TARGET_PATH)s -m -s /bin/tcsh -w no" % {'TARGET_PATH': TARGET_PATH(), 'username': username})
     else:
         print("create_user: Unsupported remote system '%s'" % remote_system)
 
@@ -175,7 +193,7 @@ def create_initial_config():
     create a new config file for CloudMailing.
     @return:
     """
-    config_filename = os.path.join(TARGET_PATH, 'config', 'cloud-mailing.ini')
+    config_filename = os.path.join(TARGET_PATH(), 'config', 'cloud-mailing.ini')
 
     from ConfigParser import RawConfigParser
     config = RawConfigParser()
@@ -204,58 +222,71 @@ def create_initial_config():
         config.add_section("CM_MASTER")
         config.set('CM_MASTER', 'API_KEY', "".join([random.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]))
 
+    other_config = host_conf.get('config')
+    if other_config:
+        for section, content in other_config.items():
+            if not config.has_section(section):
+                config.add_section(section)
+            for key, value in content.items():
+                config.set(section, key, value)
 
     with tempfile.NamedTemporaryFile('w+t') as tmp:
         config.write(tmp)
         tmp.flush()
-        run("mkdir -p %s/config" % TARGET_PATH)
+        run("mkdir -p %s/config" % TARGET_PATH())
         put(tmp.name, config_filename)
     run("chown cm:cm %s" % config_filename)
 
 
 @task
-def create_supervisord_config(satellite_only=False):
+def create_supervisord_config():
     """
     create the supervisord config files for CloudMailing jobs
     @return:
     """
-    if satellite_only:
-        config = """[group:cm]
-programs=cm_satellite
-"""
-    else:
-        config = """[group:cm]
-programs=cm_master,cm_satellite
+    host_conf = get_host_conf()
+    satellite_only = host_conf.get('remote_master') is not None
 
-[program:cm_master]
+    group_name = host_conf.get("supervisor_group", "cm")
+    conf_filename = host_conf.get("supervisor_filename", "cloud_mailing.conf")
+
+    if satellite_only:
+        config = """[group:%(group_name)s]
+programs=%(group_name)s_satellite
+""" % {'group_name': group_name}
+    else:
+        config = """[group:%(group_name)s]
+programs=%(group_name)s_master,%(group_name)s_satellite
+
+[program:%(group_name)s_master]
 command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_master.py
 directory=%(TARGET_PATH)s
 numprocs=1
-stdout_logfile=/var/log/cm_master.supervisor.log
+stdout_logfile=/var/log/supervisor.%(group_name)s_master.log
 autostart=true
 autorestart=true
 user=cm
-""" % {'TARGET_PATH': TARGET_PATH}
+""" % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name}
 
     config += """
-[program:cm_satellite]
+[program:%(group_name)s_satellite]
 command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_satellite.py
 directory=%(TARGET_PATH)s
 numprocs=1
-stdout_logfile=/var/log/cm_satellite.supervisor.log
+stdout_logfile=/var/log/supervisor.%(group_name)s_satellite.log
 autostart=true
 autorestart=true
 user=cm
-""" % {'TARGET_PATH': TARGET_PATH}
+""" % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name}
 
     with tempfile.NamedTemporaryFile('w+t') as tmp:
         tmp.write(config)
         tmp.flush()
         remote_system = get_system_name()
         if remote_system == "Linux":
-            put(tmp.name, "/etc/supervisor/conf.d/cloud_mailing.conf")
+            put(tmp.name, "/etc/supervisor/conf.d/" + conf_filename)
         elif remote_system == "FreeBSD":
-            put(tmp.name, "/usr/local/etc/supervisord.d/cloud_mailing.conf")
+            put(tmp.name, "/usr/local/etc/supervisord.d/" + conf_filename)
 
     run("supervisorctl reread")
     run("supervisorctl update")
@@ -276,13 +307,14 @@ def remove_mf_from_startup():
 
 @task()
 def first_setup():
-    host_conf = local_settings.targets.get(env.host_string, {})
-    satellite_only = host_conf.get('remote_master') is not None
+    host_conf = get_host_conf()
+    print host_conf
+    # satellite_only = host_conf.get('remote_master') is not None
 
     # init_db()
     create_user()
     create_initial_config()
-    create_supervisord_config(satellite_only=satellite_only)
+    create_supervisord_config()
     _deploy_cm()
     cm_start()
 
