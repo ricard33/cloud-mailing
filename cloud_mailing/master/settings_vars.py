@@ -29,7 +29,7 @@ SATELLITE_MAX_RECIPIENTS_TO_SEND = 'satellite_max_recipients_to_send'
 
 default = {
     MAILING_QUEUE_MAX_SIZE: 50000,
-    MAILING_QUEUE_MIN_SIZE: 20000,
+    MAILING_QUEUE_MIN_SIZE: 20000,  # TODO should be related to the number of active satellites to avoid locks (> nb_sat * min_queue_len_in_sat)
     MAILING_QUEUE_MAX_THREAD: 50,
     MAILING_QUEUE_MAX_THREAD_SIZE: 100,
     MAILING_RETRY_WAIT: 3600,
