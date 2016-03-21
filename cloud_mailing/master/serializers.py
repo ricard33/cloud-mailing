@@ -139,7 +139,7 @@ class MailingSerializer(Serializer):
     fields = (
         '_id', 'domain_name', 'satellite_group', 'owner_guid',
         'mail_from', 'sender_name', 'subject', 'status',
-        'type', 'tracking_url',
+        'type', 'tracking_url', 'dkim',
         'header',
         'dont_close_if_empty',
         'submit_time', 'scheduled_start', 'scheduled_end', 'scheduled_duration',

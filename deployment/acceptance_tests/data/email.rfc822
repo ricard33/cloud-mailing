@@ -1,10 +1,10 @@
 Received: from  ([192.168.5.20] helo=[192.168.5.20])
-	by mail.cm-unittest.net with SMTP (MailFountain 2.0.5.74)
-	(enveloppe-from <my-mailing@cm-unittest.net> rDNS=ok)
+	by mail.unittest.cloud-mailing.net with SMTP (MailFountain 2.0.5.74)
+	(enveloppe-from <my-mailing@unittest.cloud-mailing.net> rDNS=ok)
 	for mailing; Sat, 12 Feb 2011 02:27:26 +0100
-Message-ID: <4D55E201.8040408@cm-unittest.net>
+Message-ID: <4D55E201.8040408@unittest.cloud-mailing.net>
 Date: Sat, 12 Feb 2011 02:27:29 +0100
-From: =?UTF-8?B?Q8OpZHJpYyBSSUNBUkQ=?= <my-mailing@cm-unittest.net>
+From: =?UTF-8?B?Q8OpZHJpYyBSSUNBUkQ=?= <my-mailing@unittest.cloud-mailing.net>
 User-Agent: Mozilla/5.0 (Windows; U; Windows NT 6.1; fr; rv:1.9.2.13) Gecko/20101207 Thunderbird/3.1.7
 MIME-Version: 1.0
 To: test3@ma-societe.fr
@@ -56,7 +56,7 @@ Content-Transfer-Encoding: 8bit
     <meta content="text/html; charset=UTF-8" http-equiv="Content-Type">
   </head>
   <body text="#000000" bgcolor="#ffffff">
-    <img alt="CADDIE" src="cid:part1.07080804.09040608@cm-unittest.net"
+    <img alt="CADDIE" src="cid:part1.07080804.09040608@unittest.cloud-mailing.net"
       width="109" height="129">
     <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
     <meta name="ProgId" content="Word.Document">
@@ -541,7 +541,7 @@ ul
     <p class="MsoNormal"><o:p> Pour se désinscrire, <u><a
             href="{{unsubscribe}}">cliquez ici</a></u>.<br>
       </o:p></p>
-    <img src="cid:part2.03020206.03060504@cm-unittest.net" alt=""
+    <img src="cid:part2.03020206.03060504@unittest.cloud-mailing.net" alt=""
       width="1" border="0" height="1">
   </body>
 </html>
@@ -549,7 +549,7 @@ ul
 --------------040006050804090905040809
 Content-Type: image/jpeg
 Content-Transfer-Encoding: base64
-Content-ID: <part1.07080804.09040608@cm-unittest.net>
+Content-ID: <part1.07080804.09040608@unittest.cloud-mailing.net>
 
 /9j/4AAQSkZJRgABAQAAAQABAAD/2wBDAAkGBwgHBgkIBwgKCgkLDRYPDQwMDRsUFRAWIB0i
 IiAdHx8kKDQsJCYxJx8fLT0tMTU3Ojo6Iys/RD84QzQ5Ojf/2wBDAQoKCg0MDRoPDxo3JR8l
@@ -633,7 +633,7 @@ HqH5n+YoooOhjyooooM1iiig/9k=
 Content-Type: image/gif;
  name="ae0b5813c47bc1e9903d2b19ff2193e21748441e.gif"
 Content-Transfer-Encoding: base64
-Content-ID: <part2.03020206.03060504@cm-unittest.net>
+Content-ID: <part2.03020206.03060504@unittest.cloud-mailing.net>
 Content-Disposition: inline;
  filename="ae0b5813c47bc1e9903d2b19ff2193e21748441e.gif"
 

@@ -17,13 +17,12 @@
 import email
 import logging
 from xmlrpclib import Fault
-from datetime import datetime
+
 import dateutil.parser
-
-from twisted.web import http
 from twisted.internet.threads import deferToThread
-from .mailing_manager import MailingManager
+from twisted.web import http
 
+from .mailing_manager import MailingManager
 from .models import Mailing, MAILING_STATUS
 
 __author__ = 'Cedric RICARD'
@@ -31,6 +30,37 @@ __author__ = 'Cedric RICARD'
 log_cfg = logging.getLogger('config')
 log_security = logging.getLogger('security')
 log_api = logging.getLogger('api')
+
+
+def _check_dict_property(name, value, allowed_fields, mandatory_fields):
+    params = {
+        'name': name,
+        'value': value,
+        'allowed': allowed_fields,
+        'mandatory': mandatory_fields
+    }
+
+    if not isinstance(value, dict):
+        err_msg = "Bad value '%(value)s' for property '%(name)s'. It should be a dictionary." % params
+        log_api.error(err_msg)
+        raise Fault(http.NOT_ACCEPTABLE, err_msg)
+
+    for key in value.keys():
+        if key not in allowed_fields:
+            err_msg = "Bad value '%(value)s' for property '%(name)s'. " \
+                      "Field '%(key)s is not allowed (allowed fields are '%(allowed)s')." \
+                      % dict(params, **{'key': key})
+            log_api.error(err_msg)
+            raise Fault(http.NOT_ACCEPTABLE, err_msg)
+
+    for key in mandatory_fields:
+        if key not in value:
+            err_msg = "Bad value '%(value)s' for property '%(name)s'. " \
+                      "Field '%(key)s is missing (mandatory fields are '%(mandatory)s')." \
+                      % dict(params, **{'key': key})
+            log_api.error(err_msg)
+            raise Fault(http.NOT_ACCEPTABLE, err_msg)
+
 
 
 def set_mailing_properties(mailing_id, properties):
@@ -49,7 +79,14 @@ def set_mailing_properties(mailing_id, properties):
                             % (value, ', '.join(mailing_types)))
             mailing.type = value
         elif key in (
-                'sender_name', 'tracking_url', 'testing', 'backup_customized_emails', 'owner_guid', 'satellite_group'):
+                'sender_name', 'tracking_url', 'testing', 'backup_customized_emails', 'owner_guid', 'satellite_group',
+        ):
+            setattr(mailing, key, value)
+        elif key == 'dkim':
+            allowed_fields = ('enabled', 'selector', 'domain', 'privkey', 'identity', 'canonicalize', 'signature_algorithm',
+                              'include_headers', 'length')
+            mandatory_fields = ('selector', 'domain', 'privkey')
+            _check_dict_property(key, value, allowed_fields, mandatory_fields)
             setattr(mailing, key, value)
         elif key == 'shown_name':
             mailing.sender_name = value

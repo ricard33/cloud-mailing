@@ -89,7 +89,7 @@ domains = (
 
 class CloudMailingsTestCase(unittest.TestCase):
     def setUp(self):
-        self.domain_name = "cm-unittest.net"
+        self.domain_name = "unittest.cloud-mailing.net"
         self.cloudMailingsRpc = xmlrpclib.ServerProxy("https://admin:%(api_key)s@%(ip)s:33610/CloudMailing" % CONFIG,
                                                       context=ssl._create_unverified_context())
         if PURGE_OLD_MAILING:
@@ -181,6 +181,7 @@ class CloudMailingsTestCase(unittest.TestCase):
     def test_run_mailing(self):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'email.rfc822')
+        dkim_private_key = open(os.path.join('data', 'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
         mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
@@ -190,6 +191,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.assertEquals(mailings[-1]['mail_from'], mail_from)
         recipients_list = [{'email': "cedric.ricard@orange.fr"},
                            {'email': "ricard@free.fr"},
+                           {'email': "ricard33+cm@gmail.com"},
                            {'email': "ricard@calexium.com"},
                            {'email': "cedric.ricard@calexium.com"},
                            {'email': "cant_exist_email_for_error@calexium.com"},
@@ -200,8 +202,13 @@ class CloudMailingsTestCase(unittest.TestCase):
             self.assertDictContainsSubset({'email': r1['email']}, r2)
             self.assertNotIn('error', r2)
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
-        self.assertEqual(mailing['total_recipient'], 6)
-        self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 3, 'testing': True})
+        self.assertEqual(mailing['total_recipient'], 7)
+        self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 3, 'testing': False,
+                                                                  'dkim': {
+                                                                      'selector': 'mail',
+                                                                      'domain': self.domain_name,
+                                                                      'privkey': dkim_private_key
+                                                                  }},)
 
         self.cloudMailingsRpc.start_mailing(mailing_id)
         self.cloudMailingsRpc.mailing_manager_force_check()
@@ -211,7 +218,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         t0 = time.time()
         while mailing['total_pending'] > 0:
             self.assertTrue(mailing['status'] in ('READY', 'RUNNING'))
-            self.assertLess(time.time() - t0, 60) # 1 minutes max
+            self.assertLess(time.time() - t0, 120) # 2 minutes max
             self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(2)
             mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
@@ -219,9 +226,9 @@ class CloudMailingsTestCase(unittest.TestCase):
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         #self.assertEqual(mailing['status'], 'FINISHED')
         #print repr(mailing)
-        self.assertEqual(mailing['total_recipient'], 6)
+        self.assertEqual(mailing['total_recipient'], 7)
         self.assertEqual(mailing['total_pending'], 0)
-        self.assertEqual(mailing['total_sent'], 4)
+        self.assertEqual(mailing['total_sent'], 5)
         self.assertEqual(mailing['total_error'], 2)
 
     def test_send_test_emails(self):

@@ -298,6 +298,9 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
          - sender_name: Full name displayed in sender field
          - subject: Mailing subject
          - status: Mailing status
+         - type: the Mailing Type - one of "REGULAR", "OPENED"
+         - tracking_url: base url for tracking links
+         - dkim: dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
          - submit_time: Date and time when mailing was submitted
          - scheduled_start: Date and time when mailing should start
          - scheduled_end: Date and time when mailing should stop
@@ -394,7 +397,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - mail_from
                 - sender_name
                 - shown_name (DEPRECATED: use 'sender_name' instead)
-                - tracking_url
+                - tracking_url: base url for tracking links
                 - backup_customized_emails: If True, customized emails will be included in recipients reports
                 - owner_guid: free string (max 50 characters) that can be used to identify (and filter) mailings we own.
                 - scheduled_start: datetime in isoformat, or empty string to remove its value
@@ -415,6 +418,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - body
                 - read_tracking: set True to active tracking for reads (default: True)
                 - click_tracking: set True to active tracking for clicks (default: False)
+                - dkim: dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
         """
         log_api.debug("XMLRPC: set_mailing_properties(%s, %s)", mailing_id, repr(properties))
         try:

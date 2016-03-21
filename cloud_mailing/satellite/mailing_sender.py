@@ -121,7 +121,7 @@ class MailingSender(pb.Referenceable):
         for fn, delay, startNow in ((self.check_mailing, self.timer_delay, False),
                                     (self.remove_closed_mailings, 33600, False),
                                     (self.relay_manager.check_for_zombie_queues, 60, False),
-                                    (self.check_for_missing_mailing, 10, False),
+                                    (self.check_for_missing_mailing, 2, False),
                                     (self.send_report_for_finished_recipients, 20, False),
                                     (self.send_statistics, 30, False),
                                     ):
@@ -259,6 +259,7 @@ class MailingSender(pb.Referenceable):
                     mailing.read_tracking = mailing_dict.get('read_tracking', True)
                     mailing.click_tracking = mailing_dict.get('click_tracking', False)
                     mailing.tracking_url = tracking_url
+                    mailing.dkim = mailing_dict.get('dkim', None)
                     mailing.save()
                 else:
                     self.log.error("Mailing [%d] doesn't exist. Can't update header and body data.", mailing_id)

@@ -16,6 +16,7 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import StringIO
+import cStringIO
 import base64
 import cPickle
 import email
@@ -28,6 +29,8 @@ import os
 import re
 import threading
 import urllib
+
+import dkim
 
 from ..common.email_tools import header_to_unicode
 from ..common import settings
@@ -370,9 +373,23 @@ class MailCustomizer:
             message['Message-ID'] = "<%s.%d@cm.%s>" % (self.recipient.id, self.recipient.mailing.id, self.recipient.domain_name )
             message['List-Unsubscribe'] = self.unsubscribe_url
 
+            fp = cStringIO.StringIO()
+            generator = email.generator.Generator(fp, mangle_from_=False)
+            generator.flatten(message)
+            flattened_message = fp.getvalue()
+            sig = ''
+            dkim_settings = self.recipient.mailing.get('dkim', None)
+            if dkim and dkim_settings.get('enabled', True):
+                sig = dkim.sign(flattened_message, dkim_settings['selector'], dkim_settings['domain'],
+                                dkim_settings['privkey'],
+                                canonicalize=dkim_settings.get('canonicalize', (b'relaxed', b'simple')),
+                                signature_algorithm=dkim_settings.get('signature_algorithm', b'rsa-sha256'),
+                                include_headers=dkim_settings.get('include_headers'),
+                                length=dkim_settings.get('length', False),
+                                logger=self.log)
+                sig = str(sig)  # sig is in unicode
             with open(fullpath+'.tmp', 'wt') as fp:
-                generator = email.generator.Generator(fp, mangle_from_ = False)
-                generator.flatten(message)
+                fp.write(sig + flattened_message)
                 fp.close()
             if os.path.exists(fullpath):
                 os.remove(fullpath)

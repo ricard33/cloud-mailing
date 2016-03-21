@@ -8,3 +8,4 @@ Jinja2
 watchdog
 psutil
 python-dateutil
+dkimpy

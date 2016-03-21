@@ -250,6 +250,7 @@ class MailingManagerView(pb.Viewable):
                                                           'tracking_url': mailing.tracking_url,
                                                           'backup_customized_emails': mailing.backup_customized_emails,
                                                           'testing': mailing.testing,
+                                                          'dkim': mailing.dkim,
                                                           'delete': False}))
             else:
                 self.log.error("Mailing [%d] doesn't exist anymore.", mailing_id)

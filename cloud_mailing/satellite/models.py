@@ -53,6 +53,7 @@ class Mailing(Model):
     body            = Field()
     tracking_url    = Field()       # Base url for all tracking links
     deleted         = Field(bool, default=False)    # Mailing deletion requested. Will occur once all its recipients will be removed.
+    dkim            = Field()  # dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
 
     created         = Field(datetime, default=datetime.utcnow)
     modified        = Field(datetime, default=datetime.utcnow)

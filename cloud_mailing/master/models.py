@@ -129,6 +129,7 @@ class Mailing(Model):
     read_tracking   = Field(bool, default=True)  # If True, read tracking image are added to html bodies
     click_tracking  = Field(bool, default=False)  # If True, links found into html bodies are converted to allow clicks tracking
     tracking_url    = Field()  # Base url for all tracking links
+    dkim            = Field()  # dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
     submit_time     = Field(datetime, default=datetime.utcnow)
     scheduled_start = Field()
     scheduled_duration = Field(int)  # Mailing duration in minutes
