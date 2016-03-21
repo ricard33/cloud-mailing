@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ricard33/cloud-mailing.svg?branch=master)](https://travis-ci.org/ricard33/cloud-mailing)
+
 cloud-mailing
 =============
 
