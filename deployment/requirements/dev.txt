@@ -1,6 +1,8 @@
 -r common.txt
--r doc.txt
 factory_boy
 fabric
 pytest
 pytest_twisted
+# doc only
+sphinx
+sphinx-autobuild
