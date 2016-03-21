@@ -379,7 +379,7 @@ class MailCustomizer:
             flattened_message = fp.getvalue()
             sig = ''
             dkim_settings = self.recipient.mailing.get('dkim', None)
-            if dkim and dkim_settings.get('enabled', True):
+            if dkim_settings and dkim_settings.get('enabled', True):
                 sig = dkim.sign(flattened_message, dkim_settings['selector'], dkim_settings['domain'],
                                 dkim_settings['privkey'],
                                 canonicalize=dkim_settings.get('canonicalize', (b'relaxed', b'simple')),
