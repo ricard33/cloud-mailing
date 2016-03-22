@@ -88,16 +88,22 @@ class MailCustomizer:
         return 'cust_ml_%d_rcpt_*.rfc822*' % queue_id
 
     def make_unsubscribe_url(self, base_url, contact_sha1):
+        if not base_url:
+            return ""
         return "%(base_url)su/%(sha1)s" % {'base_url': base_url,
                                            'sha1': contact_sha1,
         }
 
     def make_tracking_url(self, base_url, contact_sha1):
+        if not base_url:
+            return ""
         return "%(base_url)sr/%(sha1)s/blank.gif" % {'base_url': base_url,
                                                      'sha1': contact_sha1,
         }
 
     def make_clic_url(self, base_url, contact_sha1):
+        if not base_url:
+            return ""
         return "%(base_url)sc/%(sha1)s/" % {'base_url': base_url,
                                             'sha1': contact_sha1,
         }
@@ -345,33 +351,31 @@ class MailCustomizer:
 
             # Customize the subject
             subject = self._do_customization(header_to_unicode(message.get("Subject", "")), contact_data)
-            if 'Subject' in message:
-                del message['Subject']
+            # Remove some headers
+            for header in ('Subject', 'Received', 'To', 'From', 'User-Agent', 'Date', 'Message-ID', 'List-Unsubscribe',
+                           'DKIM-Signature', 'Authentication-Results', 'Received-SPF', 'Received-SPF', 'X-Received',
+                           'Delivered-To'):
+                if header in message:
+                    del message[header]
+
             message['Subject'] = Header(subject)
 
             # Adding missing headers
-            if 'User-Agent' in message:
-                del message['User-Agent']
             # TODO Make User Agent customizable
             message['User-Agent'] = "Cloud Mailing"
             h = Header(self.recipient.sender_name or '')
             h.append("<%s>" % self.recipient.mail_from)
-            if 'From' in message:
-                del message['From']
             message['From'] = h
             h = Header()
             h.append(contact_data.get('firstname') or '')
             h.append(contact_data.get('lastname') or '')
             h.append("<%s>" % contact_data['email'])
             message['To'] = h
-            if 'Date' in message:
-                del message['Date']
             message['Date'] = email.utils.formatdate()
-            if 'Message-ID' in message:
-                del message['Message-ID']
             # message['Message-ID'] = email.utils.make_msgid()  # very very slow on certain circumstance
             message['Message-ID'] = "<%s.%d@cm.%s>" % (self.recipient.id, self.recipient.mailing.id, self.recipient.domain_name )
-            message['List-Unsubscribe'] = self.unsubscribe_url
+            if self.unsubscribe_url:
+                message['List-Unsubscribe'] = self.unsubscribe_url
 
             fp = cStringIO.StringIO()
             generator = email.generator.Generator(fp, mangle_from_=False)
