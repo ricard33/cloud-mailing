@@ -260,6 +260,9 @@ class MailingSender(pb.Referenceable):
                     mailing.click_tracking = mailing_dict.get('click_tracking', False)
                     mailing.tracking_url = tracking_url
                     mailing.dkim = mailing_dict.get('dkim', None)
+                    mailing.feedback_loop = mailing_dict.get('feedback_loop', None)
+                    mailing.domain_name = mailing_dict.get('domain_name', None)
+                    mailing.type = mailing_dict.get('type', None)
                     mailing.save()
                 else:
                     self.log.error("Mailing [%d] doesn't exist. Can't update header and body data.", mailing_id)
@@ -884,7 +887,7 @@ class RecipientManager(object):
         
     def send(self):
         try:
-            uid, path = MailCustomizer(self.recipient, True,
+            uid, path = MailCustomizer(self.recipient,
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking).customize()
             self.temp_filename = path

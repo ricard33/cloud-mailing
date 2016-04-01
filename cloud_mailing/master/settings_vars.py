@@ -26,6 +26,7 @@ MAILING_QUEUE_MAX_THREAD_SIZE = 'mailing_queue_max_thread_size'
 MAILING_RETRY_WAIT = 'mailing_retry_wait'            # no more used
 MAILING_DURATION = 'mailing_duration'              # in days
 SATELLITE_MAX_RECIPIENTS_TO_SEND = 'satellite_max_recipients_to_send'
+FEEDBACK_LOOP_SETTINGS = 'feedback_loop_settings'
 
 default = {
     MAILING_QUEUE_MAX_SIZE: 50000,
@@ -35,6 +36,7 @@ default = {
     MAILING_RETRY_WAIT: 3600,
     MAILING_DURATION: 10,          # in days
     SATELLITE_MAX_RECIPIENTS_TO_SEND: 1000,
+    FEEDBACK_LOOP_SETTINGS: {},
 }
 
 # Helpers

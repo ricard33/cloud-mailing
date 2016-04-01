@@ -15,16 +15,17 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-import factory
-from ...common.unittest_mixins import DatabaseMixin
-from ..mail_customizer import MailCustomizer
-from ..models import MailingRecipient, Mailing
-from twisted.trial.unittest import TestCase
-import factories
-import os
-import email.parser
-import email.message
 import base64
+import email.message
+import email.parser
+import os
+
+import dkim
+from twisted.trial.unittest import TestCase
+
+import factories
+from ..mail_customizer import MailCustomizer
+from ...common.unittest_mixins import DatabaseMixin
 
 __author__ = 'ricard'
 
@@ -41,7 +42,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         recipient = factories.RecipientFactory()
 
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         self.assertEquals(customizer._do_customization(recipient.mailing.body, recipient.contact_data),
                           'This is a very simple mailing.')
 
@@ -49,7 +50,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         mailing = factories.MailingFactory()
         recipient = factories.RecipientFactory(mailing=mailing)
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -65,30 +66,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         assert(isinstance(message, email.message.Message))
         self.assertFalse(message.is_multipart())
         self.assertTrue('Date' in message)
-        self.assertEquals(message.get_payload(), 'This is a very simple mailing.')
-
-
-    def test_customize_message_v2(self):
-        mailing = factories.MailingFactory(body = 'This is a {{ custom }} mailing.')
-        recipient = factories.RecipientFactory(mailing=mailing)
-
-        customizer = MailCustomizer(recipient, use_jinja2=True)
-        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
-        if os.path.exists(fullpath):
-            os.remove(fullpath)
-
-        self.assertFalse(os.path.exists(fullpath))
-
-        customizer._run_customizer()
-
-        self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
-        assert(isinstance(message, email.message.Message))
-        self.assertFalse(message.is_multipart())
-        self.assertTrue('Date' in message)
         self.assertEquals('This is a very simple mailing.', message.get_payload())
-
 
     def test_customize_simple_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -108,7 +86,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         #factories.MailingContentFactory(mailing=recipient.mailing)
         #print recipient.mailing.content
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -126,7 +104,6 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         # print message.as_string()
         self.assertEquals(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
         self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
-
 
     def test_customize_mixed_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -171,7 +148,7 @@ Nothing else to say...
             }
         )
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -190,7 +167,6 @@ Nothing else to say...
         self.assertEquals(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
         self.assertIn("This is an attachment common for all recipients.", message.get_payload(i=1).get_payload())
         self.assertEquals(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
-
 
     def test_customize_alternative_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -237,7 +213,7 @@ Nothing else to say...
             }
         )
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -258,7 +234,6 @@ Nothing else to say...
         self.assertEquals(message.get_payload(i=0).get_payload(i=0).get_payload(), 'This is a very simple mailing.')
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload())
         self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
-
 
     def test_customize_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -313,7 +288,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
             }
         )
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -334,7 +309,6 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
         self.assertEquals("image/jpeg", message.get_payload(i=0).get_payload(i=1).get_content_type())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=0).get_payload())
         self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
-
 
     def test_customize_alternative_and_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -401,7 +375,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
             }
         )
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -424,7 +398,6 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
         self.assertEquals('This is a very simple mailing.', message.get_payload(i=0).get_payload(i=0).get_payload())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload(i=0).get_payload())
         self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
-
 
     def test_customize_mixed_and_alternative_and_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -506,7 +479,7 @@ Nothing else to say...
             }
         )
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -531,14 +504,13 @@ Nothing else to say...
         self.assertIn("This is an attachment", message.get_payload(i=1).get_payload())
         self.assertEquals(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
-
     def test_clicks_tracking(self):
         mailing = factories.MailingFactory(tracking_url='http://tracking.net/')
         recipient = factories.RecipientFactory(mailing=mailing, tracking_id="TRACKING_ID")
 
-        customizer = MailCustomizer(recipient, use_jinja2=True, read_tracking=False, click_tracking=True)
+        customizer = MailCustomizer(recipient, read_tracking=False, click_tracking=True)
         content = '<p>Please <a href="http://www.mydomain.com/the_page?p=parameter">click here</a></p>'
-        new_content = customizer._do_customization_jinja2(
+        new_content = customizer._do_customization(
             body=content,
             contact_data=customizer.make_contact_data_dict(recipient),
             is_html=True
@@ -549,7 +521,6 @@ Nothing else to say...
                     '&t=http%3A//www.mydomain.com/the_page%3Fp%3Dparameter">click here</a></p>',
             new_content)
 
-
     def test_clicks_tracking_with_customized_links(self):
         mailing = factories.MailingFactory(tracking_url='http://tr.net/')
         recipient = factories.RecipientFactory(mailing=mailing,
@@ -559,9 +530,9 @@ Nothing else to say...
                                                    'id': 123
                                                })
 
-        customizer = MailCustomizer(recipient, use_jinja2=True, read_tracking=False, click_tracking=True)
+        customizer = MailCustomizer(recipient, read_tracking=False, click_tracking=True)
         content = '<p>Please <a href="http://my.com/the_page?id={{ id }}">click here</a></p>'
-        new_content = customizer._do_customization_jinja2(
+        new_content = customizer._do_customization(
             body=content,
             contact_data=customizer.make_contact_data_dict(recipient),
             is_html=True
@@ -607,7 +578,7 @@ I'm happy! Nothing else to say...
         )
         recipient = factories.RecipientFactory(mailing=mailing)
 
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -626,7 +597,6 @@ I'm happy! Nothing else to say...
         self.assertEquals("text/html", message.get_payload(i=1).get_content_type())
         self.assertEquals(message.get_payload(i=0).get_payload(decode=True), "This is a very simple mailing. I'm happy.")
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>. I'm happy! ", message.get_payload(i=1).get_payload(decode=True))
-
 
     def test_customize_message_bad_encoding_iso_8859_1_from_msword(self):
         """
@@ -671,7 +641,7 @@ I=92m happy! Nothing else to say...
         recipient = factories.RecipientFactory(mailing=mailing)
 
         return
-        customizer = MailCustomizer(recipient, use_jinja2=False)
+        customizer = MailCustomizer(recipient)
         fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
         if os.path.exists(fullpath):
             os.remove(fullpath)
@@ -691,3 +661,73 @@ I=92m happy! Nothing else to say...
         self.assertEquals("This is a very simple mailing. I\x92m happy.", message.get_payload(i=0).get_payload(decode=True))
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>. I\x92m happy! ", message.get_payload(i=1).get_payload(decode=True))
 
+    def test_dkim(self):
+        privkey = self._get_dkim_privkey()
+        mailing = factories.MailingFactory(dkim={'selector': 'mail', 'domain': 'unittest.cloud-mailing.net', 'privkey':privkey})
+        recipient = factories.RecipientFactory(mailing=mailing)
+
+        message_str = self._customize(recipient)
+
+        parser = email.parser.Parser()
+        message = parser.parsestr(message_str, headersonly=False)
+        assert (isinstance(message, email.message.Message))
+        self.assertTrue('DKIM-Signature' in message)
+        # print message['DKIM-Signature']
+
+        self.assertTrue(dkim.verify(message_str, dnsfunc=self._get_txt))
+
+    def test_feedback_loop(self):
+        privkey = self._get_dkim_privkey()
+        mailing = factories.MailingFactory(feedback_loop={'dkim': {'selector': 'mail', 'domain': 'unittest.cloud-mailing.net', 'privkey':privkey},
+                                                          'sender_id': 'CloudMailing'})
+        recipient = factories.RecipientFactory(mailing=mailing)
+
+        message_str = self._customize(recipient)
+
+        parser = email.parser.Parser()
+        message = parser.parsestr(message_str, headersonly=False)
+        assert (isinstance(message, email.message.Message))
+        self.assertTrue('Feedback-ID' in message)
+        self.assertTrue('DKIM-Signature' in message)
+        # print message['DKIM-Signature']
+
+        self.assertTrue(dkim.verify(message_str, dnsfunc=self._get_txt))
+
+    def test_dkim_and_feedback_loop(self):
+        privkey = self._get_dkim_privkey()
+        mailing = factories.MailingFactory(dkim={'selector': 'mail', 'domain': 'unittest.cloud-mailing.net', 'privkey':privkey},
+                                           feedback_loop={'dkim': {'selector': 'mail', 'domain': 'unittest.cloud-mailing.net', 'privkey':privkey},
+                                                          'sender_id': 'CloudMailing'})
+        recipient = factories.RecipientFactory(mailing=mailing)
+
+        message_str = self._customize(recipient)
+
+        parser = email.parser.Parser()
+        message = parser.parsestr(message_str, headersonly=False)
+        assert (isinstance(message, email.message.Message))
+        self.assertTrue('Feedback-ID' in message)
+        self.assertEqual(2, len(message.get_all('DKIM-Signature')))
+
+        d = dkim.DKIM(message_str)
+        self.assertTrue(d.verify(0, dnsfunc=self._get_txt))
+        self.assertTrue(d.verify(1, dnsfunc=self._get_txt))
+
+    def _get_txt(self, name):
+        self.assertEqual("mail._domainkey.unittest.cloud-mailing.net.", name)
+        return "v=DKIM1; h=sha256; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDQKTyffdhVj+Z7xke+b3/ns2u9ls3pVdI0tgCYKe8Fi6mXbF+Bri6rBadih/etMNOZ1BO/meLF8wfVgbizxAXjeinKH23HXjqTipJXoWWiwFLIijmSG/2Q+9vseAPGlVpgormOVj67gJRhjJw50i9COiHIq6ChpE969i2LGIfXpQIDAQAB"
+
+    def _customize(self, recipient):
+        customizer = MailCustomizer(recipient)
+        fullpath = os.path.join(customizer.temp_path, MailCustomizer.make_file_name(recipient.mailing.id, recipient.id))
+        if os.path.exists(fullpath):
+            os.remove(fullpath)
+        self.assertFalse(os.path.exists(fullpath))
+        customizer._run_customizer()
+        self.assertTrue(os.path.exists(fullpath))
+        # print file(fullpath, 'rt').read()
+        message_str = file(fullpath, 'rt').read()
+        return message_str
+
+    def _get_dkim_privkey(self):
+        return file(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deployment', 'acceptance_tests', 'data',
+                                 'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()

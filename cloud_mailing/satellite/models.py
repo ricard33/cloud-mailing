@@ -44,6 +44,7 @@ recipient_status = (RECIPIENT_STATUS.READY,
 class Mailing(Model):
     """Used to store headers and body."""
     # id              = models.IntegerField(primary_key=True)  # Should be the same as mailing_id in Master
+    type            = Field()
     testing         = Field(bool, default=False)    # If True, emails are sent to a testing SMTP server instead of the real one.
     backup_customized_emails = Field(bool, default=False)  # If True, customized emails will be included in recipients reports.
     read_tracking   = Field(bool, default=True)     # If True, read tracking image are added to html bodies
@@ -54,6 +55,12 @@ class Mailing(Model):
     tracking_url    = Field()       # Base url for all tracking links
     deleted         = Field(bool, default=False)    # Mailing deletion requested. Will occur once all its recipients will be removed.
     dkim            = Field()  # dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
+    feedback_loop   = Field()  # Settings needed to implement the Google Feedback Loop requirements (dictionary)
+                                # Fields are `campain_id`, `customer_id`, `mail_type_id`, `sender_id`
+                                # and `dkim` which contains dkim settings for fbl domain.
+                                # defaults are (in order): 'mailing.id', 'mailing.domain_name', 'mailing.type'.
+                                # Other are mandatory.
+    domain_name     = Field()   # sender domain
 
     created         = Field(datetime, default=datetime.utcnow)
     modified        = Field(datetime, default=datetime.utcnow)

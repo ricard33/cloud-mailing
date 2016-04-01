@@ -130,6 +130,11 @@ class Mailing(Model):
     click_tracking  = Field(bool, default=False)  # If True, links found into html bodies are converted to allow clicks tracking
     tracking_url    = Field()  # Base url for all tracking links
     dkim            = Field()  # dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
+    feedback_loop   = Field()  # Settings needed to implement the Google Feedback Loop requirements (dictionary)
+                               # Fields are `campain_id`, `customer_id`, `mail_type_id`, `sender_id`
+                               # and `dkim` which contains dkim settings for fbl domain. All are optionals. If not provided,
+                               # defaults are (in order): 'mailing.id', 'mailing.domain_name', 'mailing.type'.
+                               # 'sender_id' and 'dkim' are taken from global settings.
     submit_time     = Field(datetime, default=datetime.utcnow)
     scheduled_start = Field()
     scheduled_duration = Field(int)  # Mailing duration in minutes

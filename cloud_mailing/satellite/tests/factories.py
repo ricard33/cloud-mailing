@@ -31,7 +31,7 @@ class MailingFactory(factory.MogoFactory):
 
     # faked fields needed because used by create() function in models.Manager of Mailing
     header = "Subject: Great news!\n"
-    body = 'This is a %%custom%% mailing.'
+    body = 'This is a {{ custom }} mailing.'
     body_downloaded = True
 
 

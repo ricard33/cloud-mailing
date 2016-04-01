@@ -36,7 +36,8 @@ from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
 
-from .models import CloudClient, MailingRecipient, Mailing
+from cloud_mailing.master import settings_vars
+from .models import CloudClient, MailingRecipient, Mailing, SenderDomain
 from .models import RECIPIENT_STATUS, MAILING_STATUS
 from ..common import settings
 from ..common.db_common import get_db
@@ -242,6 +243,7 @@ class MailingManagerView(pb.Viewable):
             if mailing:
                 header = str(mailing.header).replace('\r\n', '\n')
                 body = mailing.body.replace('\r\n', '\n')
+                feedback_loop = mailing.feedback_loop or settings_vars.get(settings_vars.FEEDBACK_LOOP_SETTINGS)
                 dkim = mailing.dkim
                 if not dkim:
                     sender_domain = SenderDomain.find_one({'domain_name': mailing.domain_name})
@@ -256,6 +258,9 @@ class MailingManagerView(pb.Viewable):
                                                           'backup_customized_emails': mailing.backup_customized_emails,
                                                           'testing': mailing.testing,
                                                           'dkim': dkim,
+                                                          'feedback_loop': feedback_loop,
+                                                          'domain_name': mailing.domain_name,
+                                                          'type': mailing.type,
                                                           'delete': False}))
             else:
                 self.log.error("Mailing [%d] doesn't exist anymore.", mailing_id)

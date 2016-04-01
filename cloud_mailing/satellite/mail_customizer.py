@@ -15,36 +15,28 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-import StringIO
-import cStringIO
 import base64
 import cPickle
+import cStringIO
 import email
-import email.parser
 import email.generator
-from email.header import Header
-from email.message import Message
+import email.parser
 import logging
 import os
 import re
 import threading
 import urllib
+from email.header import Header
+from email.message import Message
 
 import dkim
+import jinja2
+from jinja2 import nodes
+from jinja2.ext import Extension
 
-from ..common.email_tools import header_to_unicode
-from ..common import settings
 from .models import MailingRecipient
-
-try:
-    import jinja2
-    from jinja2 import nodes
-    from jinja2.ext import Extension
-    can_use_jinja2 = True
-except ImportError:
-    can_use_jinja2 = False
-    Extension = object
-
+from ..common import settings
+from ..common.email_tools import header_to_unicode
 
 __author__ = 'ricard'
 
@@ -55,7 +47,7 @@ class MailCustomizer:
     mailingsContent = {} # key = mailing__id, value = email.message.Message
     _parserLock = threading.Lock()
 
-    def __init__(self, recipient, use_jinja2=True, read_tracking=True, click_tracking=False):
+    def __init__(self, recipient, read_tracking=True, click_tracking=False):
         assert(isinstance(recipient, MailingRecipient))
 
         self.recipient = recipient
@@ -65,10 +57,7 @@ class MailCustomizer:
         self.temp_path = settings.MAIL_TEMP
         if not os.path.exists(settings.MAIL_TEMP):
             os.makedirs(settings.MAIL_TEMP)
-        if use_jinja2:
-            self._do_customization = self._do_customization_jinja2
-        else:
-            self._do_customization = self._do_customization_legacy
+        self._do_customization = self._do_customization
         self.read_tracking = read_tracking
         self.click_tracking = click_tracking
 
@@ -108,68 +97,9 @@ class MailCustomizer:
                                             'sha1': contact_sha1,
         }
 
-    def _do_customization_legacy(self, body, contact_data, is_html=False):
-        body = body.replace(r"%25%25UNSUBSCRIBE%25%25", r"%%UNSUBSCRIBE%%")
-        _buffer = StringIO.StringIO()  # HAVE TO BE in StringIO module, not cStringIO because we work wih Unicode
-        pos = 0
-        size = len(body)
-        while pos < size:
-            p = body.find(r'%%', pos)
-            if p < 0:
-                _buffer.write(body[pos:])
-                break
-            _buffer.write(body[pos:p])
-            p += 2
-            p2 = body.find(r'%%', p)
-            if p2 < 0:
-                _buffer.write(body[pos:])
-                break
-            tagname = body[p:p2]
-            if tagname == r"UNSUBSCRIBE":
-                _buffer.write(self.unsubscribe_url)
-            elif tagname == r"GENDER":
-                _buffer.write(contact_data.get('gender', ''))
-            elif tagname == r"FIRSTNAME":
-                _buffer.write(contact_data.get('firstname', ''))
-            elif tagname == r"LASTNAME":
-                _buffer.write(contact_data.get('lastname', ''))
-            elif tagname == r"EMAIL":
-                _buffer.write(contact_data.get('email', ''))
-            elif tagname == r"ADDRESS1":
-                _buffer.write(contact_data.get('address1', ''))
-            elif tagname == r"ADDRESS2":
-                _buffer.write(contact_data.get('address2', ''))
-            elif tagname == r"ZIPCODE":
-                _buffer.write(contact_data.get('zip_code', ''))
-            elif tagname == r"CITY":
-                _buffer.write(contact_data.get('city', ''))
-            elif tagname == r"COUNTRY":
-                _buffer.write(contact_data.get('country', ''))
-            elif tagname == r"PHONE":
-                _buffer.write(contact_data.get('phone', ''))
-            elif tagname == r"FAX":
-                _buffer.write(contact_data.get('fax', ''))
-            elif tagname == r"MOBILE":
-                _buffer.write(contact_data.get('mobile', ''))
-            elif tagname == r"COMPANY":
-                _buffer.write(contact_data.get('company', ''))
-            elif tagname == r"COMMENT":
-                _buffer.write(contact_data.get('comment', ''))
-            elif tagname in contact_data:
-                _buffer.write(contact_data.get(tagname, ''))
-            else:
-                _buffer.write(r'%%' + tagname + '%%')
-            pos = p2+2
-        if is_html:
-            _buffer.write('<img src="%s" border="0" alt="" width="1" height="1" />\n' % self.tracking_url)
-
-        return _buffer.getvalue()
-
-    def _do_customization_jinja2(self, body, contact_data, is_html=False):
+    def _do_customization(self, body, contact_data, is_html=False):
         body = body.replace(r"%7B%7B%20unsubscribe%20%7D%7D", r"{{ unsubscribe }}")
         body = body.replace(r"%7B%7Bunsubscribe%7D%7D", r"{{ unsubscribe }}")
-        if not can_use_jinja2:
-            return self._do_customization_legacy(body, contact_data, is_html = is_html)
         if is_html and self.click_tracking:
             body = re.sub("(<a [^>]*href\s*=\s*['\"])(https?://[^'\"]*)(['\"])",
                               "\\1{{ _tracking_url }}?o={{ '\\2'|urlencode }}&t={% click %}\\2{% endclick %}\\3", body)
@@ -354,7 +284,7 @@ class MailCustomizer:
             # Remove some headers
             for header in ('Subject', 'Received', 'To', 'From', 'User-Agent', 'Date', 'Message-ID', 'List-Unsubscribe',
                            'DKIM-Signature', 'Authentication-Results', 'Received-SPF', 'Received-SPF', 'X-Received',
-                           'Delivered-To'):
+                           'Delivered-To', 'Feedback-ID', 'Precedence'):
                 if header in message:
                     del message[header]
 
@@ -363,6 +293,7 @@ class MailCustomizer:
             # Adding missing headers
             # TODO Make User Agent customizable
             message['User-Agent'] = "Cloud Mailing"
+            message['Precedence'] = "bulk"
             h = Header(self.recipient.sender_name or '')
             h.append("<%s>" % self.recipient.mail_from)
             message['From'] = h
@@ -381,19 +312,12 @@ class MailCustomizer:
             generator = email.generator.Generator(fp, mangle_from_=False)
             generator.flatten(message)
             flattened_message = fp.getvalue()
-            sig = ''
-            dkim_settings = self.recipient.mailing.get('dkim', None)
-            if dkim_settings and dkim_settings.get('enabled', True):
-                sig = dkim.sign(flattened_message, dkim_settings['selector'], dkim_settings['domain'],
-                                dkim_settings['privkey'],
-                                canonicalize=dkim_settings.get('canonicalize', (b'relaxed', b'simple')),
-                                signature_algorithm=dkim_settings.get('signature_algorithm', b'rsa-sha256'),
-                                include_headers=dkim_settings.get('include_headers'),
-                                length=dkim_settings.get('length', False),
-                                logger=self.log)
-                sig = str(sig)  # sig is in unicode
+            flattened_message = self.add_dkim_signature(flattened_message)
+            flattened_message = self.add_fbl(flattened_message)
+            fbl_settings = self.recipient.mailing.get('dkim', {})
+            # if fbl_settings
             with open(fullpath+'.tmp', 'wt') as fp:
-                fp.write(sig + flattened_message)
+                fp.write(flattened_message)
                 fp.close()
             if os.path.exists(fullpath):
                 os.remove(fullpath)
@@ -403,6 +327,43 @@ class MailCustomizer:
         except Exception:
             self.log.exception("Failed to customize mailing '%s' for recipient '%s'" % (self.recipient.mail_from, self.recipient.email))
             raise
+
+    def add_dkim_signature(self, flattened_message):
+        sig = ''
+        dkim_settings = self.recipient.mailing.get('dkim', None)
+        if dkim_settings and dkim_settings.get('enabled', True):
+            sig = dkim.sign(flattened_message, dkim_settings['selector'], dkim_settings['domain'],
+                            dkim_settings['privkey'],
+                            canonicalize=dkim_settings.get('canonicalize', (b'relaxed', b'simple')),
+                            signature_algorithm=dkim_settings.get('signature_algorithm', b'rsa-sha256'),
+                            include_headers=dkim_settings.get('include_headers'),
+                            length=dkim_settings.get('length', False),
+                            logger=self.log)
+            sig = str(sig)  # sig is in unicode
+        return sig + flattened_message
+
+    def add_fbl(self, flattened_message):
+        sig = ''
+        mailing = self.recipient.mailing
+        fbl_settings = mailing.get('feedback_loop', {})
+        if not fbl_settings:
+            return flattened_message
+        dkim_settings = fbl_settings.get('dkim', None)
+        sender_id = fbl_settings.get('sender_id', None)
+        if dkim_settings and sender_id:
+            campaign_id = fbl_settings.get('campaign_id', mailing.id)
+            customer_id = fbl_settings.get('customer_id', mailing.domain_name)
+            mail_type_id = fbl_settings.get('mail_type_id', mailing.type)
+            fbl_header = 'Feedback-ID: %s:%s:%s:%s\n' % (campaign_id, customer_id, mail_type_id, fbl_settings)
+            flattened_message = fbl_header + flattened_message
+            d = dkim.DKIM(flattened_message, signature_algorithm=dkim_settings.get('signature_algorithm', b'rsa-sha256'), logger=self.log)
+            sig = d.sign(dkim_settings['selector'], dkim_settings['domain'], dkim_settings['privkey'],
+                         canonicalize=dkim_settings.get('canonicalize', (b'relaxed', b'simple')),
+                         include_headers=dkim_settings.get('include_headers', d.default_sign_headers()) + ['Feedback-ID'],
+                         length=dkim_settings.get('length', False),
+                         )
+            sig = str(sig)  # sig is in unicode
+        return sig + flattened_message
 
     def _parse_message(self):
         MailCustomizer._parserLock.acquire()
