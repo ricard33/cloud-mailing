@@ -374,3 +374,8 @@ class MailingHourlyStats(Model):
     def add_try(serial):
         MailingHourlyStats.__generic_update(serial, {'$inc': {'tries': 1}})
 
+
+class SenderDomain(Model):
+    domain_name   = Field(required=True)
+    dkim          = Field()  # dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
+

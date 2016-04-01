@@ -242,6 +242,11 @@ class MailingManagerView(pb.Viewable):
             if mailing:
                 header = str(mailing.header).replace('\r\n', '\n')
                 body = mailing.body.replace('\r\n', '\n')
+                dkim = mailing.dkim
+                if not dkim:
+                    sender_domain = SenderDomain.find_one({'domain_name': mailing.domain_name})
+                    if sender_domain:
+                        dkim = sender_domain.dkim
                 util.StringPager(collector, pickle.dumps({'id': mailing_id,
                                                           'header': header,
                                                           'body': body,
@@ -250,7 +255,7 @@ class MailingManagerView(pb.Viewable):
                                                           'tracking_url': mailing.tracking_url,
                                                           'backup_customized_emails': mailing.backup_customized_emails,
                                                           'testing': mailing.testing,
-                                                          'dkim': mailing.dkim,
+                                                          'dkim': dkim,
                                                           'delete': False}))
             else:
                 self.log.error("Mailing [%d] doesn't exist anymore.", mailing_id)
