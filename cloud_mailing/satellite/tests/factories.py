@@ -33,6 +33,7 @@ class MailingFactory(factory.MogoFactory):
     header = "Subject: Great news!\n"
     body = 'This is a {{ custom }} mailing.'
     body_downloaded = True
+    type = 'REGULAR'
 
 
 class RecipientFactory(factory.MogoFactory):

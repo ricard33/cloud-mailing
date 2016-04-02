@@ -354,7 +354,7 @@ class MailCustomizer:
             campaign_id = fbl_settings.get('campaign_id', mailing.id)
             customer_id = fbl_settings.get('customer_id', mailing.domain_name)
             mail_type_id = fbl_settings.get('mail_type_id', mailing.type)
-            fbl_header = 'Feedback-ID: %s:%s:%s:%s\n' % (campaign_id, customer_id, mail_type_id, fbl_settings)
+            fbl_header = 'Feedback-ID: %s:%s:%s:%s\n' % (campaign_id, customer_id, mail_type_id, sender_id)
             flattened_message = fbl_header + flattened_message
             d = dkim.DKIM(flattened_message, signature_algorithm=dkim_settings.get('signature_algorithm', b'rsa-sha256'), logger=self.log)
             sig = d.sign(dkim_settings['selector'], dkim_settings['domain'], dkim_settings['privkey'],

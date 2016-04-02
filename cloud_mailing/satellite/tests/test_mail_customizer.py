@@ -679,7 +679,8 @@ I=92m happy! Nothing else to say...
     def test_feedback_loop(self):
         privkey = self._get_dkim_privkey()
         mailing = factories.MailingFactory(feedback_loop={'dkim': {'selector': 'mail', 'domain': 'unittest.cloud-mailing.net', 'privkey':privkey},
-                                                          'sender_id': 'CloudMailing'})
+                                                          'sender_id': 'CloudMailing'},
+                                           domain_name='cloud-mailing.net')
         recipient = factories.RecipientFactory(mailing=mailing)
 
         message_str = self._customize(recipient)
@@ -689,7 +690,8 @@ I=92m happy! Nothing else to say...
         assert (isinstance(message, email.message.Message))
         self.assertTrue('Feedback-ID' in message)
         self.assertTrue('DKIM-Signature' in message)
-        # print message['DKIM-Signature']
+        # print message['Feedback-ID']
+        self.assertEqual('%d:cloud-mailing.net:%s:CloudMailing' % (mailing.id, mailing.type), message['Feedback-ID'])
 
         self.assertTrue(dkim.verify(message_str, dnsfunc=self._get_txt))
 
