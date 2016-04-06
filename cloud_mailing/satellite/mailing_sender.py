@@ -972,7 +972,7 @@ def handle_recipient_failure(err, recipient, email_from, email_to, log):
             resp = exc.resp
         if not code or code < 500:
             log.warn("WARNING sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, resp)
-            logging.getLogger('mailing.out').warn("SOFTBOUNCED sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, resp)
+            logging.getLogger('mailing.out').warn("MAILING [%d] SOFTBOUNCED sending mailing FROM <%s> TO <%s>: %s", recipient.mailing.id, email_from, email_to, resp)
             recipient.update_send_status(RECIPIENT_STATUS.WARNING, smtp_code = code, smtp_message = resp, smtp_log = exc.log)
             recipient.set_send_mail_next_time()
             recipient.mark_as_finished()
@@ -983,14 +983,14 @@ def handle_recipient_failure(err, recipient, email_from, email_to, log):
                                                                       recipient.next_try.isoformat(' '))
         else:
             log.error("ERROR sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, resp)
-            logging.getLogger('mailing.out').error("ERROR sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, resp)
+            logging.getLogger('mailing.out').error("MAILING [%d] ERROR sending mailing FROM <%s> TO <%s>: %s", recipient.mailing.id, email_from, email_to, resp)
             recipient.update_send_status(RECIPIENT_STATUS.ERROR, smtp_code = code, smtp_message = resp, smtp_log = exc.log)
             recipient.mark_as_finished()
             HourlyStats.add_failed()
             DomainStats.add_failed(domain_name)
     else:
         log.error("ERROR sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, str(err))
-        logging.getLogger('mailing.out').error("ERROR sending mailing FROM <%s> TO <%s>", email_from, email_to)
+        logging.getLogger('mailing.out').error("MAILING [%d] ERROR sending mailing FROM <%s> TO <%s>", recipient.mailing.id, email_from, email_to)
         recipient.update_send_status(RECIPIENT_STATUS.GENERAL_ERROR, smtp_message = str(err))
         recipient.mark_as_finished()
         HourlyStats.add_failed()
