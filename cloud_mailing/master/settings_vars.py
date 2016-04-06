@@ -27,6 +27,7 @@ MAILING_RETRY_WAIT = 'mailing_retry_wait'            # no more used
 MAILING_DURATION = 'mailing_duration'              # in days
 SATELLITE_MAX_RECIPIENTS_TO_SEND = 'satellite_max_recipients_to_send'
 FEEDBACK_LOOP_SETTINGS = 'feedback_loop_settings'
+ORPHAN_RECIPIENTS_MAX_AGE = 'orphan_recipients_max_age'  # in seconds
 
 default = {
     MAILING_QUEUE_MAX_SIZE: 50000,
@@ -37,6 +38,7 @@ default = {
     MAILING_DURATION: 10,          # in days
     SATELLITE_MAX_RECIPIENTS_TO_SEND: 1000,
     FEEDBACK_LOOP_SETTINGS: {},
+    ORPHAN_RECIPIENTS_MAX_AGE: 3600,
 }
 
 # Helpers

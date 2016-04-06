@@ -176,7 +176,6 @@ class CloudClientFactory(pb.PBClientFactory):
 
 
 class MailingMasterTest(DatabaseMixin, TestCase):
-    # fixtures = ['mailing_sender', ]
     timeout = 10
     need_transactions = True
 
@@ -184,6 +183,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         # logging.basicConfig(level=logging.WARN,
         #                     format='%(name)-12s: %(asctime)s %(levelname)-8s %(message)s',
         #                     )
+        logging.getLogger().setLevel(logging.ERROR)
         self.connect_to_db()
         self.master_port = 11620
         self.serverDisconnected = defer.Deferred()
@@ -396,6 +396,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
 
         return d
 
+    @defer.inlineCallbacks
     def test_check_orphan_recipients(self):
         msg = make_email()
         recipients_count = 10
@@ -407,32 +408,39 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         manager.checkState()
 
         d2 = defer.Deferred()
-        d = self.connect_client(disconnectedDeferred=d2)
+        manager = yield self.connect_client(disconnectedDeferred=d2)
 
         self.cloud_client.recipients = map(lambda x: x['_id'], MailingRecipient._get_collection().find(projection=[]))
 
-        d.addCallback(self.cb_connected)
-
         t0 = time.time()
-        d.addCallback(self.do_get_recipients, recipients_count, t0) # to ensure TempQueue is filled
-        d.addCallback(self.cb_get_recipients, recipients_count)
-
-        def check_handled_recipients(dummy, rcpts_count):
-            self.assertEquals(rcpts_count, MailingTempQueue.find({'in_progress': True}).count())
-
-        d.addCallback(check_handled_recipients, recipients_count)
+        recipients = yield self.do_get_recipients(manager, recipients_count, t0) # to ensure TempQueue is filled
+        self.assertEquals(recipients_count, len(recipients))
+        self.assertEquals(recipients_count, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEquals(recipients_count, MailingTempQueue.find({'in_progress': True}).count())
 
         from ..cloud_master import mailing_portal
         mailing_master = mailing_portal.realm
-        d.addCallback(lambda x: mailing_master.check_recipients_in_clients(since_hours=0))
 
-        d.addCallback(check_handled_recipients, recipients_count)
+        # Recipients are still actives in satellite, no one should be removed
+        yield mailing_master.check_recipients_in_clients(since_seconds=0)
+        self.assertEquals(recipients_count, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEquals(recipients_count, MailingTempQueue.find({'in_progress': True}).count())
 
-        d.addCallback(self.do_disconnect, d2)
-        d.addErrback(self.do_disconnect_on_error, d2)
+        self.clientConnection.disconnect()
+        # yield d2
+        yield task.deferLater(reactor, 0.1, lambda: None)  # Wait for master to know that client is disconnected
 
-        return d
-        #return defer.DeferredList((d, d2,))
+        # satellite is disconnected, but too recently: no one should be removed
+        yield mailing_master.check_recipients_in_clients(since_seconds=60)
+        self.assertEquals(recipients_count, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEquals(recipients_count, MailingTempQueue.find({'in_progress': True}).count())
+
+        # satellite is disconnected for time: recipients should be removed
+        yield mailing_master.check_recipients_in_clients(since_seconds=-10)
+        self.assertEquals(0, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEquals(0, MailingTempQueue.find({'in_progress': True}).count())
+
+        yield d2
 
     def test_scheduled_start(self):
         recipients_count = 10

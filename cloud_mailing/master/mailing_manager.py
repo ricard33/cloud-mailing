@@ -59,7 +59,7 @@ class MailingManager(Singleton):
     def start_tasks(self):
         for fn, delay, startNow in ((self.checkState, 5, False),
                                     (self.update_status_for_finished_mailings, 60, False),
-                                    (self.check_orphan_recipients, 60, False),
+                                    (self.check_orphan_recipients, 10, False),
                                     (self.purge_temp_queue_from_finished_and_paused_mailings, 60, False),
                                     (self.retrieve_customized_content, 60, False),
                                     (SendRecipientsTask.getInstance().run, 10, False)
@@ -197,7 +197,7 @@ class MailingManager(Singleton):
                 'client': None
             }).count()
 
-            cp.check_point()
+            # cp.check_point()
             self.log.debug("TempQueue size = %d / unhandled = %d /min queue size = %d / is_filling? %s",
                            temp_queue_count, unhandled_temp_queue_count,
                            mailing_queue_min_size, self.filling_queue_running)
@@ -210,7 +210,7 @@ class MailingManager(Singleton):
                     {'$match': mailing_filter},
                     {'$group': {'_id': None, 'sum': {'$sum': '$total_pending'}}}
                 ]))  # ['result']
-                cp.check_point()
+                # cp.check_point()
                 rcpt_count = results and results[0].get('sum', 0) or 0
                 # print "rcpt_count", rcpt_count
                 # mailing_ids = [id for id in mailings.values_list('id', flat=True)]
@@ -227,7 +227,7 @@ class MailingManager(Singleton):
                         self.log.debug("Release filling queue lock")
                         self.filling_queue_running = False
 
-                    cp.check_point()
+                    # cp.check_point()
                     # return deferToThread(self.filling_mailing_queue, mailing_filter, rcpt_count, temp_queue_count,
                     #                      mailing_queue_max_size).addBoth(lambda x: _release_lock())
                     return self.filling_mailing_queue(mailing_filter, rcpt_count, temp_queue_count,
@@ -235,7 +235,7 @@ class MailingManager(Singleton):
 
         except:
             self.log.exception("Unknown exception in checkState()")
-        cp.check_point()
+        # cp.check_point()
 
     def clear_all_send_mail_in_progress(self):
         t0 = time.time()
@@ -345,13 +345,15 @@ class MailingManager(Singleton):
             mailing_master.close_mailing_on_satellites(mailing)
 
     def check_orphan_recipients(self):
-        # TODO Check why it seems to be broken with very big DB
         if time.time() > self.next_time_for_check_orphan_recipients:
             self.log.debug("check_orphan_recipients")
             t0 = time.time()
 
             def _set_next_time(result, delay):
-                self.log.debug("check_orphan_recipients() finished in %.1fs", time.time() - t0)
+                count = result and sum(map(lambda x: len(x[1]), result)) or 0
+                self.log.debug("check_orphan_recipients() finished for %d orphans in %.1fs", count, time.time() - t0)
+                if count:
+                    delay = 10
                 self.next_time_for_check_orphan_recipients = time.time() + delay
 
             from .cloud_master import mailing_portal
@@ -359,7 +361,7 @@ class MailingManager(Singleton):
             if mailing_portal:
                 mailing_master = mailing_portal.realm
                 return mailing_master.check_recipients_in_clients() \
-                    .addCallback(_set_next_time, 600) \
+                    .addCallback(_set_next_time, 120) \
                     .addErrback(_set_next_time, 30)
             else:
                 self.log.error("Can't get MailingPortal object!")

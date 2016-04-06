@@ -19,25 +19,24 @@ import cPickle as pickle
 import exceptions
 import logging
 import os
-import re
 import time
 from datetime import datetime, timedelta
 
 import pymongo
-from bson import ObjectId, DBRef
-from twisted.python.versions import Version
+from bson import ObjectId
 from twisted.cred import checkers, portal, error as cred_error, credentials
 from twisted.internet import reactor, defer
 from twisted.internet.threads import deferToThreadPool
 from twisted.python import failure
 from twisted.python import threadpool
 from twisted.python.deprecate import deprecated
+from twisted.python.versions import Version
 from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
 
 from cloud_mailing.master import settings_vars
-from .models import CloudClient, MailingRecipient, Mailing, SenderDomain
+from .models import CloudClient, Mailing, SenderDomain
 from .models import RECIPIENT_STATUS, MAILING_STATUS
 from ..common import settings
 from ..common.db_common import get_db
@@ -437,7 +436,7 @@ class CloudRealm:
         avatar.attached(mind, avatarId)
         if unit_test_mode:
             avatar.activate_unittest_mode()
-        return pb.IPerspective, avatar, lambda a=avatar:a.detached(mind)
+        return pb.IPerspective, avatar, lambda a=avatar: a.detached(mind)
 
     def activate_unittest_mode(self, activated):
         for avatar in self.avatars.values():
@@ -456,7 +455,7 @@ class CloudRealm:
         for avatar in self.avatars.values():
             avatar.invalidate_mailing_body(mailing)
 
-    def check_recipients_in_clients(self, since_hours=1):
+    def check_recipients_in_clients(self, since_seconds=None):
         """
         Check for 'lost' recipients (recipients marked as handled by a client on master,
         but in reality unknown by the client (may be due to data lost) and remove them
@@ -469,55 +468,68 @@ class CloudRealm:
             return defer.succeed(None)
         self.__check_for_orphan_recipients = True
         from models import MailingTempQueue
-        d = None
-        recipients = []
-        serial = None
+        l = []
         try:
+            if since_seconds is None:
+                since_seconds = settings_vars.get_int(settings_vars.ORPHAN_RECIPIENTS_MAX_AGE)
             query = MailingTempQueue.find({
                 'date_delegated': {
-                    '$lt': datetime.utcnow() - timedelta(hours=since_hours)},
+                    '$lt': datetime.utcnow() - timedelta(seconds=since_seconds)},
                 'client': {'$ne': None}
             }, limit=100)
-            for item in query.sort([('client', pymongo.ASCENDING), ('date_delegated', pymongo.DESCENDING)]):
-                if serial and serial != item.client.serial:
-                    break
-                serial = item.client.serial
-                recipients.append(str(item.recipient['_id']))
-            if serial and recipients:
-                try:
+
+            def get_recipients_per_client():
+                serial = None
+                recipients = []
+                for item in query.sort([('client', pymongo.ASCENDING), ('date_delegated', pymongo.DESCENDING)]):
+                    if serial and serial != item.client.serial:
+                        yield serial, recipients
+                        recipients = []
+                    serial = item.client.serial
+                    recipients.append(str(item.recipient['_id']))
+                if serial and recipients:
+                    yield serial, recipients
+
+            for serial, recipients in get_recipients_per_client():
+                self.log.debug("Checking %d orphans from %s", len(recipients), serial)
+                if serial in self.avatars and self.avatars[serial].clients:
                     avatar = self.avatars[serial]
-                    d = avatar.check_recipients(recipients
-                        ).addCallback(self._check_recipients_cb, serial, recipients
-                        ).addErrback(self._check_recipients_eb, avatar
-                        )
-                except KeyError:
+                    d = avatar.check_recipients(recipients)
+                else:
                     self.log.warn("Found %d recipients handled by disconnected client [%s].", len(recipients), serial)
-        except Exception:
+                    d = defer.succeed({_id: None for _id in recipients})
+                d.addCallback(self._check_recipients_cb, serial, recipients)\
+                    .addErrback(self._check_recipients_eb, serial)
+                l.append(d)
+        except Exception, ex:
             self.log.exception("Exception in CloudRealm.check_recipients_in_clients")
 
         def release_check_flag(result):
             self.__check_for_orphan_recipients = False
             return result
 
-        if not d:
+        d = defer.DeferredList(l)
+        if not l:
             d = defer.succeed(None)
         d.addBoth(release_check_flag)
         return d
 
+    @defer.inlineCallbacks
     def _check_recipients_cb(self, results, serial, recipient_ids):
         self.log.debug("Queries for handled ids are finished. We can begin the check.")
         assert(isinstance(results, dict))
-        unhandled = [id for id, rcpt in results.items() if not rcpt]
-        for id in unhandled:
-            self.log.warn("Found orphan recipient [%d] handled from client [%s]. Removing it...", id, serial)
+        unhandled = [ObjectId(id) for id, rcpt in results.items() if not rcpt]
+        if unhandled:
+            self.log.warn("Found [%d] orphan recipients from client [%s]. Removing them...", len(unhandled), serial)
+            yield get_db().mailingrecipient.update_many({'_id': {'$in': unhandled}},
+                                                        {'$set': {'cloud_client': None,
+                                                                  'in_progress': False}})
+            yield get_db().mailingtempqueue.delete_many({'recipient._id': {'$in': unhandled}})
 
-        MailingRecipient.update({'_id': {'$in': unhandled}},
-                                {'$set': {'client': None,
-                                          'in_progress': False}},
-                                multi=True)
+        defer.returnValue(unhandled)
 
-    def _check_recipients_eb(self, err):
-        self.log.error("Error in check_recipients_in_clients: %s", err)
+    def _check_recipients_eb(self, err, serial):
+        self.log.error("Error in check_recipients() for client %s: %s", serial, err)
         return err
 
     @defer.inlineCallbacks
