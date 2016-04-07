@@ -145,19 +145,20 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 raise Fault(http.NOT_ACCEPTABLE,
                             "Can't convert '%s' to boolean (property 'enabled')" % properties['enabled'])
         if 'domain_affinity' in properties:
-            if properties['domain_affinity']:
+            domain_affinity = properties['domain_affinity']
+            if isinstance(domain_affinity, basestring):     # old format
                 import ast
 
                 try:
                     v = ast.literal_eval(properties['domain_affinity'])
                     if not isinstance(v, dict):
-                        raise Fault(http.NOT_ACCEPTABLE, "'domain_affinity' property has to be a valid Python dictionary")
+                        raise Fault(http.NOT_ACCEPTABLE, "'domain_affinity' property has to be a valid dictionary")
                 except Exception:
                     log_api.exception("Badly formated string for 'domain_affinity' property.")
                     raise Fault(http.NOT_ACCEPTABLE,
                                 "Badly formated string for 'domain_affinity' property. It has to be a valid Python dictionary.")
-            else:
-                properties['domain_affinity'] = None
+            elif not isinstance(domain_affinity, dict):
+                raise Fault(http.NOT_ACCEPTABLE, "'domain_affinity' property has to be a valid dictionary")
 
     @doc_signature('<i>string</i> serial', '<i>struct</i> properties', 'id')
     def xmlrpc_cloud_add_satellite(self, serial, properties):

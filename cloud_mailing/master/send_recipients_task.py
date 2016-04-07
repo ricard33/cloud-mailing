@@ -44,25 +44,40 @@ class SendRecipientsTask(Singleton):
         included = []
         excluded = []
         try:
-            affinity = domain_affinity and eval(domain_affinity)
-            if affinity:
-                if not isinstance(affinity, dict):
-                    raise TypeError, "Affinity is not a dictionary!"
-                domain_re = re.compile('^(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?$', re.IGNORECASE)
-                #                print self.cloud_client.serial, repr(affinity)
-                if affinity.get('enabled', True):
-                    for domain, value in affinity.items():
-                        if domain == 'enabled':
-                            continue
-                        if not domain_re.match(domain):
-                            log.warning("Wrong domain name format for '%s'. Ignored...", domain)
-                            continue
-                        if value:
-                            # print self.cloud_client.serial, "include", domain
-                            included.append(domain)
-                        else:
-                            # print self.cloud_client.serial, "exclude", domain
-                            excluded.append(domain)
+            domain_re = re.compile('^(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?$', re.IGNORECASE)
+            if domain_affinity and isinstance(domain_affinity, dict):
+                affinity = domain_affinity
+                for domain in domain_affinity.get('include', []):
+                    if not domain_re.match(domain):
+                        log.warning("Wrong domain name format for '%s'. Ignored...", domain)
+                        continue
+                    included.append(domain)
+                for domain in domain_affinity.get('exclude', []):
+                    if not domain_re.match(domain):
+                        log.warning("Wrong domain name format for '%s'. Ignored...", domain)
+                        continue
+                    excluded.append(domain)
+
+            elif isinstance(domain_affinity, basestring):
+                affinity = domain_affinity and eval(domain_affinity)
+
+                if affinity:
+                    if not isinstance(affinity, dict):
+                        raise TypeError, "Affinity is not a dictionary!"
+                    #                print self.cloud_client.serial, repr(affinity)
+                    if affinity.get('enabled', True):
+                        for domain, value in affinity.items():
+                            if domain == 'enabled':
+                                continue
+                            if not domain_re.match(domain):
+                                log.warning("Wrong domain name format for '%s'. Ignored...", domain)
+                                continue
+                            if value:
+                                # print self.cloud_client.serial, "include", domain
+                                included.append(domain)
+                            else:
+                                # print self.cloud_client.serial, "exclude", domain
+                                excluded.append(domain)
         except Exception:
             log.exception("Error in Affinity format")
         mailing_filter = {

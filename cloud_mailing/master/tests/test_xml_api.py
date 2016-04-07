@@ -103,13 +103,27 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertEqual(len(x), 2) and x)
         return d
 
-    def test_set_satellite_properties(self):
+    def test_set_satellite_properties_old_affinity_format(self):
         s = CloudClientFactory()
         d = self.proxy().callRemote("cloud_set_satellite_properties", s.id, {
             'serial': 'CXM_CHANGED',
             'enabled': False,
             'shared_key': 'X'*40,
             'domain_affinity': "{'orange.fr': True, 'free.fr': False}"
+        })
+        d.addCallback(lambda x: self.proxy().callRemote("cloud_list_satellites"))
+        d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+        d.addCallback(lambda x: self.assertEqual('CXM_CHANGED', x[0]['serial']) and x)
+        return d
+
+    def test_set_satellite_properties(self):
+        s = CloudClientFactory()
+        d = self.proxy().callRemote("cloud_set_satellite_properties", s.id, {
+            'serial': 'CXM_CHANGED',
+            'enabled': False,
+            'shared_key': 'X'*40,
+            'domain_affinity': {'include': ['orange.fr'], 'exclude': ['free.fr']}
         })
         d.addCallback(lambda x: self.proxy().callRemote("cloud_list_satellites"))
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
