@@ -17,6 +17,8 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 from __future__ import with_statement
+
+import random
 import smtpd
 import asyncore
 import sys
@@ -38,6 +40,12 @@ class FakeSMTPChannel(smtpd.SMTPChannel):
         if 'error' in address:
             self.push('550 Unknown recipient %s' % address)
             return
+        # if random.random() < 0.1:
+        #     self.push('550 Unknown recipient %s' % address)
+        #     return
+        # if random.random() < 0.1:
+        #     self.push('421 Please try later')
+        #     return
 
         self._SMTPChannel__rcpttos.append(address)
         print 'recips:', self._SMTPChannel__rcpttos
