@@ -15,11 +15,13 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-from mogo import Model, Field, EnumField, ReferenceField
-
-from datetime import datetime, timedelta
 import time
-from ..common.models import Sequence
+from datetime import datetime, timedelta
+
+from mogo import Model, Field, EnumField, ReferenceField
+from twisted.internet import defer
+
+from cloud_mailing.common.db_common import get_db
 
 
 class RECIPIENT_STATUS:
@@ -122,10 +124,14 @@ class MailingRecipient(Model):
         self.save()
 
     def update_send_status(self, send_status, smtp_code=None, smtp_e_code=None, smtp_message=None, in_progress=False,
-                           smtp_log=None):
+                           smtp_log=None, target_ip=None):
         """
         Updates the contact status.
         """
+        LiveStats.add_log(mailing_id = self.mailing.id, domain_name=self.domain_name,
+                          mail_from=self.mail_from, mail_to=self.email,
+                          send_status=send_status, reply_code=smtp_code, reply_enhanced_code=smtp_e_code,
+                          reply_text=smtp_message, target_ip=target_ip)
         self.send_status = send_status
         if send_status == RECIPIENT_STATUS.FINISHED:
             self.next_try = datetime.utcnow()
@@ -168,7 +174,7 @@ class HourlyStats(Model):
     failed      = Field(int, default=0)
     tries       = Field(int, default=0)  # Total tentatives count, including sent, failed and temporary failed.
     up_to_date  = Field(bool, default=False)  # If false, this entry needs to be sent to the CloudMaster.
-    
+
     @staticmethod
     def __generic_update(operations):
         r = HourlyStats.update({'epoch_hour': int(time.time() / 3600)},
@@ -301,3 +307,40 @@ class ActiveQueue(Model):
     domain_name = Field(required=True)
     recipients = Field()
     created = Field(datetime, default=datetime.utcnow)
+
+
+class LiveStats():
+    """
+    Register all tries to allow to compute real time statistics on errors, success, softbounces, etc...
+    Statistics should be by domain, by MX and by mailing
+    """
+    # mailing_id      = Field(int)
+    # domain_name     = Field()
+    # ip              = Field()
+    # mail_from       = Field()
+    # recipient       = Field()
+    # date            = Field()
+    # send_status     = EnumField(recipient_status)
+    # reply_code      = Field(int)
+    # reply_enhanced_code = Field()
+    # reply_text      = Field()
+
+    @staticmethod
+    def add_log(mailing_id, domain_name, mail_from, mail_to, send_status, reply_code, reply_enhanced_code, reply_text,
+                target_ip):
+        db = get_db()
+        now = datetime.utcnow()
+        l = [
+            db.live_stats.insert_one({'date': now,
+                                      'mailing_id': mailing_id, 'domain_name': domain_name, 'ip': target_ip,
+                                      'mail_from': mail_from, 'mail_to': mail_to, 'send_status': send_status,
+                                      'reply_code': reply_code, 'reply_enhanced_code': reply_enhanced_code,
+                                      'reply_text': reply_text}),
+            db.live_stats2.insert_one({'date': now,
+                                       'mailing_id': mailing_id, 'domain_name': domain_name, 'ip': target_ip,
+                                       'mail_from': mail_from, 'mail_to': mail_to, 'send_status': send_status,
+                                       'reply_code': reply_code, 'reply_enhanced_code': reply_enhanced_code,
+                                       'reply_text': reply_text})
+        ]
+
+        return defer.DeferredList(l)

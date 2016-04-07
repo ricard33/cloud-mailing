@@ -51,11 +51,11 @@ from twisted.spread.util import CallbackPageCollector
 
 from cloud_mailing.common.db_common import get_db
 from . import settings_vars
+from .mail_customizer import MailCustomizer
 from .models import Mailing, MailingRecipient, RECIPIENT_STATUS, HourlyStats, DomainStats, DomainConfiguration, \
     ActiveQueue
-from .sendmail import SMTPRelayerFactory
-from .mail_customizer import MailCustomizer
 from .mx import MXCalculator, FakedMXCalculator
+from .sendmail import SMTPRelayerFactory
 from ..common import settings
 from ..common.config_file import ConfigFile
 
@@ -555,16 +555,8 @@ class MailingSender(pb.Referenceable):
         self.log.error("Relayer '%s' finished with error '%s'.", domain, err_msg)
         recipients = self.relay_manager.getActiveRelayRecipients(queue_id)
         if recipients:
-            try:
-                #for recipient in recipients:
-                #    if recipient.in_progress:
-                #        email_from = recipient.mail_from
-                #        email_to   = recipient.email
-                #        handle_recipient_failure(err, recipient, email_from, email_to, self.log)
-                pass
-            finally:
-                # by security, to be certain to not block our mailing queue
-                self.relay_manager.removeActiveRelay(queue_id)
+            # by security, to be certain to not block our mailing queue
+            self.relay_manager.removeActiveRelay(queue_id)
 
     def invalidate_all_mailing_content(self):
         self.log.debug("Invalidating all mailing content...")
@@ -717,6 +709,7 @@ class Queue(object):
 
     def __init__(self, domain, recipients, mail_server, testing=False):
         self.domain = domain
+        self.mx_ip = None
         self.recipients = recipients
         self.mail_server = mail_server
         self.testing = testing
@@ -787,7 +780,7 @@ class Queue(object):
                 self.log.warn("Can't find mailing [%d] for recipient [%s:%s]",
                               recipient['mailing'], recipient.id, recipient.email)
                 continue
-            rcpt_manager = RecipientManager(factory, recipient, self.log)
+            rcpt_manager = RecipientManager(factory, recipient, lambda: self.mx_ip, self.log)
             rcpt_manager.send().addCallbacks(self._cbRecipient,
                                              self._ebRecipient,
                                              callbackArgs=(factory,),
@@ -810,6 +803,7 @@ class Queue(object):
             port = self.fake_target_port
         else:
             address = addresses[0]
+        self.mx_ip = address
         reactor.connectTCP(address, port, factory)
         #noinspection PyTypeChecker
         self.mx_in_use.append(address)
@@ -897,10 +891,11 @@ class Queue(object):
 
 
 class RecipientManager(object):
-    def __init__(self, factory, recipient, log):
+    def __init__(self, factory, recipient, get_target_ip, log):
         assert(isinstance(recipient, MailingRecipient))
         self.factory = factory
         self.recipient = recipient
+        self.get_target_ip = get_target_ip
         self.deferred = defer.Deferred()
         #self.customizerDeferred = defer.Deferred()
         self.log = log
@@ -946,7 +941,7 @@ class RecipientManager(object):
     def onSuccess(self, data):
         logging.getLogger('mailing.out').info("MAILING [%d] SENT FROM <%s> TO <%s>", self.mailing_id,
                                               self.email_from, self.email_to)
-        self.recipient.update_send_status(RECIPIENT_STATUS.FINISHED, smtp_message = '')
+        self.recipient.update_send_status(RECIPIENT_STATUS.FINISHED, smtp_message = '', target_ip=self.get_target_ip())
         self.recipient.mark_as_finished()
         HourlyStats.add_sent()
         DomainStats.add_sent(self.factory.targetDomain)
@@ -963,7 +958,7 @@ class RecipientManager(object):
         self.deferred.callback(self.recipient)
     
     def onFailure(self, err):
-        handle_recipient_failure(err, self.recipient, self.email_from, self.email_to, self.log)
+        handle_recipient_failure(err, self.recipient, self.email_from, self.email_to, self.get_target_ip(), self.log)
         if self.recipient.send_status in (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.GENERAL_ERROR) \
                 and self.temp_filename and os.path.exists(self.temp_filename):
             self.log.debug("Deleting customized content: '%s'", self.temp_filename)
@@ -971,7 +966,7 @@ class RecipientManager(object):
         self.deferred.errback(err)
 
 
-def handle_recipient_failure(err, recipient, email_from, email_to, log):
+def handle_recipient_failure(err, recipient, email_from, email_to, target_ip, log):
     assert(isinstance(recipient, MailingRecipient))
     if not recipient.in_progress:
         log.error("Programming error : trying to handle error on recipient <%s> not in progress. Skipped...", recipient)
@@ -997,7 +992,8 @@ def handle_recipient_failure(err, recipient, email_from, email_to, log):
         if not code or code < 500:
             log.warn("WARNING sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, resp)
             logging.getLogger('mailing.out').warn("MAILING [%d] SOFTBOUNCED sending mailing FROM <%s> TO <%s>: %s", recipient.mailing.id, email_from, email_to, resp)
-            recipient.update_send_status(RECIPIENT_STATUS.WARNING, smtp_code = code, smtp_message = resp, smtp_log = exc.log)
+            recipient.update_send_status(RECIPIENT_STATUS.WARNING, smtp_code=code, smtp_message=resp, smtp_log=exc.log,
+                                         target_ip=target_ip)
             recipient.set_send_mail_next_time()
             recipient.mark_as_finished()
             HourlyStats.add_try()
@@ -1008,14 +1004,15 @@ def handle_recipient_failure(err, recipient, email_from, email_to, log):
         else:
             log.error("ERROR sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, resp)
             logging.getLogger('mailing.out').error("MAILING [%d] ERROR sending mailing FROM <%s> TO <%s>: %s", recipient.mailing.id, email_from, email_to, resp)
-            recipient.update_send_status(RECIPIENT_STATUS.ERROR, smtp_code = code, smtp_message = resp, smtp_log = exc.log)
+            recipient.update_send_status(RECIPIENT_STATUS.ERROR, smtp_code=code, smtp_message=resp, smtp_log=exc.log,
+                                         target_ip=target_ip)
             recipient.mark_as_finished()
             HourlyStats.add_failed()
             DomainStats.add_failed(domain_name)
     else:
         log.error("ERROR sending mailing FROM <%s> TO <%s>: %s", email_from, email_to, str(err))
         logging.getLogger('mailing.out').error("MAILING [%d] ERROR sending mailing FROM <%s> TO <%s>", recipient.mailing.id, email_from, email_to)
-        recipient.update_send_status(RECIPIENT_STATUS.GENERAL_ERROR, smtp_message = str(err))
+        recipient.update_send_status(RECIPIENT_STATUS.GENERAL_ERROR, smtp_message = str(err), target_ip=target_ip)
         recipient.mark_as_finished()
         HourlyStats.add_failed()
         DomainStats.add_failed(domain_name)

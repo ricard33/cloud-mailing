@@ -16,11 +16,15 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import logging
+
+import pymongo
+from pymongo.errors import OperationFailure
+from txmongo import filter
 from mogo import connect
 import twisted
 from twisted.application import service, internet
 from twisted.application.service import IService
-from twisted.internet import reactor, ssl
+from twisted.internet import reactor, ssl, defer
 from twisted.python.log import PythonLoggingObserver
 
 from cloud_mailing.common.db_common import Db
@@ -73,6 +77,26 @@ def stop_satellite_service():
         #     service_satellite.disconnect()  # don't known the function name
 
 
+def create_index(collection, name, keys, **kwargs):
+    kwargs['name'] = name
+    try:
+        collection.create_index(keys, **kwargs)
+    except OperationFailure, ex:
+        try:
+            collection.drop_index(name)
+        except OperationFailure, ex:
+            collection.drop_index(keys)
+        collection.create_index(keys, **kwargs)
+
+
+def init_db(db):
+    # db.create_collection("live_stats")
+    create_index(db.live_stats, 'date_expiration', [('date', pymongo.ASCENDING)], expireAfterSeconds=7 * 86400)
+    # nb = 700000
+    # if 'live_stats2' not in db.collection_names():
+    #     db.create_collection("live_stats2", capped=True, size=nb * 1024, max=nb)
+
+
 def main(application=None):
     """
     Startup sequence for CM Satellite
@@ -98,6 +122,9 @@ def main(application=None):
     db_conn = connect(settings.SATELLITE_DATABASE)
     Db.getInstance(settings.SATELLITE_DATABASE)
 
+    init_db(db_conn[settings.SATELLITE_DATABASE])
+
     # attach the service to its parent application
     start_satellite_service(application=application, master_ip=settings.MASTER_IP, master_port=settings.MASTER_PORT,
                             ssl_context_factory=ssl_context_factory)
+
