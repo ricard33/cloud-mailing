@@ -287,7 +287,7 @@ class MailingManagerView(pb.Viewable):
         Returns an array of recipient ids already handled by the connected client. Used by clients to verify validity of
          their recipients list on reconnection (in case of orphan purge when it was offline).
         """
-        self.log.warning("get_my_recipients() for '%s'", self.cloud_client.serial)
+        self.log.debug("get_my_recipients() for '%s'", self.cloud_client.serial)
         # db = get_db()
         # recipients = yield db.mailingtempqueue.find_many({'client.$id': self.cloud_client.id})  # '$' is refused
         recipients = MailingTempQueue._collection.find({'client.$id': self.cloud_client.id})
@@ -491,7 +491,7 @@ class CloudRealm:
                 'date_delegated': {
                     '$lt': datetime.utcnow() - timedelta(seconds=since_seconds)},
                 'client': {'$ne': None}
-            }, limit=100)
+            }, limit=settings_vars.get_int(settings_vars.ORPHAN_RECIPIENTS_MAX_RECIPIENTS))
 
             def get_recipients_per_client():
                 serial = None
