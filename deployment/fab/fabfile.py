@@ -266,6 +266,7 @@ stdout_logfile=/var/log/supervisor.%(group_name)s_master.log
 autostart=true
 autorestart=true
 user=cm
+priority=10
 """ % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name}
 
     config += """
@@ -277,6 +278,7 @@ stdout_logfile=/var/log/supervisor.%(group_name)s_satellite.log
 autostart=true
 autorestart=true
 user=cm
+priority=20
 """ % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name}
 
     with tempfile.NamedTemporaryFile('w+t') as tmp:
