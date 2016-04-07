@@ -49,6 +49,7 @@ from twisted.python.failure import Failure
 from twisted.spread import pb
 from twisted.spread.util import CallbackPageCollector
 
+from cloud_mailing.common.db_common import get_db
 from . import settings_vars
 from .models import Mailing, MailingRecipient, RECIPIENT_STATUS, HourlyStats, DomainStats, DomainConfiguration, \
     ActiveQueue
@@ -114,7 +115,7 @@ class MailingSender(pb.Referenceable):
         self.is_connected = False
         self.invalidate_all_mailing_content()
         self.delete_all_customized_temp_files()
-        self.clear_all_send_mail_in_progress()
+        self.invalidate_all_recipients_and_reset_in_progress_status()
         self.tasks = []
 
     def start_tasks(self):
@@ -148,9 +149,29 @@ class MailingSender(pb.Referenceable):
         
     def cb_get_mailing_manager(self, mailing_manager):
         self.mailing_manager = mailing_manager
-        self.mailing_manager .notifyOnDisconnect(self.disconnected)
+        self.mailing_manager.notifyOnDisconnect(self.disconnected)
+        self.verify_recipients()
         if not self.tasks:
             self.start_tasks()
+
+    @defer.inlineCallbacks
+    def verify_recipients(self):
+        db = get_db()
+        count = yield db.mailingrecipient.count({'send_status': RECIPIENT_STATUS.UNVERIFIED})
+        if count:
+            self.log.debug("Verifying recipients (%d unverified)...", count)
+            data_list = yield getAllPages(self.mailing_manager, "get_my_recipients")
+            data = ''.join(data_list)
+            recipient_ids = pickle.loads(data)
+
+            self.log.debug("Master returns us %d recipients", len(recipient_ids))
+            if recipient_ids:
+                yield db.mailingrecipient.update_many({'_id': {'$in': map(lambda _id: ObjectId(_id), recipient_ids)}},
+                                                      {'$set': {'send_status': RECIPIENT_STATUS.READY}})
+            removed_recipients = yield db.mailingrecipient.count({'send_status': RECIPIENT_STATUS.UNVERIFIED})
+            self.log.warning("Found that %d recipients have been removed by master. Deleting them...", removed_recipients)
+            yield db.mailingrecipient.delete_many({'send_status': RECIPIENT_STATUS.UNVERIFIED})
+
 
     def cb_get_recipients(self, data_list, t0):
         self.is_connected = True
@@ -372,6 +393,7 @@ class MailingSender(pb.Referenceable):
         mailing_ids = map(lambda x: x['_id'],
                           Mailing._get_collection().find({'body_downloaded': True}, projection=('_id',)))
         queue_filter = {'$or': [{'in_progress': False}, {'in_progress': None}],
+                        'send_status': RECIPIENT_STATUS.READY,
                         'finished': False,
                         'mailing.$id': {'$in': mailing_ids}}
         return queue_filter
@@ -521,7 +543,6 @@ class MailingSender(pb.Referenceable):
                            callbackArgs=(queue_id,),
                            errbackArgs=(domain, queue_id,))
 
-
     def _cbRelayer(self, domainName, queue_id):
         self.log.debug("Relayer for '%s' finished." % domainName)
         self.relay_manager.removeActiveRelay(queue_id)
@@ -549,10 +570,13 @@ class MailingSender(pb.Referenceable):
         self.log.debug("Invalidating all mailing content...")
         Mailing.update({}, {'$set': {'body_downloaded': False, 'header': None, 'body': None}}, multi=True)
 
-    def clear_all_send_mail_in_progress(self):
-        self.log.debug("Reseting all mailing recipients in progress...")
+    def invalidate_all_recipients_and_reset_in_progress_status(self):
+        self.log.debug("Invalidating all recipients and remove 'in_progress' status...")
         MailingRecipient.update({'$or': [{'send_status': RECIPIENT_STATUS.IN_PROGRESS}, {'in_progress': True}]},
-                                {'$set': {'send_status': RECIPIENT_STATUS.READY, 'in_progress': False}},
+                                {'$set': {'send_status': RECIPIENT_STATUS.UNVERIFIED, 'in_progress': False}},
+                                multi=True)
+        MailingRecipient.update({'send_status': RECIPIENT_STATUS.READY},
+                                {'$set': {'send_status': RECIPIENT_STATUS.UNVERIFIED, 'in_progress': False}},
                                 multi=True)
 
     def close_mailing(self, queue_id):

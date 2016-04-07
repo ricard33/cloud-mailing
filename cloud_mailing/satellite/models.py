@@ -23,6 +23,7 @@ from ..common.models import Sequence
 
 
 class RECIPIENT_STATUS:
+    UNVERIFIED         = 'UNVERIFIED'       # Temporary state for existing recipients at satellite startup
     READY              = 'READY'
     FINISHED           = 'FINISHED'
     TIMEOUT            = 'TIMEOUT'
@@ -31,7 +32,8 @@ class RECIPIENT_STATUS:
     WARNING            = 'WARNING'
     IN_PROGRESS        = 'IN PROGRESS'
 
-recipient_status = (RECIPIENT_STATUS.READY,
+recipient_status = (RECIPIENT_STATUS.UNVERIFIED,
+                    RECIPIENT_STATUS.READY,
                     RECIPIENT_STATUS.IN_PROGRESS,
                     RECIPIENT_STATUS.WARNING,
                     RECIPIENT_STATUS.FINISHED,

@@ -36,7 +36,7 @@ from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
 
 from cloud_mailing.master import settings_vars
-from .models import CloudClient, Mailing, SenderDomain
+from .models import CloudClient, Mailing, SenderDomain, MailingTempQueue
 from .models import RECIPIENT_STATUS, MAILING_STATUS
 from ..common import settings
 from ..common.db_common import get_db
@@ -279,6 +279,21 @@ class MailingManagerView(pb.Viewable):
         """
         self.log.warning("get_recipients(count=%d) DEPRECATED", count)
         data = pickle.dumps([])
+        util.StringPager(collector, data)
+
+    # @defer.inlineCallbacks
+    def view_get_my_recipients(self, client, collector):
+        """
+        Returns an array of recipient ids already handled by the connected client. Used by clients to verify validity of
+         their recipients list on reconnection (in case of orphan purge when it was offline).
+        """
+        self.log.warning("get_my_recipients() for '%s'", self.cloud_client.serial)
+        # db = get_db()
+        # recipients = yield db.mailingtempqueue.find_many({'client.$id': self.cloud_client.id})  # '$' is refused
+        recipients = MailingTempQueue._collection.find({'client.$id': self.cloud_client.id})
+        recipients = list(recipients)
+        data = pickle.dumps(map(lambda r: str(r['_id']), recipients))
+        print "sending %d length data for %d recipients" % (len(data), len(recipients))
         util.StringPager(collector, data)
 
     @staticmethod
