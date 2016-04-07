@@ -46,17 +46,17 @@ class SendRecipientsTask(Singleton):
         try:
             domain_re = re.compile('^(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+[A-Z]{2,6}\.?$', re.IGNORECASE)
             if domain_affinity and isinstance(domain_affinity, dict):
-                affinity = domain_affinity
-                for domain in domain_affinity.get('include', []):
-                    if not domain_re.match(domain):
-                        log.warning("Wrong domain name format for '%s'. Ignored...", domain)
-                        continue
-                    included.append(domain)
-                for domain in domain_affinity.get('exclude', []):
-                    if not domain_re.match(domain):
-                        log.warning("Wrong domain name format for '%s'. Ignored...", domain)
-                        continue
-                    excluded.append(domain)
+                if domain_affinity.get('enabled', True):
+                    for domain in domain_affinity.get('include', []):
+                        if not domain_re.match(domain):
+                            log.warning("Wrong domain name format for '%s'. Ignored...", domain)
+                            continue
+                        included.append(domain)
+                    for domain in domain_affinity.get('exclude', []):
+                        if not domain_re.match(domain):
+                            log.warning("Wrong domain name format for '%s'. Ignored...", domain)
+                            continue
+                        excluded.append(domain)
 
             elif isinstance(domain_affinity, basestring):
                 affinity = domain_affinity and eval(domain_affinity)
@@ -143,7 +143,7 @@ class SendRecipientsTask(Singleton):
         satellite_group = cloud_client.get('group')
         query_filter = yield self._make_get_recipients_queryset(db, satellite_group,
                                                                 domain_affinity, self.log)
-        queue = yield db.mailingtempqueue.find(query_filter, sort='next_try', limit=count)
+        queue = yield db.mailingtempqueue.find(query_filter, sort='next_try', limit=min(count, wanted_count))
         recipients = []
         ids = []
         for item in queue:
