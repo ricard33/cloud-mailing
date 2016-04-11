@@ -21,6 +21,7 @@ import time
 from datetime import datetime
 
 import pymongo
+import txmongo.filter
 from bson import DBRef
 from twisted.internet import defer
 from twisted.spread import util
@@ -90,7 +91,7 @@ class SendRecipientsTask(Singleton):
         mailing_ids = map(lambda x: x['_id'], _list_of_mailings)
         query = {
             '$and': [{'$or': [{'in_progress': False}, {'in_progress': {'$exists': False}}]},
-                     {'$or': [{'client': False}, {'client': {'$exists': False}}]},
+                     {'$or': [{'client': None}, {'client': {'$exists': False}}]},
                      ],
             'mailing.$id': {'$in': mailing_ids},
         }
@@ -115,20 +116,7 @@ class SendRecipientsTask(Singleton):
             self.log.error("Can't get MailingPortal object!")
 
     @defer.inlineCallbacks
-    def _send_recipients_to_satellite(self, serial, count):
-        self.log.debug("_send_recipients_to_satellite(client=%s, count=%d)", serial, count)
-        t0 = time.time()
-
-        avatar = self._get_avatar(serial)
-        if not avatar:
-            self.log.error("Can't get avatar for '%s'. Client seems to be disconnected.", serial)
-            return
-
-        wanted_count, collector = yield avatar.prepare_getting_recipients(count)
-        if not wanted_count or not collector:
-            self.log.debug("_send_recipients_to_satellite() Client [%s] is already full.", serial)
-            return
-
+    def _get_recipients(self, count, serial):
         db = get_db()
 
         cloud_client = yield db.cloudclient.find_one({'serial': serial})
@@ -143,7 +131,8 @@ class SendRecipientsTask(Singleton):
         satellite_group = cloud_client.get('group')
         query_filter = yield self._make_get_recipients_queryset(db, satellite_group,
                                                                 domain_affinity, self.log)
-        queue = yield db.mailingtempqueue.find(query_filter, sort='next_try', limit=min(count, wanted_count))
+        f = txmongo.filter.sort(txmongo.filter.ASCENDING("next_try"))
+        queue = yield db.mailingtempqueue.find(query_filter, filter=f, limit=count)
         recipients = []
         ids = []
         for item in queue:
@@ -165,6 +154,24 @@ class SendRecipientsTask(Singleton):
             'in_progress': True,
         }}
         r = yield db.mailingtempqueue.update_many({'_id': {'$in': ids}}, update_item)
+        defer.returnValue(recipients)
+
+    @defer.inlineCallbacks
+    def _send_recipients_to_satellite(self, serial, count):
+        self.log.debug("_send_recipients_to_satellite(client=%s, count=%d)", serial, count)
+        t0 = time.time()
+
+        avatar = self._get_avatar(serial)
+        if not avatar:
+            self.log.error("Can't get avatar for '%s'. Client seems to be disconnected.", serial)
+            return
+
+        wanted_count, collector = yield avatar.prepare_getting_recipients(count)
+        if not wanted_count or not collector:
+            self.log.debug("_send_recipients_to_satellite() Client [%s] is already full.", serial)
+            return
+
+        recipients = yield self._get_recipients(min(count, wanted_count), serial)
 
         def show_time_at_end(_t0, rcpts_count, data_len):
             self.log.debug("_send_recipients_to_satellite(): Sent %d recipients (%.2f Kb) in %.2f s",

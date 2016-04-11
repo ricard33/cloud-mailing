@@ -63,9 +63,10 @@ class MailingTempQueueFactory(factory.MogoFactory):
 
     mailing = factory.SubFactory(MailingFactory)
     mail_from = "sender@my-company.biz"
+    sender_name = "Sender"
     email = "firstname.lastname@domain.com"
     recipient = factory.LazyAttribute(lambda x: MailingRecipient(mailing=x.mailing, email=x.email))
     domain_name = factory.LazyAttribute(lambda x: x.email.split('@')[1])
     next_try = datetime.utcnow()
-    in_progress = True
-    client = factory.SubFactory(CloudClientFactory)
+    in_progress = False
+    client = None  # factory.SubFactory(CloudClientFactory)

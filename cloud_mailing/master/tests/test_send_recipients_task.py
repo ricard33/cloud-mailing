@@ -14,6 +14,8 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
+from datetime import datetime
+
 from twisted.internet import defer
 from twisted.trial import unittest
 
@@ -33,8 +35,8 @@ class SendRecipientsTaskTestCase(DatabaseMixin, unittest.TestCase):
 
     @defer.inlineCallbacks
     def test_run(self):
-        client = factories.CloudClientFactory(paired=True, serial="UT")
-        factories.MailingTempQueueFactory(client=client)
+        factories.CloudClientFactory(paired=True, serial="UT")
+        factories.MailingTempQueueFactory()
         settings_vars.set(settings_vars.SATELLITE_MAX_RECIPIENTS_TO_SEND, 555)
         class MyStubTask(SendRecipientsTask):
             def __init__(self, testcase):
@@ -50,5 +52,18 @@ class SendRecipientsTaskTestCase(DatabaseMixin, unittest.TestCase):
         my_task = MyStubTask.getInstance(self)
         yield my_task.run()
         self.assertEqual(1, my_task.count)
+
+    @defer.inlineCallbacks
+    def test_recipients_sort(self):
+        factories.CloudClientFactory(paired=True, serial="UT")
+        print dict(factories.MailingTempQueueFactory(email="1@dom.com"))
+        factories.MailingTempQueueFactory(email="2@dom.com", next_try=datetime(2000, 1, 1))
+
+        my_task = SendRecipientsTask.getInstance()
+        recipients = yield my_task._get_recipients(1, "UT")
+
+        self.assertEqual(1, len(recipients))
+        self.assertEqual("2@dom.com", recipients[0]['email'])
+
 
 

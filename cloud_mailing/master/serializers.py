@@ -14,19 +14,18 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
-import datetime
 import email
-import json
 import logging
 import re
 
+import txmongo.filter
 from twisted.internet import defer
 
 from cloud_mailing.common.db_common import get_db
+from . import models
 from ..common import settings
 from ..common.email_tools import header_to_unicode
 from ..common.rest_api_common import NotFound
-from . import models
 
 __author__ = 'Cedric RICARD'
 
@@ -106,11 +105,33 @@ class Serializer(object):
             log.exception("Error in Serializer.get()")
             raise
 
+    @staticmethod
+    def make_tx_sort_filter(sort):
+        if sort is None:
+            return None
+        if isinstance(sort, basestring):
+            return txmongo.filter.sort(txmongo.filter.ASCENDING(sort))
+
+        def _get_direction(value):
+            if value > 0:
+                return txmongo.filter.ASCENDING
+            return txmongo.filter.DESCENDING
+
+        assert(isinstance(sort, (list, tuple)))
+
+        if len(sort) == 2 and isinstance(sort[0], basestring):
+            return txmongo.filter.sort(_get_direction(sort[1](sort[0])))
+
+        filters = []
+        for item in sort:
+            filters.append(txmongo.filter.sort(_get_direction(sort[1](sort[0]))))
+        return filters
+
     @defer.inlineCallbacks
     def find(self, spec, skip=0, limit=settings.PAGE_SIZE, sort=None):
         _filter = self.make_filter(spec)
         results = yield self._collection.find(_filter, fields=self.filtered_fields, skip=skip, limit=limit,
-                                                         sort=sort)
+                                              filter=self.make_tx_sort_filter(sort))
         items = []
         for obj in results:
             if '_id' in  obj:

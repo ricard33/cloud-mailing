@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 
 from twisted.internet import task, defer
 from twisted.internet.threads import deferToThread
+import txmongo.filter
 
 from cloud_mailing.master.send_recipients_task import SendRecipientsTask
 from ..common.db_common import get_db
@@ -133,7 +134,8 @@ class MailingManager(Singleton):
                                mailing['_id'])
                 filter = MailingManager.make_recipients_queryset(mailing['_id'])
                 t1 = time.time()
-                selected_recipients = yield db.mailingrecipient.find(filter, sort='next_try', limit=nb_max)
+                f = txmongo.filter.sort(txmongo.filter.ASCENDING("next_try"))
+                selected_recipients = yield db.mailingrecipient.find(filter, filter=f, limit=nb_max)
                 for rcpt in selected_recipients:
                     yield MailingTempQueue.add_recipient(db, mailing=mailing, recipient=rcpt)
                     rcpt_ids.append(rcpt['_id'])
