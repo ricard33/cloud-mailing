@@ -291,8 +291,6 @@ class MailCustomizer:
             message['Subject'] = Header(subject)
 
             # Adding missing headers
-            # TODO Make User Agent customizable
-            message['User-Agent'] = "Cloud Mailing"
             # message['Precedence'] = "bulk"
             h = Header(self.recipient.sender_name or '')
             h.append("<%s>" % self.recipient.mail_from)
