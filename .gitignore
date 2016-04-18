@@ -69,3 +69,4 @@ _trial_temp
 *.pid
 local_settings.py
 version.properties
+deployment/acceptance_tests/root_dir
