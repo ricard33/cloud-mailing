@@ -618,7 +618,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         @defer.inlineCallbacks
         def _send_test(request, mailing_id, recipients):
-            rcpts = yield self._add_recipients(request, mailing_id, recipients, immediate=True)
+            rcpts = yield self._add_recipients(request, mailing_id, recipients, primary=True)
 
             # TODO Maybe we should push new recipients immediately to satellites
             defer.returnValue(rcpts)
@@ -629,7 +629,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             .addCallback(self._update_pending_recipients)
 
     @defer.inlineCallbacks
-    def _add_recipients(self, request, mailing_id, recipients, immediate=False):
+    def _add_recipients(self, request, mailing_id, recipients, primary=False):
         t0 = time.time()
         db = get_db()
         mailing = yield db.mailing.find_one({'_id': mailing_id}, fields=['status', 'mail_from', 'sender_name'])
@@ -685,13 +685,14 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 'contact': fields,
                 'email': fields['email'],
                 'send_status': RECIPIENT_STATUS.READY,
-                'next_try': immediate and datetime(2000, 1, 1) or datetime.utcnow(),
+                'next_try': primary and datetime(2000, 1, 1) or datetime.utcnow(),
+                'primary': primary
             }
             insert_result = yield db.mailingrecipient.insert_one(rcpt)
             rcpt['_id'] = insert_result.inserted_id
             total_added += 1
             # TODO add recipient to temp queue if there is some place
-            if immediate:
+            if primary:
                 yield MailingTempQueue.add_recipient(db, mailing=mailing, recipient=rcpt)
                 yield db.mailingrecipient.update_one({'_id': rcpt['_id']}, {'$set': {'in_progress': True}})
 

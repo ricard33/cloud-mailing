@@ -252,6 +252,7 @@ class MailingRecipient(Model):
     in_progress     = Field(bool, default=False)  # added in temp queue
     report_ready    = Field(bool, default=False)  # data ready to report to API client
     cloud_client    = Field()   # help_text="Client used to send the email
+    primary         = Field(bool, default=False)  # if true, this recipient should be addressed in priority
     created         = Field(datetime, default=datetime.utcnow)
     modified        = Field(datetime, default=datetime.utcnow)
 
