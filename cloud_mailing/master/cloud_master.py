@@ -534,8 +534,7 @@ class CloudRealm:
         if unhandled:
             self.log.warn("Found [%d] orphan recipients from client [%s]. Removing them...", len(unhandled), serial)
             yield get_db().mailingrecipient.update_many({'_id': {'$in': unhandled}},
-                                                        {'$set': {'cloud_client': None,
-                                                                  'in_progress': False}})
+                                                        {'$set': {'in_progress': False}})
 
         defer.returnValue(unhandled)
 
