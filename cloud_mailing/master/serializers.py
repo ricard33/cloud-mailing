@@ -122,10 +122,7 @@ class Serializer(object):
         if len(sort) == 2 and isinstance(sort[0], basestring):
             return txmongo.filter.sort(_get_direction(sort[1](sort[0])))
 
-        filters = []
-        for item in sort:
-            filters.append(txmongo.filter.sort(_get_direction(sort[1](sort[0]))))
-        return filters
+        return txmongo.filter.sort(sort)
 
     @defer.inlineCallbacks
     def find(self, spec, skip=0, limit=settings.PAGE_SIZE, sort=None):
