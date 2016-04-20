@@ -75,8 +75,8 @@ class SendRecipientsTaskTestCase(DatabaseMixin, unittest.TestCase):
 
 class SendRecipientsPerfsTestCase(DatabaseMixin, unittest.TestCase):
     def setUp(self):
-        logging.basicConfig(level=logging.DEBUG)
-        logging.getLogger('factory').setLevel(logging.INFO)
+        # logging.basicConfig(level=logging.DEBUG)
+        # logging.getLogger('factory').setLevel(logging.INFO)
         self.connect_to_db()
         init_master_db(self.db_sync)
 
@@ -87,7 +87,7 @@ class SendRecipientsPerfsTestCase(DatabaseMixin, unittest.TestCase):
     @defer.inlineCallbacks
     def test_perfs(self):
         factories.CloudClientFactory(paired=True, serial="UT")
-        print "Filling db...",
+        # print "Filling db...",
         t0 = time.time()
         mailing_ids = []
         for i in range(10):
@@ -121,11 +121,12 @@ class SendRecipientsPerfsTestCase(DatabaseMixin, unittest.TestCase):
 
         # self.db_sync.mailing.insert_many(self.db_sync['_mailing.perfs'].find())
         # self.db_sync.mailingrecipient.insert_many(self.db_sync['_mailingrecipient.perfs'].find(limit=100000))
-        print "done in %.1f seconds." % (time.time() - t0)
-        print "Running test...",
+
+        # print "done in %.1f seconds." % (time.time() - t0)
+        # print "Running test...",
         t0 = time.time()
         my_task = SendRecipientsTask.getInstance()
         recipients = yield my_task._get_recipients(1000, "UT")
-        print "done in %.1f seconds." % (time.time() - t0)
+        # print "done in %.1f seconds." % (time.time() - t0)
 
         self.assertEqual(1000, len(recipients))

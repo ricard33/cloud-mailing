@@ -17,11 +17,14 @@
 
 
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 
 from twisted.internet import task, defer
 
+from cloud_mailing.common import settings
+from cloud_mailing.master import settings_vars
 from cloud_mailing.master.send_recipients_task import SendRecipientsTask
 from .models import Mailing, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
 from ..common.db_common import get_db
@@ -55,6 +58,7 @@ class MailingManager(Singleton):
         for fn, delay, startNow in ((self.update_status_for_finished_mailings, 60, False),
                                     (self.check_orphan_recipients, 10, False),
                                     (self.retrieve_customized_content, 60, False),
+                                    (self.purge_customized_content, 3600, False),
                                     (SendRecipientsTask.getInstance().run, 10, False)
                                     ):
             t = task.LoopingCall(fn)
@@ -177,6 +181,33 @@ class MailingManager(Singleton):
             return mailing_master.retrieve_customized_content()
         else:
             self.log.error("Can't get MailingPortal object!")
+
+    def purge_customized_content(self):
+        retention_days = settings_vars.get_int(settings_vars.CUSTOMIZED_CONTENT_RETENTION_DAYS)
+        retention_seconds = retention_days * 86400
+
+        log = self.log.getChild("purge")
+        log.debug("purge_customized_content: starting scanning customized contents (retention days = %d)", retention_days)
+
+        count = 0
+        now = time.time()
+
+        import glob
+        for entry in glob.glob(os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, "cust_ml_*.rfc822*")):
+            # noinspection PyBroadException
+            try:
+                modification_time = os.stat(entry).st_mtime
+                log.log(1, "Find file '%s': %.1f days old", entry, (now - modification_time) / 86400)
+                if now - modification_time > retention_seconds:
+                    log.debug("Remove file '%s'", entry)
+                    os.remove(entry)
+                    count += 1
+                # pylint: disable-msg=W0703
+            except Exception:
+                log.exception("Can't remove customized file '%s'", entry)
+
+        if count:
+            log.info("purge_customized_content: removed %d files in %.1f seconds", count, time.time() - now)
 
 
 def start_mailing_manager():

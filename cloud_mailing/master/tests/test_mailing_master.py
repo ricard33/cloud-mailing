@@ -20,6 +20,7 @@ import email
 import email.header
 import hmac
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 
@@ -30,6 +31,7 @@ from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from twisted.trial.unittest import TestCase
 
+from cloud_mailing.master import settings_vars
 from cloud_mailing.master.send_recipients_task import SendRecipientsTask
 from . import factories
 from .. import models
@@ -597,3 +599,28 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
         mailing = Mailing.find_one(SendRecipientsTask.make_mailings_queryset())
         qs = MailingRecipient.find(SendRecipientsTask.make_recipients_queryset(mailing.id))
         self.assertEqual(9, qs.count())
+
+
+class CustomizedContentTest(DatabaseMixin, TestCase):
+    def setUp(self):
+        self.connect_to_db()
+
+    def tearDown(self):
+        self.disconnect_from_db()
+
+    def test_purge(self):
+        fname = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, 'cust_ml_UT.rfc822')
+        with file(fname, 'w') as f:
+            f.write("XXX")
+
+        self.assertTrue(os.path.exists(fname))
+        manager = MailingManager.getInstance()
+
+        manager.purge_customized_content()
+        self.assertTrue(os.path.exists(fname))
+
+        os.utime(fname, (time.time(), time.time() - (settings_vars.get_int(settings_vars.CUSTOMIZED_CONTENT_RETENTION_DAYS) + 1) * 86400))
+
+        # logging.basicConfig(level=1)
+        manager.purge_customized_content()
+        self.assertFalse(os.path.exists(fname))
