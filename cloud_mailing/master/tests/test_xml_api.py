@@ -34,7 +34,7 @@ from ..cloud_master import MailingManagerView
 from .factories import MailingFactory, RecipientFactory, CloudClientFactory
 from ...common.models import Settings
 from ..xmlrpc_api import CloudMailingRpc
-from ..models import Mailing, MAILING_STATUS, RECIPIENT_STATUS, MailingHourlyStats, MailingTempQueue, MailingRecipient
+from ..models import Mailing, MAILING_STATUS, RECIPIENT_STATUS, MailingHourlyStats, MailingRecipient
 from ...common import settings
 from ...common.config_file import ConfigFile
 
@@ -502,7 +502,6 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         return d
 
     def test_send_test(self):
-        self.assertEquals(0, MailingTempQueue.count())
         mailing = MailingFactory()
         d = self.proxy().callRemote("send_test", mailing.id, [
             {'email': "new_rcpt@world.com",},
@@ -519,11 +518,8 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertEquals("again@its.me", x[2]['email']) and x)
         d.addCallback(lambda x: self.assertTrue("id" in x[2]) and x)
 
-        # Test emails should already be in queue
-        d.addCallback(lambda x: self.assertEquals(3, MailingTempQueue.find({'recipient.tracking_id': {'$in': [r['id'] for r in x]}}).count()) and x)
         # Test emails should be available for Satellites
-        d.addCallback(lambda x: SendRecipientsTask._make_get_recipients_queryset(self.db, None, None, logging.getLogger()))
-        d.addCallback(lambda x: self.db.mailingtempqueue.find(x, sort='next_try'))
+        d.addCallback(lambda x: self.db.mailingrecipient.find(SendRecipientsTask.make_recipients_queryset(mailing.id, only_primary=True)))
         d.addCallback(lambda x: self.assertEquals(3, len(x)))
 
         return d

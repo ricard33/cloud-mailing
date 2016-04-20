@@ -196,8 +196,6 @@ def start_mailing(mailing_id):
         mailing.save()
     else:
         mailing.activate()
-    manager = MailingManager.getInstance()
-    manager.forceToCheck()
     return mailing
 
 

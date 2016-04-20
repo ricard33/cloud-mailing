@@ -241,6 +241,7 @@ class MailingRecipient(Model):
     tracking_id     = Field()
     contact         = Field()  # Python dictionary containing all recipient fields
     email           = Field(required=True)
+    domain_name     = Field(required=True)   # Recipient's domain name
     first_try  = Field(datetime)
     next_try   = Field(datetime, required=True) # TODO maybe a int from EPOCH would be faster
     try_count  = Field(int)
@@ -251,7 +252,8 @@ class MailingRecipient(Model):
     smtp_log         = Field()
     in_progress     = Field(bool, default=False)  # added in temp queue
     report_ready    = Field(bool, default=False)  # data ready to report to API client
-    cloud_client    = Field()   # help_text="Client used to send the email
+    cloud_client    = Field()   # help_text="Client used to send the email (serial)
+    date_delegated  = Field(datetime)    # When this recipient has been delegated to the client.
     primary         = Field(bool, default=False)  # if true, this recipient should be addressed in priority
     created         = Field(datetime, default=datetime.utcnow)
     modified        = Field(datetime, default=datetime.utcnow)
@@ -301,43 +303,6 @@ class MailingRecipient(Model):
             self.next_try = datetime.utcnow() + timedelta(minutes=60)
         else:
             self.next_try = datetime.utcnow() + timedelta(hours=6)
-
-
-class MailingTempQueue(Model):
-    # id              = models.AutoField(primary_key=True)
-    mailing         = ReferenceField(Mailing, required=True)
-    mail_from       = Field(required=False)
-    sender_name     = Field()
-    recipient       = Field(MailingRecipient, required=True)
-    email           = Field(required=True)
-    domain_name     = Field(required=True)   # Recipient's domain name
-    next_try        = Field(datetime)
-    in_progress     = Field(bool, default=False)  # handled by a satellite
-    client          = ReferenceField(CloudClient)    # Pk of the cloud client that currently handle this recipient
-    date_delegated  = Field(datetime)    # When this recipient has been delegated to the client.
-    created         = Field(datetime, default=datetime.utcnow)
-
-    # class Meta:
-    #     database = DATABASE
-    #     collection = "mailing_temp_queue"
-    #
-    #     indices = (
-    #         Index("serial"),
-    #     )
-
-    @staticmethod
-    @defer.inlineCallbacks
-    def add_recipient(db, mailing, recipient):
-        yield db.mailingtempqueue.insert_one({
-            'mailing': DBRef('mailing', mailing['_id']),
-            'mail_from': mailing['mail_from'],
-            'sender_name': mailing['sender_name'],
-            'recipient': recipient,
-            'email': recipient['email'],
-            'domain_name': recipient['email'].split('@', 1)[1],
-            'next_try': recipient['next_try'],
-            'in_progress': False
-        })
 
 
 class MailingHourlyStats(Model):

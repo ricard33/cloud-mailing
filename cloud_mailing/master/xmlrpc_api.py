@@ -43,7 +43,7 @@ from .api_common import set_mailing_properties, start_mailing
 from .cloud_master import make_customized_file_name
 from .mailing_manager import MailingManager
 from .models import CloudClient, Mailing, relay_status, MAILING_STATUS, MailingRecipient, RECIPIENT_STATUS, \
-    MailingTempQueue, recipient_status, MailingHourlyStats
+    recipient_status, MailingHourlyStats
 from .serializers import MailingSerializer
 from ..common import settings
 from ..common.config_file import ConfigFile
@@ -684,6 +684,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 'tracking_id': tracking_id,
                 'contact': fields,
                 'email': fields['email'],
+                'domain_name': fields['email'].split('@', 1)[1],
                 'send_status': RECIPIENT_STATUS.READY,
                 'next_try': primary and datetime(2000, 1, 1) or datetime.utcnow(),
                 'primary': primary
@@ -691,10 +692,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             insert_result = yield db.mailingrecipient.insert_one(rcpt)
             rcpt['_id'] = insert_result.inserted_id
             total_added += 1
-            # TODO add recipient to temp queue if there is some place
-            if primary:
-                yield MailingTempQueue.add_recipient(db, mailing=mailing, recipient=rcpt)
-                yield db.mailingrecipient.update_one({'_id': rcpt['_id']}, {'$set': {'in_progress': True}})
 
             c['id'] = tracking_id
             c['tracking_id'] = tracking_id
@@ -703,8 +700,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                           fields['email'], mailing_id, time.time() - t1)
 
 
-        manager = MailingManager.getInstance()
-        manager.forceToCheck()
         log_api.debug("add_recipients() %d recipients added in %.1f seconds", total_added, time.time() - t0)
         defer.returnValue((result, mailing['_id'], total_added))
 
@@ -1043,10 +1038,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     @doc_hide
     def xmlrpc_mailing_manager_force_check(self):
         """Force the MailingManager to immediately check for its queue."""
-        log_api.debug("XMLRPC: mailing_manager_force_check()")
-        manager = MailingManager.getInstance()
-        assert(isinstance(manager, MailingManager))
-        manager.forceToCheck()
+        log_api.debug("XMLRPC: mailing_manager_force_check() DEPRECATED as USELESS: no more temp queue")
 
         return 0
 

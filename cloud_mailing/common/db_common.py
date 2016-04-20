@@ -14,7 +14,8 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
-
+import pymongo
+from pymongo.errors import OperationFailure
 from twisted.internet.defer import returnValue
 from twisted.internet import defer
 from txmongo.connection import ConnectionPool
@@ -54,3 +55,24 @@ class Db(Singleton):
 
 def get_db():
     return Db.getInstance().db
+
+
+def create_index(collection, keys, name=None, **kwargs):
+    """
+    Create or update an index for a collection.
+    :param collection: should be a pymongo Collection object
+    :param keys: index definition
+    :param name: optional but useful is index definition changes
+    :param kwargs:
+    """
+    assert(isinstance(collection, pymongo.collection.Collection))
+    if name:
+        kwargs['name'] = name
+    try:
+        collection.create_index(keys, **kwargs)
+    except OperationFailure, ex:
+        try:
+            collection.drop_index(name)
+        except OperationFailure, ex:
+            collection.drop_index(keys)
+        collection.create_index(keys, **kwargs)

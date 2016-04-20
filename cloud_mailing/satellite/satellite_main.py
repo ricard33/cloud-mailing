@@ -18,20 +18,17 @@
 import logging
 
 import pymongo
-from pymongo.errors import OperationFailure
-from txmongo import filter
-from mogo import connect
 import twisted
-from twisted.application import service, internet
+from mogo import connect
+from twisted.application import internet
 from twisted.application.service import IService
-from twisted.internet import reactor, ssl, defer
+from twisted.internet import reactor, ssl
 from twisted.python.log import PythonLoggingObserver
 
-from cloud_mailing.common.db_common import Db
+from cloud_mailing.common.db_common import Db, create_index
 from .. import __version__ as VERSION
 from ..common import settings
 from ..common.cm_logging import configure_logging
-from ..common import colored_log
 
 service_satellite = None
 
@@ -77,21 +74,9 @@ def stop_satellite_service():
         #     service_satellite.disconnect()  # don't known the function name
 
 
-def create_index(collection, name, keys, **kwargs):
-    kwargs['name'] = name
-    try:
-        collection.create_index(keys, **kwargs)
-    except OperationFailure, ex:
-        try:
-            collection.drop_index(name)
-        except OperationFailure, ex:
-            collection.drop_index(keys)
-        collection.create_index(keys, **kwargs)
-
-
 def init_db(db):
     # db.create_collection("live_stats")
-    create_index(db.live_stats, 'date_expiration', [('date', pymongo.ASCENDING)], expireAfterSeconds=7 * 86400)
+    create_index(db.live_stats, [('date', pymongo.ASCENDING)], 'date_expiration', expireAfterSeconds=7 * 86400)
     # nb = 700000
     # if 'live_stats2' not in db.collection_names():
     #     db.create_collection("live_stats2", capped=True, size=nb * 1024, max=nb)

@@ -21,13 +21,10 @@ import time
 from datetime import datetime, timedelta
 
 from twisted.internet import task, defer
-from twisted.internet.threads import deferToThread
-import txmongo.filter
 
 from cloud_mailing.master.send_recipients_task import SendRecipientsTask
+from .models import Mailing, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
 from ..common.db_common import get_db
-from . import settings_vars
-from .models import Mailing, MailingTempQueue, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
 from ..common.singletonmixin import Singleton
 
 
@@ -37,8 +34,6 @@ class MailingManager(Singleton):
     Manage mailing relayers, keeping track of the existing connections,
     each connection's responsibility in term of messages. Create
     more relayers if the need arises.
-
-    Someone should press .checkState periodically
 
     @ivar factory: A callable which returns a ClientFactory suitable for
     making SMTP connections.
@@ -52,16 +47,14 @@ class MailingManager(Singleton):
         self.queue = None
         self.log = logging.getLogger("mailing")
         self.startTime = time.time()
-        self.nextTime = 0
         self.filling_queue_running = False
         self.next_time_for_check_orphan_recipients = time.time() + 60
         self.tasks = []
 
     def start_tasks(self):
-        for fn, delay, startNow in ((self.checkState, 5, False),
-                                    (self.update_status_for_finished_mailings, 60, False),
+        for fn, delay, startNow in ((self.update_status_for_finished_mailings, 60, False),
                                     (self.check_orphan_recipients, 10, False),
-                                    (self.purge_temp_queue_from_finished_and_paused_mailings, 60, False),
+                                    # (self.purge_temp_queue_from_finished_and_paused_mailings, 60, False),
                                     (self.retrieve_customized_content, 60, False),
                                     (SendRecipientsTask.getInstance().run, 10, False)
                                     ):
@@ -75,9 +68,6 @@ class MailingManager(Singleton):
             t.stop()
         self.tasks = []
         self.log.info("Mailing manager stopped")
-
-    def forceToCheck(self):
-        self.nextTime = 0
 
     @staticmethod
     def make_mailings_queryset():
@@ -105,152 +95,13 @@ class MailingManager(Singleton):
         }
         return filter
 
-    @defer.inlineCallbacks
-    def filling_mailing_queue(self, mailing_filter, rcpt_count, temp_queue_count, mailing_queue_max_size):
-        self.log.debug("Starting filling mailing queue...")
-        t0 = time.time()
-        count = 0
-        try:
-            db = get_db()
-
-            for mailing in Mailing.find(mailing_filter):
-                if mailing['status'] == MAILING_STATUS.READY:
-                    yield db.mailing.update({'_id': mailing['_id']}, {'$set': {
-                        'status': MAILING_STATUS.RUNNING,
-                        'start_time': datetime.utcnow(),
-                    }})
-                # print "total_recipient: %d  / mailing_queue_max_size: %d / temp_queue_count: %d / rcpt_count: %d"\
-                # % (mailing['total_recipient'], mailing_queue_max_size, temp_queue_count, rcpt_count)
-                nb_max = max(100, mailing.get('total_pending', 0)
-                             * (mailing_queue_max_size - temp_queue_count) / rcpt_count)
-                # Quick starter for empty queue
-                if temp_queue_count == 0:
-                    nb_max = min(1000, nb_max)
-                elif temp_queue_count <= 1000:
-                    nb_max = min(10000, nb_max)
-                # print "nb_max = %d" % nb_max
-                rcpt_ids = []
-                self.log.debug("Filling mailing queue: selecting max %d recipients from mailing [%d]", nb_max,
-                               mailing['_id'])
-                filter = MailingManager.make_recipients_queryset(mailing['_id'])
-                t1 = time.time()
-                f = txmongo.filter.sort(txmongo.filter.ASCENDING("next_try"))
-                selected_recipients = yield db.mailingrecipient.find(filter, filter=f, limit=nb_max)
-                for rcpt in selected_recipients:
-                    yield MailingTempQueue.add_recipient(db, mailing=mailing, recipient=rcpt)
-                    rcpt_ids.append(rcpt['_id'])
-                    count += 1
-                    # if count % 100 == 0:
-                    #     print "Added %d..." % count
-                self.log.debug("Filling mailing queue: selected %d recipients from mailing [%d] (in %.1f seconds)",
-                               len(rcpt_ids), mailing['_id'], time.time() - t1)
-                if rcpt_ids:
-                    n = 100
-                    for i in range(0, len(rcpt_ids), n):
-                        MailingRecipient.update({'_id': {'$in': rcpt_ids[i:i + n]}}, {'$set': {'in_progress': True}}, multi=True)
-
-                # Ultimate check before to commit. Maybe mailing has changed its state
-                # if Mailing.search(id=mailing.id, status=MAILING_STATUS.RUNNING).count() == 0:
-                #     transaction.rollback()
-
-            if count:
-                self.log.info("Mailing queue successfully filled %d recipients in %.1f seconds.", count,
-                              time.time() - t0)
-            self.forceToCheck()
-        except:
-            self.log.exception("Exception using Filling Mailing Queue function.")
-
-    def checkState(self):
-        """
-        Synchronize with the state of the world, and maybe launch a new
-        relay.
-
-        Call me periodically to check I am still up to date.
-
-        @return: None or a Deferred which fires when all of the SMTP clients
-        started by this call have disconnected.
-        """
-        need_to_release = False
-        class CP:
-            def __init__(self, log):
-                self.log = log
-                self.t0 = time.time()
-                self.count = 0
-
-
-            def check_point(self):
-                import inspect
-                lineno = inspect.currentframe().f_back.f_lineno
-                self.log.debug("checkState() checkpoint %d (line %d): %.1fs" % (self.count, lineno, time.time()-self.t0))
-                self.count +=1
-                self.t0 = time.time()
-
-        cp = CP(self.log)
-
-        if time.time() < self.nextTime:
-            return
-        try:
-            mailing_queue_max_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MAX_SIZE)
-            mailing_queue_min_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MIN_SIZE)
-
-            temp_queue_count = MailingTempQueue.find().count()
-            unhandled_temp_queue_count = MailingTempQueue.find({
-                '$or': [{'in_progress': False}, {'in_progress': None} ],
-                'client': None
-            }).count()
-
-            # cp.check_point()
-            self.log.debug("TempQueue size = %d / unhandled = %d /min queue size = %d / is_filling? %s",
-                           temp_queue_count, unhandled_temp_queue_count,
-                           mailing_queue_min_size, self.filling_queue_running)
-
-            if temp_queue_count < mailing_queue_min_size and not self.filling_queue_running:
-                self.filling_queue_running = True
-                mailing_filter = MailingManager.make_mailings_queryset()
-                self.log.debug("Filling temp queue with %d active mailings...", Mailing.find(mailing_filter).count())
-                results = list(Mailing._get_collection().aggregate([
-                    {'$match': mailing_filter},
-                    {'$group': {'_id': None, 'sum': {'$sum': '$total_pending'}}}
-                ]))  # ['result']
-                # cp.check_point()
-                rcpt_count = results and results[0].get('sum', 0) or 0
-                # print "rcpt_count", rcpt_count
-                # mailing_ids = [id for id in mailings.values_list('id', flat=True)]
-                if rcpt_count == 0:  # no more mailings
-                    self.log.debug("Filling temps queue: no eligible recipient. Release filling queue lock.")
-                    self.filling_queue_running = False
-                    if temp_queue_count == 0:
-                        self.nextTime = time.time() + 20
-                        return
-                else:
-                    self.log.debug("Filling temps queue: %d recipients are eligible.", rcpt_count)
-
-                    def _release_lock():
-                        self.log.debug("Release filling queue lock")
-                        self.filling_queue_running = False
-
-                    # cp.check_point()
-                    # return deferToThread(self.filling_mailing_queue, mailing_filter, rcpt_count, temp_queue_count,
-                    #                      mailing_queue_max_size).addBoth(lambda x: _release_lock())
-                    return self.filling_mailing_queue(mailing_filter, rcpt_count, temp_queue_count,
-                                         mailing_queue_max_size).addBoth(lambda x: _release_lock())
-
-        except:
-            self.log.exception("Unknown exception in checkState()")
-        # cp.check_point()
-
-    def clear_all_send_mail_in_progress(self):
+    def clear_all_send_mail_in_progress(self):      # TODO To be removed because not used
         t0 = time.time()
         self.log.debug("Resetting IN PROGRESS flag for all mailing recipients...")
         MailingRecipient.update({'$or': [{'send_status': RECIPIENT_STATUS.IN_PROGRESS}, {'in_progress': True}]},
                                 {'$set': {'send_status': RECIPIENT_STATUS.READY, 'in_progress': False}},
                                 multi=True)
-        MailingTempQueue.update({'in_progress': True}, {'$set': {'in_progress': False}}, multi=True)
         self.log.debug("Reset done in %.1fs", time.time() - t0)
-
-    def clear_temp_queue(self):
-        self.log.debug("Clearing temp queue from obsolete entries...")
-        MailingTempQueue.remove({'mailing__status': MAILING_STATUS.FINISHED})
 
     @defer.inlineCallbacks
     def update_status_for_finished_mailings(self):
@@ -291,26 +142,23 @@ class MailingManager(Singleton):
                     self.close_mailing(mailing['_id'])
         self.log.debug("update_status_for_finished_mailings() in %.1fs", time.time() - t0)
 
-    def purge_temp_queue_from_finished_and_paused_mailings(self):
-        self.log.debug("purge_temp_queue_from_finished_and_paused_mailings")
-        t0 = time.time()
-        running_mailing_ids = [m['_id'] for m in Mailing._get_collection().find(
-            {'status': {'$nin': (MAILING_STATUS.PAUSED, MAILING_STATUS.FINISHED)}},
-            projection=[]
-        )]
-        all_ids = zip(*[(r['_id'], r['recipient']['_id']) for r in MailingTempQueue._get_collection().find(
-            {'mailing.$id': {'$nin': running_mailing_ids}},
-            projection=['_id', 'recipient._id'])])
-
-
-        if all_ids:
-            ids_to_remove, recipient_ids = all_ids
-            MailingTempQueue.remove({'_id': {'$in': ids_to_remove}})
-            MailingRecipient.update({'_id': {'$in': recipient_ids}, 'in_progress': True},
-                                    {'$set': {'in_progress': False, 'send_status': RECIPIENT_STATUS.READY}},
-                                    multi=True)
-
-            self.log.info("purge_temp_queue_from_finished_and_paused_mailings() in %.1fs", time.time() - t0)
+    # def purge_temp_queue_from_finished_and_paused_mailings(self):
+    #     self.log.debug("purge_temp_queue_from_finished_and_paused_mailings")
+    #     t0 = time.time()
+    #     running_mailing_ids = [m['_id'] for m in Mailing._get_collection().find(
+    #         {'status': {'$nin': (MAILING_STATUS.PAUSED, MAILING_STATUS.FINISHED)}},
+    #         projection=[]
+    #     )]
+    #     recipient_ids = MailingRecipient._get_collection().find({'mailing.$id': {'$nin': running_mailing_ids}},
+    #                                                             projection=['_id'])
+    #
+    #
+    #     if recipient_ids:
+    #         MailingRecipient.update({'_id': {'$in': recipient_ids}, 'in_progress': True},
+    #                                 {'$set': {'in_progress': False, 'send_status': RECIPIENT_STATUS.READY}},
+    #                                 multi=True)
+    #
+    #         self.log.info("purge_temp_queue_from_finished_and_paused_mailings() in %.1fs", time.time() - t0)
 
     def pause_mailing(self, mailing):
         """
@@ -319,7 +167,6 @@ class MailingManager(Singleton):
         """
         mailing.status = MAILING_STATUS.PAUSED
         mailing.save()
-        MailingTempQueue.remove({'mailing.$id': mailing.id})
 
         from .cloud_master import mailing_portal
 
@@ -337,7 +184,6 @@ class MailingManager(Singleton):
         mailing.end_time = datetime.utcnow()
         mailing.update_stats()
         mailing.save()
-        MailingTempQueue.remove({'mailing.$id': mailing.id})
         self.log.debug("close_mailing(%d): mailing_temp_queue cleaned", mailing.id)
 
         from .cloud_master import mailing_portal

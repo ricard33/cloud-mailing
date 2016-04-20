@@ -36,7 +36,7 @@ from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
 
 from cloud_mailing.master import settings_vars
-from .models import CloudClient, Mailing, SenderDomain, MailingTempQueue
+from .models import CloudClient, Mailing, SenderDomain
 from .models import RECIPIENT_STATUS, MAILING_STATUS
 from ..common import settings
 from ..common.db_common import get_db
@@ -288,17 +288,16 @@ class MailingManagerView(pb.Viewable):
          their recipients list on reconnection (in case of orphan purge when it was offline).
         """
         self.log.debug("get_my_recipients() for '%s'", self.cloud_client.serial)
-        # db = get_db()
-        # recipients = yield db.mailingtempqueue.find_many({'client.$id': self.cloud_client.id})  # '$' is refused
-        recipients = MailingTempQueue._collection.find({'client.$id': self.cloud_client.id})
-        recipients = list(recipients)
+        db = get_db()
+        recipients = yield db.mailingrecipient.find_many({'cloud_client': self.cloud_client.serial}, fields=[])
+        # recipients = list(recipients)
         data = pickle.dumps(map(lambda r: str(r['_id']), recipients))
-        print "sending %d length data for %d recipients" % (len(data), len(recipients))
+        # print "sending %d length data for %d recipients" % (len(data), len(recipients))
         util.StringPager(collector, data)
 
     @staticmethod
     def _store_reports(_recipients, serial, log):
-        from models import MailingTempQueue, MailingRecipient
+        from models import MailingRecipient
         t0 = time.time()
 
         # We need to keep backup_customized_emails flag for each mailing to avoid consuming requests
@@ -361,8 +360,6 @@ class MailingManagerView(pb.Viewable):
                 ids_ok.append(rcpt['_id'])
             except:
                 log.exception("Can't update recipient '%s'.", name)
-        if ids_ok:
-            MailingTempQueue.remove({'recipient._id': {'$in': map(lambda x: ObjectId(x), ids_ok)}})
 
         log.debug("Stored %d reports from satellite [%s] in %.2f s", len(ids_ok), serial, time.time() - t0)
         return ids_ok, mailings_stats
@@ -482,26 +479,26 @@ class CloudRealm:
             self.log.debug("Already checking for orphan recipients!")
             return defer.succeed(None)
         self.__check_for_orphan_recipients = True
-        from models import MailingTempQueue
+        from models import MailingRecipient
         l = []
         try:
             if since_seconds is None:
                 since_seconds = settings_vars.get_int(settings_vars.ORPHAN_RECIPIENTS_MAX_AGE)
-            query = MailingTempQueue.find({
+            query = MailingRecipient.find({
                 'date_delegated': {
                     '$lt': datetime.utcnow() - timedelta(seconds=since_seconds)},
-                'client': {'$ne': None}
+                'cloud_client': {'$ne': None}
             }, limit=settings_vars.get_int(settings_vars.ORPHAN_RECIPIENTS_MAX_RECIPIENTS))
 
             def get_recipients_per_client():
                 serial = None
                 recipients = []
-                for item in query.sort([('client', pymongo.ASCENDING), ('date_delegated', pymongo.DESCENDING)]):
-                    if serial and serial != item.client.serial:
+                for recipient in query.sort([('client', pymongo.ASCENDING), ('date_delegated', pymongo.DESCENDING)]):
+                    if serial and serial != recipient.cloud_client:
                         yield serial, recipients
                         recipients = []
-                    serial = item.client.serial
-                    recipients.append(str(item.recipient['_id']))
+                    serial = recipient.cloud_client
+                    recipients.append(str(recipient['_id']))
                 if serial and recipients:
                     yield serial, recipients
 
@@ -539,7 +536,6 @@ class CloudRealm:
             yield get_db().mailingrecipient.update_many({'_id': {'$in': unhandled}},
                                                         {'$set': {'cloud_client': None,
                                                                   'in_progress': False}})
-            yield get_db().mailingtempqueue.delete_many({'recipient._id': {'$in': unhandled}})
 
         defer.returnValue(unhandled)
 

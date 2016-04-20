@@ -14,12 +14,18 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
+import logging
+import random
+import time
 from datetime import datetime
 
+from bson import DBRef
 from twisted.internet import defer
 from twisted.trial import unittest
 
 from cloud_mailing.master import settings_vars
+from cloud_mailing.master.db_initialization import init_master_db
+from cloud_mailing.master.models import MAILING_STATUS
 from cloud_mailing.master.send_recipients_task import SendRecipientsTask
 from cloud_mailing.master.tests import factories
 from ...common.unittest_mixins import DatabaseMixin
@@ -36,7 +42,7 @@ class SendRecipientsTaskTestCase(DatabaseMixin, unittest.TestCase):
     @defer.inlineCallbacks
     def test_run(self):
         factories.CloudClientFactory(paired=True, serial="UT")
-        factories.MailingTempQueueFactory()
+        factories.RecipientFactory()
         settings_vars.set(settings_vars.SATELLITE_MAX_RECIPIENTS_TO_SEND, 555)
         class MyStubTask(SendRecipientsTask):
             def __init__(self, testcase):
@@ -56,8 +62,9 @@ class SendRecipientsTaskTestCase(DatabaseMixin, unittest.TestCase):
     @defer.inlineCallbacks
     def test_recipients_sort(self):
         factories.CloudClientFactory(paired=True, serial="UT")
-        print dict(factories.MailingTempQueueFactory(email="1@dom.com"))
-        factories.MailingTempQueueFactory(email="2@dom.com", next_try=datetime(2000, 1, 1))
+        mailing = factories.MailingFactory(status=MAILING_STATUS.READY, total_recipient=2, total_pending=2)
+        factories.RecipientFactory(email="1@dom.com", mailing=mailing)
+        factories.RecipientFactory(email="2@dom.com", mailing=mailing, next_try=datetime(2000, 1, 1))
 
         my_task = SendRecipientsTask.getInstance()
         recipients = yield my_task._get_recipients(1, "UT")
@@ -66,4 +73,59 @@ class SendRecipientsTaskTestCase(DatabaseMixin, unittest.TestCase):
         self.assertEqual("2@dom.com", recipients[0]['email'])
 
 
+class SendRecipientsPerfsTestCase(DatabaseMixin, unittest.TestCase):
+    def setUp(self):
+        logging.basicConfig(level=logging.DEBUG)
+        logging.getLogger('factory').setLevel(logging.INFO)
+        self.connect_to_db()
+        init_master_db(self.db_sync)
 
+
+    def tearDown(self):
+        self.disconnect_from_db()
+
+    @defer.inlineCallbacks
+    def test_perfs(self):
+        factories.CloudClientFactory(paired=True, serial="UT")
+        print "Filling db...",
+        t0 = time.time()
+        mailing_ids = []
+        for i in range(10):
+            ml = factories.MailingFactory(status=MAILING_STATUS.READY)
+            mailing_ids.append(ml.id)
+        self.db_sync.mailingrecipient.insert_many(
+            [{
+                 "next_try": datetime.utcnow(),
+                 "in_progress": False,
+                 "mailing": DBRef("mailing", random.choice(mailing_ids)),
+                 "contact": {
+                     "attachments": [
+                     ],
+                     "firstname": "John",
+                     "gender": "M",
+                     "email": "john.doe%d@cloud-mailing.net" % i,
+                     "lastname": "DOE",
+                     "id": i
+                 },
+                 "tracking_id": "e6992614-90ad-422b-8827-%d" % i,
+                 "send_status": "READY",
+                 "email": "john.doe%d@cloud-mailing.net" % i,
+                 "doamin_name": "cloud-mailing.net",
+             } for i in range(10000)])
+
+        results = yield self.db.mailingrecipient.aggregate([
+            {'$group': {'_id': '$mailing', 'sum': {'$sum': 1}}}
+        ])
+        for result in results:
+            yield self.db.mailing.update({'_id': result['_id'].id}, {'$set': {'total_recipient': result['sum'], 'total_pending': result['sum']}})
+
+        # self.db_sync.mailing.insert_many(self.db_sync['_mailing.perfs'].find())
+        # self.db_sync.mailingrecipient.insert_many(self.db_sync['_mailingrecipient.perfs'].find(limit=100000))
+        print "done in %.1f seconds." % (time.time() - t0)
+        print "Running test...",
+        t0 = time.time()
+        my_task = SendRecipientsTask.getInstance()
+        recipients = yield my_task._get_recipients(1000, "UT")
+        print "done in %.1f seconds." % (time.time() - t0)
+
+        self.assertEqual(1000, len(recipients))

@@ -51,13 +51,18 @@ class CommonTestMixin(object):
 
 
 class DatabaseMixin(object):
-    def connect_to_db(self):
-        self.db_conn = connect(settings.TEST_DATABASE)
-        self.db = Db.getInstance(settings.TEST_DATABASE, pool_size=1).db
-        # self.db_conn.drop_database(settings.TEST_DATABASE)
+    def connect_to_db(self, db_name=None):
+        if db_name is None:
+            db_name = settings.TEST_DATABASE
+        self.db_conn = connect(db_name)
+        self.db_sync = self.db_conn[db_name]
+        self.db = Db.getInstance(db_name, pool_size=1).db
+
+        # self.db_conn.drop_database(db_name)
         db = Connection.instance().get_database()
         for col in db.collection_names(include_system_collections=False):
-            db.drop_collection(col)
+            if not col.startswith('_'):
+                db.drop_collection(col)
 
     def disconnect_from_db(self):
         self.db_conn.close()

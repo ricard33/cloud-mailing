@@ -19,7 +19,7 @@
 from datetime import datetime
 import uuid
 import factory
-from ..models import Mailing, MailingRecipient, CloudClient, RECIPIENT_STATUS, MailingTempQueue
+from ..models import Mailing, MailingRecipient, CloudClient, RECIPIENT_STATUS
 
 
 class CloudClientFactory(factory.MogoFactory):
@@ -47,6 +47,7 @@ class RecipientFactory(factory.MogoFactory):
 
     mailing = factory.SubFactory(MailingFactory)
     email = "firstname.lastname@domain.com"
+    domain_name = factory.LazyAttribute(lambda x: x.email.split('@')[1])
     send_status = RECIPIENT_STATUS.READY
     next_try = datetime.utcnow()
     tracking_id = factory.LazyAttribute(lambda a: str(uuid.uuid4()))
@@ -55,18 +56,7 @@ class RecipientFactory(factory.MogoFactory):
     #                                                                        RECIPIENT_STATUS.GENERAL_ERROR,
     #                                                                        RECIPIENT_STATUS.FINISHED) or None)
     report_ready = None
+    # in_progress = False
+    # client = None  # factory.SubFactory(CloudClientFactory)
 
 
-class MailingTempQueueFactory(factory.MogoFactory):
-    class Meta:
-        model = MailingTempQueue
-
-    mailing = factory.SubFactory(MailingFactory)
-    mail_from = "sender@my-company.biz"
-    sender_name = "Sender"
-    email = "firstname.lastname@domain.com"
-    recipient = factory.LazyAttribute(lambda x: MailingRecipient(mailing=x.mailing, email=x.email))
-    domain_name = factory.LazyAttribute(lambda x: x.email.split('@')[1])
-    next_try = datetime.utcnow()
-    in_progress = False
-    client = None  # factory.SubFactory(CloudClientFactory)
