@@ -54,7 +54,6 @@ class MailingManager(Singleton):
     def start_tasks(self):
         for fn, delay, startNow in ((self.update_status_for_finished_mailings, 60, False),
                                     (self.check_orphan_recipients, 10, False),
-                                    # (self.purge_temp_queue_from_finished_and_paused_mailings, 60, False),
                                     (self.retrieve_customized_content, 60, False),
                                     (SendRecipientsTask.getInstance().run, 10, False)
                                     ):
@@ -68,32 +67,6 @@ class MailingManager(Singleton):
             t.stop()
         self.tasks = []
         self.log.info("Mailing manager stopped")
-
-    @staticmethod
-    def make_mailings_queryset():
-        now = datetime.utcnow()
-        filter = {'$and': [
-            {'$or': [{'scheduled_start': {'$lte': now}},
-                     {'scheduled_start': None}]},
-            {'$or': [{'scheduled_end': {'$gt': now}},
-                     {'scheduled_end': None}]},
-            {'status': {'$in': (MAILING_STATUS.READY, MAILING_STATUS.RUNNING)}},
-        ]}
-        return filter
-
-    @staticmethod
-    def make_recipients_queryset(mailing_id):
-        filter = {
-            '$and': [
-                {'$or': [{'next_try': {'$lte': datetime.utcnow()}},
-                         {'next_try': None}]},
-                {'$or': [{'in_progress': False}, {'in_progress': None}]},
-            ],
-            'send_status': {'$in': (RECIPIENT_STATUS.READY,
-                                    RECIPIENT_STATUS.WARNING), },
-            'mailing.$id': mailing_id,
-        }
-        return filter
 
     def clear_all_send_mail_in_progress(self):      # TODO To be removed because not used
         t0 = time.time()
@@ -141,24 +114,6 @@ class MailingManager(Singleton):
                                   mailing['_id'], mailing['mail_from'], mailing.get('start_time') and mailing['start_time'].strftime("%Y-%m-%d") or "???")
                     self.close_mailing(mailing['_id'])
         self.log.debug("update_status_for_finished_mailings() in %.1fs", time.time() - t0)
-
-    # def purge_temp_queue_from_finished_and_paused_mailings(self):
-    #     self.log.debug("purge_temp_queue_from_finished_and_paused_mailings")
-    #     t0 = time.time()
-    #     running_mailing_ids = [m['_id'] for m in Mailing._get_collection().find(
-    #         {'status': {'$nin': (MAILING_STATUS.PAUSED, MAILING_STATUS.FINISHED)}},
-    #         projection=[]
-    #     )]
-    #     recipient_ids = MailingRecipient._get_collection().find({'mailing.$id': {'$nin': running_mailing_ids}},
-    #                                                             projection=['_id'])
-    #
-    #
-    #     if recipient_ids:
-    #         MailingRecipient.update({'_id': {'$in': recipient_ids}, 'in_progress': True},
-    #                                 {'$set': {'in_progress': False, 'send_status': RECIPIENT_STATUS.READY}},
-    #                                 multi=True)
-    #
-    #         self.log.info("purge_temp_queue_from_finished_and_paused_mailings() in %.1fs", time.time() - t0)
 
     def pause_mailing(self, mailing):
         """

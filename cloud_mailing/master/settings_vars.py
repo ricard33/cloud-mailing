@@ -19,8 +19,6 @@
 # they are used into 'settings' table
 
 
-# MAILING_QUEUE_MAX_SIZE = 'mailing_queue_max_size'
-# MAILING_QUEUE_MIN_SIZE = 'mailing_queue_min_size'
 MAILING_QUEUE_MAX_THREAD = 'max_mailing_thread'
 MAILING_QUEUE_MAX_THREAD_SIZE = 'mailing_queue_max_thread_size'
 MAILING_RETRY_WAIT = 'mailing_retry_wait'            # no more used
@@ -31,8 +29,6 @@ ORPHAN_RECIPIENTS_MAX_AGE = 'orphan_recipients_max_age'  # in seconds
 ORPHAN_RECIPIENTS_MAX_RECIPIENTS = 'orphan_recipients_max_recipients'  # in seconds
 
 default = {
-    # MAILING_QUEUE_MAX_SIZE: 50000,
-    # MAILING_QUEUE_MIN_SIZE: 20000,  # TODO should be related to the number of active satellites to avoid locks (> nb_sat * min_queue_len_in_sat)
     MAILING_QUEUE_MAX_THREAD: 50,
     MAILING_QUEUE_MAX_THREAD_SIZE: 100,
     MAILING_RETRY_WAIT: 3600,

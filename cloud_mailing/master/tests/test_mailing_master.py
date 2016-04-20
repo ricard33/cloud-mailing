@@ -562,13 +562,13 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
         self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
         mq.activate()
         self.assertEquals(MAILING_STATUS.READY, mq.status)
-        qs = Mailing.find(MailingManager.make_mailings_queryset())
+        qs = Mailing.find(SendRecipientsTask.make_mailings_queryset())
         self.assertEqual(1, qs.count())
 
     def test_make_mailing_queryset_with_scheduled_duration(self):
         mq = factories.MailingFactory(scheduled_duration=14400)
         mq.activate()
-        qs = Mailing.find(MailingManager.make_mailings_queryset())
+        qs = Mailing.find(SendRecipientsTask.make_mailings_queryset())
         self.assertEqual(1, qs.count())
 
     # @override_settings(DEBUG=True)
@@ -577,7 +577,7 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
 
         mq = factories.MailingFactory()
         self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
-        qs = Mailing.find(MailingManager.make_mailings_queryset())
+        qs = Mailing.find(SendRecipientsTask.make_mailings_queryset())
         self.assertEqual(0, qs.count())
 
     def test_make_recipients_queryset(self):
