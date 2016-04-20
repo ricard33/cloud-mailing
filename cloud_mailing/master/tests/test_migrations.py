@@ -14,10 +14,13 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
+from bson import ObjectId, DBRef
+from datetime import datetime
 from twisted.trial import unittest
 
 from cloud_mailing.common.unittest_mixins import DatabaseMixin
-from cloud_mailing.master.db_initialization import do_migrations, init_master_db, migrations
+from cloud_mailing.master.db_initialization import do_migrations, init_master_db, migrations, _0001_remove_temp_queue
+from cloud_mailing.master.tests import factories
 
 __author__ = 'Cedric RICARD'
 
@@ -39,3 +42,73 @@ class MigrationsTestCase(DatabaseMixin, unittest.TestCase):
         do_migrations(self.db_sync)
         self.assertIn('_migrations', self.db_sync.collection_names(include_system_collections=False))
         self.assertEqual(len(migrations), self.db_sync['_migrations'].count())
+
+    def test_0001_remove_temp_queue(self):
+        client = factories.CloudClientFactory()
+        mailing = factories.MailingFactory()
+        result1 = self.db_sync.mailingrecipient.insert_one({
+            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "in_progress" : False,
+            "send_status" : "READY",
+            "contact" : {
+                "company" : "The company",
+                "email" : "email13@my-company.biz"
+            },
+            "tracking_id" : "9fabe1ae-6da7-496b-bd85-3b492b9b4d49",
+            "mailing" : DBRef("mailing", mailing.id),
+            "email" : "email13@my-company.biz",
+        })
+        result2 = self.db_sync.mailingrecipient.insert_one({
+            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "in_progress" : True,
+            "send_status" : "READY",
+            "contact" : {
+                "company" : "The company",
+                "email" : "email565@my-company.biz"
+            },
+            "tracking_id" : "9fabe1ae-6da7-496b-bd85-3b492b9b4d49",
+            "mailing" : DBRef("mailing", mailing.id),
+            "email" : "email565@my-company.biz",
+        })
+        self.db_sync.mailingtempqueue.insert_one({
+            "mail_from" : "sender@cloud-mailing.net",
+            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "sender_name" : "CM Tests",
+            "recipient" : self.db_sync.mailingrecipient.find_one({'_id': result2.inserted_id}),
+            "in_progress" : True,
+            "client": DBRef("cloudclient", client.id),
+            "date_delegated": datetime.now(),
+            "mailing": DBRef("mailing", mailing.id),
+            "email" : "email565@my-company.biz",
+            "domain_name" : "my-company.biz"
+        })
+        result3 = self.db_sync.mailingrecipient.insert_one({
+            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "in_progress" : True,
+            "send_status" : "READY",
+            "contact" : {
+                "company" : "The company",
+                "email" : "email777@my-company.biz"
+            },
+            "tracking_id" : "9fabe1ae-6da7-496b-bd85-3b492b9b4d49",
+            "mailing" : DBRef("mailing", mailing.id),
+            "email" : "email777@my-company.biz",
+        })
+
+        _0001_remove_temp_queue(self.db_sync)
+
+        recipient = self.db_sync.mailingrecipient.find_one({'_id': result1.inserted_id})
+        self.assertEqual('my-company.biz', recipient['domain_name'])
+        self.assertEqual(False, recipient['in_progress'])
+
+        recipient = self.db_sync.mailingrecipient.find_one({'_id': result2.inserted_id})
+        self.assertEqual('my-company.biz', recipient['domain_name'])
+        self.assertEqual(True, recipient['in_progress'])
+        self.assertEqual(client.serial, recipient['cloud_client'])
+        self.assertIn('date_delegated', recipient)
+
+        recipient = self.db_sync.mailingrecipient.find_one({'_id': result3.inserted_id})
+        self.assertEqual('my-company.biz', recipient['domain_name'])
+        self.assertEqual(False, recipient['in_progress'])
+
+        self.assertFalse('mailingtempqueue' in self.db_sync.collection_names())

@@ -41,13 +41,25 @@ def do_migrations(db):
 
 
 def _0001_remove_temp_queue(db):
-    if 'mailingtempqueue' in db.collection_names(include_system_collections=False):
-        db.drop_collection('mailingtempqueue')
-
     for recipient in db.mailingrecipient.find({'domain_name': None}):
         db.mailingrecipient.update_one({'_id': recipient['_id']},
                                        {'$set': {'domain_name': recipient['email'].split('@', 1)[1]}})
 
+    if 'mailingtempqueue' in db.collection_names(include_system_collections=False):
+        for item in db.mailingtempqueue.find():
+            client = db.cloudclient.find_one({'_id': item['client'].id})
+            db.mailingrecipient.update_one({'_id': item['recipient']['_id']},
+                                           {'$set': {
+                                               'in_progress': True,
+                                               'date_delegated': item['date_delegated'],
+                                               'cloud_client': client['serial']
+                                           }})
+
+        db.drop_collection('mailingtempqueue')
+
+    # reset all real orphans
+    db.mailingrecipient.update_many({'in_progress': True, 'date_delegated': None},
+                                    {'$set': {'in_progress': False}})
 
 migrations = [
     _0001_remove_temp_queue
