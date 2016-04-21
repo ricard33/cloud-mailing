@@ -360,7 +360,7 @@ class MailCustomizer:
                          include_headers=dkim_settings.get('include_headers', d.default_sign_headers()) + ['Feedback-ID'],
                          length=dkim_settings.get('length', False),
                          )
-            sig = str(sig)  # sig is in unicode
+            sig = str(sig.replace(b'\r\n', b'\n'))  # sig is in unicode
         return sig + flattened_message
 
     def _parse_message(self):

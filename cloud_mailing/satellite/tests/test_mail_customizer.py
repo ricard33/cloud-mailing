@@ -687,6 +687,8 @@ I=92m happy! Nothing else to say...
 
         message_str = self._customize(recipient)
 
+        self.assertNotIn(b"\r\n", message_str)
+
         parser = email.parser.Parser()
         message = parser.parsestr(message_str, headersonly=False)
         assert (isinstance(message, email.message.Message))
@@ -705,6 +707,8 @@ I=92m happy! Nothing else to say...
         recipient = factories.RecipientFactory(mailing=mailing)
 
         message_str = self._customize(recipient)
+
+        self.assertNotIn(b"\r\n", message_str)
 
         parser = email.parser.Parser()
         message = parser.parsestr(message_str, headersonly=False)
