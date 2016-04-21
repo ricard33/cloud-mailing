@@ -14,12 +14,14 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
+import email
 import logging
 from datetime import datetime
 
 import pymongo
 
 from cloud_mailing.common.db_common import create_index
+from cloud_mailing.common.email_tools import header_to_unicode
 
 __author__ = 'Cedric RICARD'
 
@@ -61,6 +63,16 @@ def _0001_remove_temp_queue(db):
     db.mailingrecipient.update_many({'in_progress': True, 'date_delegated': None},
                                     {'$set': {'in_progress': False}})
 
+
+def _0002_set_subject(db):
+    for mailing in db.mailing.find({'subject': None}, projection=('header',)):
+        parser = email.parser.HeaderParser()
+        header = parser.parsestr(mailing.get('header', ''))
+        subject = header_to_unicode(header.get("Subject"))
+        db.mailing.update_one({'_id': mailing['_id']}, {'$set': {'subject': subject}})
+
+
 migrations = [
-    _0001_remove_temp_queue
+    _0001_remove_temp_queue,
+    _0002_set_subject,
 ]
