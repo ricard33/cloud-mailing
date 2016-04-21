@@ -29,10 +29,16 @@ from cloud_mailing.common.db_common import Db, create_index
 from .. import __version__ as VERSION
 from ..common import settings
 from ..common.cm_logging import configure_logging
+from ..common import colored_log
 
 service_satellite = None
 
 log = logging.getLogger("cloud")
+
+
+def _dummy():
+    # Never executed, just to avoid auto deletion of this import
+    dir(colored_log)
 
 def start_satellite_service(application=None, master_ip='localhost', master_port=33620, ssl_context_factory=None):
     global service_satellite

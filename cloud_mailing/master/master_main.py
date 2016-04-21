@@ -48,6 +48,11 @@ from .rest_api import make_rest_api
 service_master = None
 service_manager = None
 
+
+def _dummy():
+    # Never executed, just to avoid auto deletion of this import
+    dir(colored_log)
+
 def get_api_service(application=None, interface='', port=33610, ssl_context_factory=None):
     """
     Return a service suitable for creating an application object.
