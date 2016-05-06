@@ -40,7 +40,7 @@ from .. import __version__
 from ..common import http_status
 from ..common import settings
 from ..common.json_tools import json_default
-from ..common.rest_api_common import ApiResource, log, ListModelMixin, RetrieveModelMixin
+from ..common.rest_api_common import ApiResource, log, ListModelMixin, RetrieveModelMixin, CurrentUser
 
 __author__ = 'Cedric RICARD'
 
@@ -442,15 +442,6 @@ class OsApi(ApiResource):
             data = {}
         self.write_headers(request)
         return json.dumps(data)
-
-
-class CurrentUser(object):
-    implements(ICurrentUser)
-
-    def __init__(self, session):
-        self.username = ''
-        self.is_authenticated = False
-        self.is_superuser = False
 
 
 registerAdapter(CurrentUser, Session, ICurrentUser)

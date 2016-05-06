@@ -8,6 +8,7 @@ import pymongo
 from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web import error as web_error, server
+from zope.interface import implements
 
 from .api_common import ICurrentUser, AuthenticatedSite
 from .permissions import IsAuthenticated, BasePermission
@@ -194,6 +195,17 @@ class ApiResource(Resource):
         session = request.getSession()
         return ICurrentUser(session)
 
+
+class CurrentUser(object):
+    implements(ICurrentUser)
+
+    def __init__(self, session):
+        self.username = ''
+        self.is_authenticated = False
+        self.is_superuser = False
+
+    def __str__(self):
+        return b"%s(username=%s, is_auth=%s, is_super=%s)" % (self.__class__, self.username, self.is_authenticated, self.is_superuser)
 
 # View Mixins
 
