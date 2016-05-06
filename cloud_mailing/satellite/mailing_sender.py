@@ -284,6 +284,7 @@ class MailingSender(pb.Referenceable):
                     mailing.feedback_loop = mailing_dict.get('feedback_loop', None)
                     mailing.domain_name = mailing_dict.get('domain_name', None)
                     mailing.type = mailing_dict.get('type', None)
+                    mailing.url_encoding = mailing_dict.get('url_encoding', None)
                     mailing.save()
                 else:
                     self.log.error("Mailing [%d] doesn't exist. Can't update header and body data.", mailing_id)

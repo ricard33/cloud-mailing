@@ -315,6 +315,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
          - total_softbounce: Number of soft bounces
          - read_tracking: True if tracking for reads is activated
          - click_tracking: True if tracking for clicks is activated
+         - url_encoding: <encoding>. If present, all links in mailing content will be encoded using the specified encoding.
         """
         log_api.debug("XMLRPC: list_mailings(%s)", filters or {})
 
@@ -420,6 +421,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 - read_tracking: set True to active tracking for reads (default: True)
                 - click_tracking: set True to active tracking for clicks (default: False)
                 - dkim: dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
+                - url_encoding: <encoding>. If present, all links in mailing content will be encoded using the specified encoding.
+                        Only supported value is: base64.
         """
         log_api.debug("XMLRPC: set_mailing_properties(%s, %s)", mailing_id, repr(properties))
         try:

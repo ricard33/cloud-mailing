@@ -46,8 +46,9 @@ class MailCustomizer:
 
     mailingsContent = {} # key = mailing__id, value = email.message.Message
     _parserLock = threading.Lock()
+    re_links = re.compile(r"(<a [^>]*href\s*=\s*['\"])(https?://[^'\"]*)(['\"])")
 
-    def __init__(self, recipient, read_tracking=True, click_tracking=False):
+    def __init__(self, recipient, read_tracking=True, click_tracking=False, url_encoding=None):
         assert(isinstance(recipient, MailingRecipient))
 
         self.recipient = recipient
@@ -60,6 +61,7 @@ class MailCustomizer:
         self._do_customization = self._do_customization
         self.read_tracking = read_tracking
         self.click_tracking = click_tracking
+        self.url_encoding = url_encoding
 
     @staticmethod
     def make_original_file_name(mailing_id):
@@ -101,12 +103,15 @@ class MailCustomizer:
         body = body.replace(r"%7B%7B%20unsubscribe%20%7D%7D", r"{{ unsubscribe }}")
         body = body.replace(r"%7B%7Bunsubscribe%7D%7D", r"{{ unsubscribe }}")
         if is_html and self.click_tracking:
-            body = re.sub("(<a [^>]*href\s*=\s*['\"])(https?://[^'\"]*)(['\"])",
-                              "\\1{{ _tracking_url }}?o={{ '\\2'|urlencode }}&t={% click %}\\2{% endclick %}\\3", body)
+            output_link = r"\1{{ _tracking_url }}?"
+            if self.url_encoding == 'base64':
+                output_link += 'c=b64&'
+            body = self.re_links.sub(output_link + r"o={{ '\2'|url_encode }}&t={% click %}\2{% endclick %}\3", body)
         context = {
             'UNSUBSCRIBE': self.unsubscribe_url,
             'unsubscribe': self.unsubscribe_url,
-            '_tracking_url': self.make_clic_url(self.recipient.mailing.tracking_url, self.recipient.tracking_id)
+            '_tracking_url': self.make_clic_url(self.recipient.mailing.tracking_url, self.recipient.tracking_id),
+            '_url_encoding': self.url_encoding,
         }
         context.update(contact_data)
         template = jinja2.Template(body, extensions=['jinja2.ext.with_', ClickExtension])
@@ -404,6 +409,7 @@ class ClickExtension(Extension):
         #     fragment_cache_prefix='',
         #     fragment_cache=None
         # )
+        environment.filters['url_encode'] = self.do_url_encode
 
     def parse(self, parser):
         # the first token is the token that started the tag.  In our case
@@ -411,6 +417,7 @@ class ClickExtension(Extension):
         # `click` as value.  We get the line number so that we can give
         # that line number to the nodes we create by hand.
         lineno = parser.stream.next().lineno
+        ctx_ref = jinja2.nodes.ContextReference()
 
         # # now we parse a single expression that is used as cache key.
         # args = [parser.parse_expression()]
@@ -428,11 +435,17 @@ class ClickExtension(Extension):
 
         # now return a `CallBlock` node that calls our _cache_support
         # helper method on this extension.
-        return nodes.CallBlock(self.call_method('_click_support', []),
+        return nodes.CallBlock(self.call_method('_click_support', [ctx_ref]),
                                [], [], body).set_lineno(lineno)
 
-    def _click_support(self, caller):
+    def _click_support(self, context, caller):
         """Helper callback."""
         rv = caller()
-        return urllib.quote(rv.encode('utf-8'))
+        return self.do_url_encode(context, rv.encode('utf-8'))
 
+    @jinja2.contextfilter
+    def do_url_encode(self, context, s):
+        if context['_url_encoding'] == 'base64':
+            return base64.urlsafe_b64encode(s).strip('=')
+        else:
+            return urllib.quote(s)

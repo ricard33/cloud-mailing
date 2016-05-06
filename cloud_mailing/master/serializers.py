@@ -164,7 +164,7 @@ class MailingSerializer(Serializer):
         'start_time', 'end_time',
         'total_recipient', 'total_sent', 'total_pending', 'total_error',
         'total_softbounce',
-        'read_tracking', 'click_tracking', 'mailing'
+        'read_tracking', 'click_tracking', 'mailing', 'url_encoding',
     )
 
     def make_filter(self, args):

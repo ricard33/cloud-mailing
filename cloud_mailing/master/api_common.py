@@ -79,7 +79,8 @@ def set_mailing_properties(mailing_id, properties):
                             % (value, ', '.join(mailing_types)))
             mailing.type = value
         elif key in (
-                'sender_name', 'tracking_url', 'testing', 'backup_customized_emails', 'owner_guid', 'satellite_group',
+            'sender_name', 'tracking_url', 'testing', 'backup_customized_emails', 'owner_guid', 'satellite_group',
+            'url_encoding'
         ):
             setattr(mailing, key, value)
         elif key == 'dkim':

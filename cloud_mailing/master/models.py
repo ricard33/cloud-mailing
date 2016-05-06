@@ -129,6 +129,7 @@ class Mailing(Model):
     read_tracking   = Field(bool, default=True)  # If True, read tracking image are added to html bodies
     click_tracking  = Field(bool, default=False)  # If True, links found into html bodies are converted to allow clicks tracking
     tracking_url    = Field()  # Base url for all tracking links
+    url_encoding    = Field()
     dkim            = Field()  # dkim settings (dictionary). Fields are enabled (Default=True), selector, domain, privkey
     feedback_loop   = Field()  # Settings needed to implement the Google Feedback Loop requirements (dictionary)
                                # Fields are `campain_id`, `customer_id`, `mail_type_id`, `sender_id`

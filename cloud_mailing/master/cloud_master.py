@@ -262,6 +262,7 @@ class MailingManagerView(pb.Viewable):
                                                           'feedback_loop': feedback_loop,
                                                           'domain_name': mailing.domain_name,
                                                           'type': mailing.type,
+                                                          'url_encoding': mailing.url_encoding,
                                                           'delete': False}))
             else:
                 self.log.error("Mailing [%d] doesn't exist anymore.", mailing_id)

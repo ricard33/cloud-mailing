@@ -65,6 +65,7 @@ class Mailing(Model):
                                 # defaults are (in order): 'mailing.id', 'mailing.domain_name', 'mailing.type'.
                                 # Other are mandatory.
     domain_name     = Field()   # sender domain
+    url_encoding    = Field()
 
     created         = Field(datetime, default=datetime.utcnow)
     modified        = Field(datetime, default=datetime.utcnow)

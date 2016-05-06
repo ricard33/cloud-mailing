@@ -739,3 +739,21 @@ I=92m happy! Nothing else to say...
     def _get_dkim_privkey(self):
         return file(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deployment', 'acceptance_tests', 'data',
                                  'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()
+
+    def test_rotate_encryption_in_tracking_links(self):
+        mailing = factories.MailingFactory(tracking_url='http://tracking.net/')
+        recipient = factories.RecipientFactory(mailing=mailing, tracking_id="TRACKING_ID")
+
+        customizer = MailCustomizer(recipient, read_tracking=False, click_tracking=True, url_encoding='base64')
+        content = '<p>Please <a href="http://www.mydomain.com/the_page?p=parameter">click here</a></p>'
+        new_content = customizer._do_customization(
+            body=content,
+            contact_data=customizer.make_contact_data_dict(recipient),
+            is_html=True
+        )
+        self.assertEquals(
+            # '<p>Please <a href="http://tracking.net/c/?o=http://www.mydomain.com/the_page?p=parameter">click here</a></p>',
+            '<p>Please <a href="http://tracking.net/c/TRACKING_ID/?c=b64&o=aHR0cDovL3d3dy5teWRvbWFpbi5jb20vdGhlX3BhZ2U_cD1wYXJhbWV0ZXI'
+            '&t=aHR0cDovL3d3dy5teWRvbWFpbi5jb20vdGhlX3BhZ2U_cD1wYXJhbWV0ZXI">click here</a></p>',
+            new_content)
+
