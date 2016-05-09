@@ -49,13 +49,14 @@ def _0001_remove_temp_queue(db):
 
     if 'mailingtempqueue' in db.collection_names(include_system_collections=False):
         for item in db.mailingtempqueue.find():
-            client = db.cloudclient.find_one({'_id': item['client'].id})
-            db.mailingrecipient.update_one({'_id': item['recipient']['_id']},
-                                           {'$set': {
-                                               'in_progress': True,
-                                               'date_delegated': item['date_delegated'],
-                                               'cloud_client': client['serial']
-                                           }})
+            if 'client' in item:
+                client = db.cloudclient.find_one({'_id': item['client'].id})
+                db.mailingrecipient.update_one({'_id': item['recipient']['_id']},
+                                               {'$set': {
+                                                   'in_progress': True,
+                                                   'date_delegated': item['date_delegated'],
+                                                   'cloud_client': client['serial']
+                                               }})
 
         db.drop_collection('mailingtempqueue')
 
