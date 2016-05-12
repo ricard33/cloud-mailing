@@ -486,6 +486,7 @@ class CloudRealm:
             if since_seconds is None:
                 since_seconds = settings_vars.get_int(settings_vars.ORPHAN_RECIPIENTS_MAX_AGE)
             query = MailingRecipient.find({
+                'in_progress': True,
                 'date_delegated': {
                     '$lt': datetime.utcnow() - timedelta(seconds=since_seconds)},
                 'cloud_client': {'$ne': None}
