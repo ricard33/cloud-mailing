@@ -83,6 +83,7 @@ def stop_satellite_service():
 def init_db(db):
     # db.create_collection("live_stats")
     create_index(db.live_stats, [('date', pymongo.ASCENDING)], 'date_expiration', expireAfterSeconds=7 * 86400)
+    create_index(db.mailingrecipient, [('next_try', pymongo.ASCENDING)])
     # nb = 700000
     # if 'live_stats2' not in db.collection_names():
     #     db.create_collection("live_stats2", capped=True, size=nb * 1024, max=nb)
