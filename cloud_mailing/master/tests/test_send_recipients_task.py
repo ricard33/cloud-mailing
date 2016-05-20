@@ -72,6 +72,19 @@ class SendRecipientsTaskTestCase(DatabaseMixin, unittest.TestCase):
         self.assertEqual(1, len(recipients))
         self.assertEqual("2@dom.com", recipients[0]['email'])
 
+    @defer.inlineCallbacks
+    def test_nb_max_recipients_should_never_be_zero(self):
+        factories.CloudClientFactory(paired=True, serial="UT")
+        mailing1 = factories.MailingFactory(status=MAILING_STATUS.READY, total_recipient=1, total_pending=1)
+        mailing2 = factories.MailingFactory(status=MAILING_STATUS.READY, total_recipient=1, total_pending=1)
+        factories.RecipientFactory(email="1@dom.com", mailing=mailing1)
+        factories.RecipientFactory(email="2@dom.com", mailing=mailing2)
+
+        my_task = SendRecipientsTask.getInstance()
+        recipients = yield my_task._get_recipients(1, "UT")
+
+        self.assertEqual(1, len(recipients))
+
 
 class SendRecipientsPerfsTestCase(DatabaseMixin, unittest.TestCase):
     def setUp(self):

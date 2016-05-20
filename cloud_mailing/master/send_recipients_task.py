@@ -218,6 +218,9 @@ class SendRecipientsTask(Singleton):
                 mailings = yield db.mailing.find(mailing_filter, fields=['status', 'start_time', 'total_pending',
                                                                          'mail_from', 'sender_name'])
                 for mailing in mailings:
+                    if max_nb_recipients <= len(recipients):
+                        self.log.debug("Filling mailing queue: max recipients reached. Skipping others mailings.")
+                        break
                     if mailing['status'] == MAILING_STATUS.READY:
                         yield db.mailing.update({'_id': mailing['_id']}, {'$set': {
                             'status': MAILING_STATUS.RUNNING,
@@ -226,6 +229,9 @@ class SendRecipientsTask(Singleton):
                     nb_max = max(100, mailing.get('total_pending', 0)
                                  * nb_recipients / total_recipients_pending)
                     nb_max = min(nb_max, max_nb_recipients - len(recipients))
+                    if nb_max <= 0:
+                        self.log.error("Filling mailing queue: nb_max has to be strictly greater than 0! Logic error!")
+                        break
                     # print "nb_max = %d" % nb_max
                     self.log.debug("Filling mailing queue: selecting max %d recipients from mailing [%d]", nb_max,
                                    mailing['_id'])
@@ -301,17 +307,17 @@ class SendRecipientsTask(Singleton):
 
         wanted_count, collector = yield avatar.prepare_getting_recipients(count)
         if not wanted_count or not collector:
-            self.log.debug("_send_recipients_to_satellite() Client [%s] is already full.", serial)
+            self.log.debug("_send_recipients_to_satellite(%s) Client is already full.", serial)
             return
 
         recipients = yield self._get_recipients(min(count, wanted_count), serial)
 
         def show_time_at_end(_t0, rcpts_count, data_len):
-            self.log.debug("_send_recipients_to_satellite(): Sent %d recipients (%.2f Kb) in %.2f s",
-                           rcpts_count, data_len / 1024.0, time.time() - _t0)
+            self.log.debug("_send_recipients_to_satellite(%s): Sent %d recipients (%.2f Kb) in %.2f s",
+                           serial, rcpts_count, data_len / 1024.0, time.time() - _t0)
 
-        self.log.debug("_send_recipients_to_satellite(): starting sending %d recipients at %.2f s", len(recipients),
-                       time.time() - t0)
+        self.log.debug("_send_recipients_to_satellite(%s): starting sending %d recipients at %.2f s",
+                       serial, len(recipients), time.time() - t0)
         data = pickle.dumps(recipients)
         util.StringPager(collector, data, 262144, show_time_at_end, t0, len(recipients), len(data))
 
