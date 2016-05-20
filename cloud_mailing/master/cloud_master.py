@@ -495,7 +495,7 @@ class CloudRealm:
             def get_recipients_per_client():
                 serial = None
                 recipients = []
-                for recipient in query.sort([('client', pymongo.ASCENDING), ('date_delegated', pymongo.DESCENDING)]):
+                for recipient in query.sort([('cloud_client', pymongo.ASCENDING), ('date_delegated', pymongo.DESCENDING)]):
                     if serial and serial != recipient.cloud_client:
                         yield serial, recipients
                         recipients = []
