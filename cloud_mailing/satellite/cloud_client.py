@@ -109,6 +109,7 @@ class CloudClient(pb.Referenceable):
         """
         Returns a dictionary mapping for each input id the corresponding recipient object, nor None is not found.
         """
+        log.debug('check_recipients(...%d recipients...)', len(recipient_ids))
         recipients_dict = {}
         for _id in recipient_ids:
             recipients_dict[_id] = None

@@ -530,13 +530,15 @@ class CloudRealm:
 
     @defer.inlineCallbacks
     def _check_recipients_cb(self, results, serial, recipient_ids):
-        self.log.debug("Queries for handled ids are finished. We can begin the check.")
+        self.log.debug("Queries for handled ids are finished. We can begin the check. (%d recipients)", len(results))
         assert(isinstance(results, dict))
         unhandled = [ObjectId(id) for id, rcpt in results.items() if not rcpt]
         if unhandled:
             self.log.warn("Found [%d] orphan recipients from client [%s]. Removing them...", len(unhandled), serial)
             yield get_db().mailingrecipient.update_many({'_id': {'$in': unhandled}},
                                                         {'$set': {'in_progress': False}})
+        else:
+            self.log.debug("No orphan recipient for client [%s].", serial)
 
         defer.returnValue(unhandled)
 
