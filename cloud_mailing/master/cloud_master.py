@@ -282,7 +282,7 @@ class MailingManagerView(pb.Viewable):
         data = pickle.dumps([])
         util.StringPager(collector, data)
 
-    # @defer.inlineCallbacks
+    @defer.inlineCallbacks
     def view_get_my_recipients(self, client, collector):
         """
         Returns an array of recipient ids already handled by the connected client. Used by clients to verify validity of
@@ -290,7 +290,7 @@ class MailingManagerView(pb.Viewable):
         """
         self.log.debug("get_my_recipients() for '%s'", self.cloud_client.serial)
         db = get_db()
-        recipients = yield db.mailingrecipient.find_many({'cloud_client': self.cloud_client.serial}, fields=[])
+        recipients = yield db.mailingrecipient.find({'cloud_client': self.cloud_client.serial, 'in_progress': True}, fields=[])
         # recipients = list(recipients)
         data = pickle.dumps(map(lambda r: str(r['_id']), recipients))
         # print "sending %d length data for %d recipients" % (len(data), len(recipients))
