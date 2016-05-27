@@ -219,7 +219,8 @@ class SendRecipientsTask(Singleton):
                                                                          'mail_from', 'sender_name'])
                 for mailing in mailings:
                     if max_nb_recipients <= len(recipients):
-                        self.log.debug("Filling mailing queue: max recipients reached. Skipping others mailings.")
+                        self.log.warning("Filling mailing queue: max recipients reached. Skipping others mailings.")
+                        # TODO ALERT here
                         break
                     if mailing['status'] == MAILING_STATUS.READY:
                         yield db.mailing.update({'_id': mailing['_id']}, {'$set': {
@@ -258,6 +259,7 @@ class SendRecipientsTask(Singleton):
 
     @defer.inlineCallbacks
     def _get_recipients(self, count, serial):
+        self.log.debug("_get_recipients(client=%s, count=%d)", serial, count)
         db = get_db()
 
         cloud_client = yield db.cloudclient.find_one({'serial': serial})

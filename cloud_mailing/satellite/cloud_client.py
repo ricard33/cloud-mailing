@@ -166,11 +166,12 @@ class CloudClient(pb.Referenceable):
 
         temp_queue_count = MailingRecipient.search(finished=False).count()
         mailing_queue_min_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MIN_SIZE)
+        mailing_queue_max_size = settings_vars.get_int(settings_vars.MAILING_QUEUE_MAX_SIZE)
 
         if temp_queue_count >= mailing_queue_min_size:
             log.debug("Queue is full. Cancelling recipients request.")
             return 0, None
-        count = min(count, mailing_queue_min_size - temp_queue_count)
+        count = min(count, mailing_queue_max_size - temp_queue_count)
         log.debug("Requesting %d recipients...", count)
 
         d = defer.Deferred()
