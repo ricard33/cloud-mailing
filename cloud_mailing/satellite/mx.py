@@ -113,7 +113,7 @@ class MXCalculator:
         for answer in records[0]:
             self.log.debug("_filterRecords: answer = %s", repr(answer))
             self.log.debug("_filterRecords:   name = %s", repr(answer.name))
-            recordBag.setdefault(str(answer.name), []).append(answer.payload)
+            recordBag.setdefault(str(answer.name).lower(), []).append(answer.payload)
 
         self.log.debug("_filterRecords: recordBag = %s", repr(recordBag))
         return recordBag

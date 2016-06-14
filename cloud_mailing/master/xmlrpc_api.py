@@ -653,7 +653,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 log_api.error(c['error'])
                 result.append(c)
                 continue
-            c['email'] = fields['email']
+            c['email'] = fields['email'].lower()
             m = email_re.search(fields['email'])
             if not m:
                 c['error'] = "'email' field is not a regular email address: '%s'" % fields['email']

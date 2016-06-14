@@ -43,11 +43,6 @@ def _dummy():
 def start_satellite_service(application=None, master_ip='localhost', master_port=33620, ssl_context_factory=None):
     global service_satellite
 
-    ##Twisted logs
-    from twisted.python.log import PythonLoggingObserver
-    observer = PythonLoggingObserver()
-    observer.start()
-
     ##Services
 
     from cloud_client import get_cloud_client_factory

@@ -511,7 +511,7 @@ class MailingSender(pb.Referenceable):
             if len(parts) != 2:
                 self.log.error("Illegal message destination: " + to)
                 continue
-            domain = parts[1]
+            domain = parts[1].lower()
             if domain in skip_domains:
                 continue
 
