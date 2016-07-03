@@ -256,7 +256,7 @@ programs=%(group_name)s_satellite
 """ % {'group_name': group_name}
     else:
         config = """[group:%(group_name)s]
-programs=%(group_name)s_master,%(group_name)s_satellite
+programs=%(group_name)s_master,%(group_name)s_satellite,%(group_name)s_smtpd
 
 [program:%(group_name)s_master]
 command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_master.py
@@ -267,6 +267,16 @@ autostart=true
 autorestart=true
 user=cm
 priority=10
+
+[program:%(group_name)s_smtpd]
+command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_smtpd.py -u cm -g cm
+directory=%(TARGET_PATH)s
+numprocs=1
+stdout_logfile=/var/log/cm_smtpd.supervisor.log
+autostart=true
+autorestart=true
+;user=cm
+priority=30
 """ % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name}
 
     config += """
