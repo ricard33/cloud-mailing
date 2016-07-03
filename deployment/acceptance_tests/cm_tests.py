@@ -54,13 +54,18 @@ test_config = Config()
 if os.path.exists("test_config.ini"):
     test_config.read("test_config.ini")
 
-CONFIG = {'ip': test_config.get("TARGET", "ip", "127.0.0.1"),
-          'smtp_port': test_config.getint("TARGET", "smtp_port", 25),
-          'pop_port': test_config.getint("TARGET", "pop_port", 110),
-          'admin_pwd': test_config.get("TARGET", "admin_pwd", "password"),
-          'api_key': urllib2.quote(test_config.get("TARGET", "api_key", "the_api_key")),
-          'admin_password': test_config.get("TARGET", "admin_password", "password"),
-          }
+
+def load_config(target_name='TARGET'):
+    return {'ip': test_config.get(target_name, "ip", "127.0.0.1"),
+            'smtp_port': test_config.getint(target_name, "smtp_port", 25),
+            'pop_port': test_config.getint(target_name, "pop_port", 110),
+            'admin_pwd': test_config.get(target_name, "admin_pwd", "password"),
+            'api_key': urllib2.quote(test_config.get(target_name, "api_key", "the_api_key")),
+            'admin_password': test_config.get(target_name, "admin_password", "password"),
+            }
+
+
+CONFIG = load_config()
 
 # Set it to true if network isn't available and if DNS and SMTP are faked
 OFFLINE_TESTS=True
@@ -430,13 +435,18 @@ if __name__ == '__main__':
     import argparse
     
     parser = argparse.ArgumentParser(description='Runs acceptance tests for CloudMailing')
-    parser.add_argument('test_fixture', type=str, nargs='?',
-                        help='An optional fixture name')
+    # parser.add_argument('test_fixture', type=str, nargs='?',
+    #                     help='An optional fixture name')
     parser.add_argument('--ip', dest='ip', default=None,
                         help='IP address of the CloudMailing (default: 127.0.0.1)')
+    parser.add_argument('--target', dest='target', default=None,
+                        help='Target name (used as section name in configuration file)')
 
-    args = parser.parse_args()
+    args, argv = parser.parse_known_args()
+    if args.target:
+        CONFIG = load_config(args.target)
     if args.ip:
         CONFIG['ip'] = args.ip
 
-    unittest.main()
+    argv.insert(0, sys.argv[0])
+    unittest.main(argv=argv)
