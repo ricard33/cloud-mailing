@@ -118,3 +118,5 @@ class LoggingConfigEventHandler(FileSystemEventHandler):
             logFile.setLevel(log_level)
             logFile.setFormatter(formatter)
             logger.addHandler(logFile)
+
+            logging.getLogger('twisted').setLevel(logging.WARN)

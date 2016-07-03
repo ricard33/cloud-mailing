@@ -103,7 +103,7 @@ class RECIPIENT_STATUS:
     IN_PROGRESS        = 'IN PROGRESS'
 
 recipient_status = (RECIPIENT_STATUS.READY,
-                    RECIPIENT_STATUS.IN_PROGRESS,
+                    RECIPIENT_STATUS.IN_PROGRESS,  # TODO remove this status (unused on master)
                     RECIPIENT_STATUS.WARNING,
                     RECIPIENT_STATUS.FINISHED,
                     RECIPIENT_STATUS.ERROR,
@@ -251,6 +251,7 @@ class MailingRecipient(Model):
     reply_enhanced_code = Field()
     reply_text = Field()
     smtp_log         = Field()
+    dsn              = Field()  # Delivery Status Notification (if received) RFC-3464
     in_progress     = Field(bool, default=False)  # added in temp queue
     report_ready    = Field(bool, default=False)  # data ready to report to API client
     cloud_client    = Field()   # help_text="Client used to send the email (serial)
@@ -273,14 +274,6 @@ class MailingRecipient(Model):
     def save(self, *args, **kwargs):
         self.modified = datetime.utcnow()
         return super(MailingRecipient, self).save(*args, **kwargs)
-
-    def set_send_mail_in_progress(self):
-        self.send_status = RECIPIENT_STATUS.IN_PROGRESS
-        if self.try_count is None:
-            self.try_count = 0
-        self.try_count += 1
-        self.in_progress = True
-        self.next_try = datetime.utcnow()
 
     def update_send_status(self, send_status, smtp_code=None, smtp_e_code=None, smtp_message=None, in_progress=False,
                            smtp_log=None):

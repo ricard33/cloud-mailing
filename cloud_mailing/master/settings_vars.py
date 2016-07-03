@@ -28,6 +28,7 @@ FEEDBACK_LOOP_SETTINGS = 'feedback_loop_settings'
 ORPHAN_RECIPIENTS_MAX_AGE = 'orphan_recipients_max_age'  # in seconds
 ORPHAN_RECIPIENTS_MAX_RECIPIENTS = 'orphan_recipients_max_recipients'  # in seconds
 CUSTOMIZED_CONTENT_RETENTION_DAYS = 'customized_content_retention_days'
+RETURN_PATH_DOMAIN = 'return_path_domain'
 
 default = {
     MAILING_QUEUE_MAX_THREAD: 50,
@@ -39,6 +40,7 @@ default = {
     ORPHAN_RECIPIENTS_MAX_AGE: 3600,
     ORPHAN_RECIPIENTS_MAX_RECIPIENTS: 1000,
     CUSTOMIZED_CONTENT_RETENTION_DAYS: 7,
+    RETURN_PATH_DOMAIN: None,
 }
 
 # Helpers

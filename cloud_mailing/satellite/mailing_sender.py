@@ -283,6 +283,7 @@ class MailingSender(pb.Referenceable):
                     mailing.dkim = mailing_dict.get('dkim', None)
                     mailing.feedback_loop = mailing_dict.get('feedback_loop', None)
                     mailing.domain_name = mailing_dict.get('domain_name', None)
+                    mailing.return_path_domain = mailing_dict.get('return_path_domain', None)
                     mailing.type = mailing_dict.get('type', None)
                     mailing.url_encoding = mailing_dict.get('url_encoding', None)
                     mailing.save()
@@ -906,13 +907,18 @@ class RecipientManager(object):
         self.temp_filename = None
         
     def send(self):
+        if self.recipient.mailing.return_path_domain:
+            email_from = "%s-%s@%s" % (self.recipient.mailing.id, self.recipient.tracking_id,
+                                       self.recipient.mailing.return_path_domain)
+        else:
+            email_from = self.email_from
         try:
             uid, path = MailCustomizer(self.recipient,
                                        self.recipient.mailing.read_tracking,
                                        self.recipient.mailing.click_tracking,
                                        self.recipient.mailing.url_encoding).customize()
             self.temp_filename = path
-            self.factory.send_email(self.email_from, (self.email_to,), path)\
+            self.factory.send_email(email_from, (self.email_to,), path)\
                 .addCallbacks(self.onSuccess, self.onFailure)
 
         except OSError, ex:
@@ -956,7 +962,7 @@ class RecipientManager(object):
                 self.log.debug("Exists? %s", os.path.exists(os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, os.path.basename(self.temp_filename))))
             else:
                 self.log.debug("Deleting customized content: '%s'", self.temp_filename)
-                os.remove(self.temp_filename)
+                # os.remove(self.temp_filename)
         self.deferred.callback(self.recipient)
     
     def onFailure(self, err):

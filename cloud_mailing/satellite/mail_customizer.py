@@ -289,7 +289,7 @@ class MailCustomizer:
             # Remove some headers
             for header in ('Subject', 'Received', 'To', 'From', 'User-Agent', 'Date', 'Message-ID', 'List-Unsubscribe',
                            'DKIM-Signature', 'Authentication-Results', 'Received-SPF', 'Received-SPF', 'X-Received',
-                           'Delivered-To', 'Feedback-ID', 'Precedence'):
+                           'Delivered-To', 'Feedback-ID', 'Precedence', 'Return-Path'):
                 if header in message:
                     del message[header]
 
@@ -317,8 +317,7 @@ class MailCustomizer:
             flattened_message = fp.getvalue()
             flattened_message = self.add_dkim_signature(flattened_message)
             flattened_message = self.add_fbl(flattened_message)
-            fbl_settings = self.recipient.mailing.get('dkim', {})
-            # if fbl_settings
+
             with open(fullpath+'.tmp', 'wt') as fp:
                 fp.write(flattened_message)
                 fp.close()

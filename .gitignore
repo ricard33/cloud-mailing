@@ -70,3 +70,4 @@ _trial_temp
 local_settings.py
 version.properties
 deployment/acceptance_tests/root_dir
+scripts/collect_reports.ini

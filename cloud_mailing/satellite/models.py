@@ -65,6 +65,7 @@ class Mailing(Model):
                                 # defaults are (in order): 'mailing.id', 'mailing.domain_name', 'mailing.type'.
                                 # Other are mandatory.
     domain_name     = Field()   # sender domain
+    return_path_domain = Field()   # domain used to fill Return-Path header. If None, header won't be added.
     url_encoding    = Field()
 
     created         = Field(datetime, default=datetime.utcnow)

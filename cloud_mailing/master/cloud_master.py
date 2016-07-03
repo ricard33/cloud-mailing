@@ -250,20 +250,23 @@ class MailingManagerView(pb.Viewable):
                     if sender_domain:
                         self.log.debug("Found DKIM configuration for domain '%s'", mailing.domain_name)
                         dkim = sender_domain.dkim
-                util.StringPager(collector, pickle.dumps({'id': mailing_id,
-                                                          'header': header,
-                                                          'body': body,
-                                                          'read_tracking': mailing.read_tracking,
-                                                          'click_tracking': mailing.click_tracking,
-                                                          'tracking_url': mailing.tracking_url,
-                                                          'backup_customized_emails': mailing.backup_customized_emails,
-                                                          'testing': mailing.testing,
-                                                          'dkim': dkim,
-                                                          'feedback_loop': feedback_loop,
-                                                          'domain_name': mailing.domain_name,
-                                                          'type': mailing.type,
-                                                          'url_encoding': mailing.url_encoding,
-                                                          'delete': False}))
+                util.StringPager(collector, pickle.dumps({
+                    'id': mailing_id,
+                    'header': header,
+                    'body': body,
+                    'read_tracking': mailing.read_tracking,
+                    'click_tracking': mailing.click_tracking,
+                    'tracking_url': mailing.tracking_url,
+                    'backup_customized_emails': mailing.backup_customized_emails,
+                    'testing': mailing.testing,
+                    'dkim': dkim,
+                    'feedback_loop': feedback_loop,
+                    'domain_name': mailing.domain_name,
+                    'return_path_domain': settings_vars.get(settings_vars.RETURN_PATH_DOMAIN),
+                    'type': mailing.type,
+                    'url_encoding': mailing.url_encoding,
+                    'delete': False,
+                }))
             else:
                 self.log.error("Mailing [%d] doesn't exist anymore.", mailing_id)
                 util.StringPager(collector, pickle.dumps({'id': mailing_id, 'delete': True}))
@@ -316,7 +319,12 @@ class MailingManagerView(pb.Viewable):
                 name = rcpt['email']
                 recipient = MailingRecipient.grab(rcpt['_id'])
                 if recipient is None:
-                    log.warn("Can't update recipient '%s'. Mailing [%d] or recipient doesn't exist anymore.", name, rcpt['mailing'])
+                    log.warn("Can't update recipient '%s'. Mailing [%d] or recipient doesn't exist anymore.",
+                             name, rcpt['mailing'])
+                elif recipient.send_status == RECIPIENT_STATUS.ERROR and recipient.dsn is not None:
+                    # DSN received before this report, we have to ignore the report to not overwrite DSN
+                    log.debug("[Mailing %d] Delivery Status Notification already received for recipient <%s>",
+                              rcpt['mailing'], name)
                 else:
                     assert(isinstance(recipient, MailingRecipient))
                     recipient.report_ready = True
