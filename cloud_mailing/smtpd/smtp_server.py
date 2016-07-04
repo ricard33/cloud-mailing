@@ -118,8 +118,8 @@ class ReturnPathMessage:
 
                     # print message.get_payload(2).as_string()
                     if action == 'failed':
-                        self.log.error("ERROR sending mailing %d TO <%s>: %s", self.ml_id, recipient, details)
-                        logging.getLogger('mailing.out').error("MAILING [%d] Delivery Status Notification for <%s>: %s",
+                        self.log.info("Received failure notification for mailing [%d] recipient <%s>: %s", self.ml_id, recipient, details)
+                        logging.getLogger('mailing.dsn').error("MAILING [%d] Delivery Status Notification for <%s>: %s",
                                                                self.ml_id, recipient, details)
                         return self.store_recipient_report(status, details, message_str)
                     self.log.warn("MAILING [%d] Received DSN with action %s for <%s>: %s",

@@ -51,6 +51,15 @@ LOGGING = {
             'maxBytes': 10 * 1024 * 1024,
             'backupCount': 10,
         },
+        'dsn': {
+            'level': 'NOTSET',
+            'class': 'logging.handlers.TimedRotatingFileHandler',
+            'formatter': 'verbose',
+            'filename': 'log/mailing.dsn.log',
+            'when': 'd',
+            'interval': 1,
+            'backupCount': 20,
+        },
         # 'mail_admins': {
         #     'level': 'ERROR',
         #     'class': 'logging.handlers.SMTPHandler',
@@ -68,6 +77,9 @@ LOGGING = {
         'level': 'INFO',
     },
     'loggers': {
+        'smtpd': {
+            'level': 'DEBUG',
+        },
         'twisted': {
             'level': 'WARNING',
         },
@@ -77,8 +89,10 @@ LOGGING = {
         'daemons': {
             'level': 'INFO',
         },
-        'smtpd': {
+        'mailing.dsn': {
             'level': 'INFO',
+            'handlers': ['dsn'],
+            'propagate': 0
         },
     },
 
