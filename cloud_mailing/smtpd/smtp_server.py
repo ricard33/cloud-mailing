@@ -121,6 +121,8 @@ class ReturnPathMessage:
                         self.log.info("Received failure notification for mailing [%d] recipient <%s>: %s", self.ml_id, recipient, details)
                         logging.getLogger('mailing.dsn').error("MAILING [%d] Delivery Status Notification for <%s>: %s",
                                                                self.ml_id, recipient, details)
+                        # remove comment than MAY be present at the end of status line
+                        status = status.split('(', 1)[0].strip()
                         return self.store_recipient_report(status, details, message_str)
                     self.log.warn("MAILING [%d] Received DSN with action %s for <%s>: %s",
                                   self.ml_id, action, recipient, details)
