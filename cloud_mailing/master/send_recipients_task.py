@@ -325,30 +325,34 @@ class SendRecipientsTask(Singleton):
 
     @defer.inlineCallbacks
     def run(self):
-        db = get_db()
+        try:
+            db = get_db()
 
-        # all_satellites = yield db.cloudclient.find({'enabled': True, 'paired': True})
-        all_satellites = yield db.cloudclient.find()
-        current_load = yield db.mailingrecipient.aggregate([
-            {
-                '$match': {'in_progress': True,}
-            },
-            {
-                '$group': {
-                    '_id': '$cloud_client',
-                    'count': {'$sum': 1}
-                }
-            },
-            {'$sort': {'count': pymongo.DESCENDING}}
-        ])
-        current_load = {load['_id']: load['count'] for load in current_load}
-        self.log.debug("Current satellite load:")
-        for _id, count in current_load.items():
-            self.log.debug("    - %s: %d recipients", _id, count)
+            # all_satellites = yield db.cloudclient.find({'enabled': True, 'paired': True})
+            all_satellites = yield db.cloudclient.find()
+            current_load = yield db.mailingrecipient.aggregate([
+                {
+                    '$match': {'in_progress': True,}
+                },
+                {
+                    '$group': {
+                        '_id': '$cloud_client',
+                        'count': {'$sum': 1}
+                    }
+                },
+                {'$sort': {'count': pymongo.DESCENDING}}
+            ])
+            current_load = {load['_id']: load['count'] for load in current_load}
+            self.log.debug("Current satellite load:")
+            for _id, count in current_load.items():
+                self.log.debug("    - %s: %d recipients", _id, count)
 
-        all_satellites.sort(key=lambda x: current_load.get(x['serial'], 0))
-        max_count = settings_vars.get_int(settings_vars.SATELLITE_MAX_RECIPIENTS_TO_SEND)
-        for satellite in all_satellites:
-            if satellite['enabled'] and satellite['paired']:
-                # recipients_count = current_load.get(satellite['serial'], 0)
-                yield self._send_recipients_to_satellite(satellite['serial'], max_count)
+            all_satellites.sort(key=lambda x: current_load.get(x['serial'], 0))
+            max_count = settings_vars.get_int(settings_vars.SATELLITE_MAX_RECIPIENTS_TO_SEND)
+            for satellite in all_satellites:
+                if satellite['enabled'] and satellite['paired']:
+                    # recipients_count = current_load.get(satellite['serial'], 0)
+                    yield self._send_recipients_to_satellite(satellite['serial'], max_count)
+
+        except:
+            self.log.exception("Exception in SendRecipientsTask.run() function.")
