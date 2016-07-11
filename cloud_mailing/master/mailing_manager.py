@@ -61,8 +61,8 @@ class MailingManager(Singleton):
                                     (self.purge_customized_content, 3600, False),
                                     (SendRecipientsTask.getInstance().run, 10, False)
                                     ):
-            t = task.LoopingCall(fn)
-            t.start(delay, now=startNow)
+            t = task.LoopingCall(self.task_wrapper(fn))
+            t.start(delay, now=startNow).addErrback(self.eb_tasks, fn.__name__)
             self.tasks.append(t)
         self.log.info("Mailing manager started")
 
@@ -71,6 +71,18 @@ class MailingManager(Singleton):
             t.stop()
         self.tasks = []
         self.log.info("Mailing manager stopped")
+
+    def task_wrapper(self, task_fn):
+        def _task():
+            try:
+                return task_fn()
+            except Exception as ex:
+                self.log.exception("Exception in task '%s'", task_fn.__name__)
+        _task.__name__ = task_fn.__name__
+        return _task
+
+    def eb_tasks(self, failure, name):
+        self.log.error("Failure in task '%s': %s", name, failure)
 
     def clear_all_send_mail_in_progress(self):      # TODO To be removed because not used
         t0 = time.time()
