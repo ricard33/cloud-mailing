@@ -645,6 +645,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
         result = []
         total_added = 0
+        all_recipients = []
         for index, fields in enumerate(recipients):
             t1 = time.time()
             c = {}
@@ -682,7 +683,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 tracking_id = str(uuid.uuid4())
             else:
                 tracking_id = fields.pop('tracking_id')
-            rcpt = {
+            all_recipients.append({
                 'mailing': DBRef('mailing', mailing['_id']),
                 'tracking_id': tracking_id,
                 'contact': fields,
@@ -691,9 +692,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                 'send_status': RECIPIENT_STATUS.READY,
                 'next_try': primary and datetime(2000, 1, 1) or datetime.utcnow(),
                 'primary': primary
-            }
-            insert_result = yield db.mailingrecipient.insert_one(rcpt)
-            rcpt['_id'] = insert_result.inserted_id
+            })
             total_added += 1
 
             c['id'] = tracking_id
@@ -701,7 +700,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             result.append(c)
             log_api.debug("add_recipients() recipient %s added to mailing [%d] in %.1f seconds",
                           fields['email'], mailing_id, time.time() - t1)
+        insert_result = yield db.mailingrecipient.insert_many(all_recipients, ordered=False)
 
+        total_added = len(insert_result.inserted_ids)
+        if total_added != len(all_recipients):
+            log_api.error("add_recipients() Not all recipients have been added! Only %d over %d.", total_added, len(all_recipients))
 
         log_api.debug("add_recipients() %d recipients added in %.1f seconds", total_added, time.time() - t0)
         defer.returnValue((result, mailing['_id'], total_added))
