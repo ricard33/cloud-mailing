@@ -182,7 +182,7 @@ def main(application=None):
             else:
                 log.info("   Trying again in 5 seconds...")
                 time.sleep(5)
-    Db.getInstance(settings.MASTER_DATABASE)
+    Db.getInstance(settings.MASTER_DATABASE, pool_size=10, watchdog_timeout=60)
 
     init_master_db(db_conn[settings.MASTER_DATABASE])
 

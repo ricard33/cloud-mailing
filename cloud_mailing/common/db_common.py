@@ -14,6 +14,8 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
+import logging
+
 import pymongo
 from pymongo.errors import OperationFailure
 from twisted.internet.defer import returnValue
@@ -29,8 +31,9 @@ __author__ = 'Cedric RICARD'
 class Db(Singleton):
     _pool = None
 
-    def __init__(self, db_name, pool_size=10):
-        self._pool = ConnectionPool(pool_size=10)
+    def __init__(self, db_name, pool_size=10, **kwargs):
+        logging.debug("Creating DB ConnectionPool(pool_size=%d, %s)", pool_size, str(kwargs))
+        self._pool = ConnectionPool(pool_size=pool_size, **kwargs)
         self._db = self.pool[db_name]
 
     @staticmethod
