@@ -73,16 +73,19 @@ class MailingManager(Singleton):
         self.log.info("Mailing manager stopped")
 
     def task_wrapper(self, task_fn):
+        logger = logging.getLogger('tasks')
+        @defer.inlineCallbacks
         def _task():
             try:
-                return task_fn()
+                logger.debug("Running task '%s'", task_fn.__name__)
+                yield defer.maybeDeferred(task_fn)
             except Exception as ex:
-                self.log.exception("Exception in task '%s'", task_fn.__name__)
+                logger.exception("Exception in task '%s'", task_fn.__name__)
         _task.__name__ = task_fn.__name__
         return _task
 
     def eb_tasks(self, failure, name):
-        self.log.error("Failure in task '%s': %s", name, failure)
+        logging.getLogger('tasks').error("Failure in task '%s': %s", name, failure)
 
     def clear_all_send_mail_in_progress(self):      # TODO To be removed because not used
         t0 = time.time()
