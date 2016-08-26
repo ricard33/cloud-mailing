@@ -23,7 +23,7 @@ from xmlrpclib import Fault
 
 from twisted.cred import credentials
 from twisted.python.components import registerAdapter
-from twisted.web import server
+from twisted.web import error as web_error, server
 from twisted.web.resource import Resource
 from twisted.web.server import Session
 from twisted.web.xmlrpc import Proxy
@@ -32,7 +32,7 @@ from zope.interface import implements
 from cloud_mailing.common.db_common import get_db
 from ..common.api_common import ICurrentUser
 from ..common.config_file import ConfigFile
-from ..common.permissions import AllowAny, IsAdminUser
+from ..common.permissions import AllowAny, IsAdminUser, IsAuthenticated
 from . import serializers
 from .api_common import set_mailing_properties, pause_mailing, start_mailing, close_mailing, delete_mailing, \
     log_security
@@ -113,6 +113,19 @@ class AuthenticateApi(ApiResource):
 
     def __init__(self):
         Resource.__init__(self)
+
+    def render_GET(self, request):
+        self.log_call(request)
+        if self.check_permissions([IsAuthenticated()]):
+            user = {
+                'username': 'admin',
+                'is_superuser': True,
+                # 'groups': []
+            }
+            self.write_headers(request)
+            return json.dumps(user, default=json_default)
+        else:
+            return self.access_forbidden(request)
 
     def render_POST(self, request):
         assert(isinstance(request, server.Request))
