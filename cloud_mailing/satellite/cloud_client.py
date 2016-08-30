@@ -34,13 +34,13 @@ from twisted.cred import credentials
 from twisted.internet.protocol import ReconnectingClientFactory
 from twisted.spread.util import CallbackPageCollector
 
-from cloud_mailing.satellite import settings_vars
+from . import settings_vars
 from .mail_customizer import MailCustomizer
 from .models import MailingRecipient, Mailing
 from ..common.config_file import ConfigFile
 from ..common import settings
 from ..common.models import Settings
-from mailing_sender import MailingSender, getAllPages
+from .mailing_sender import MailingSender, getAllPages
 from .. import __version__ as VERSION
 
 log = logging.getLogger("cloud")

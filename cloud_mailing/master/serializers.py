@@ -21,7 +21,7 @@ import re
 import txmongo.filter
 from twisted.internet import defer
 
-from cloud_mailing.common.db_common import get_db
+from ..common.db_common import get_db
 from . import models
 from ..common import settings
 from ..common.email_tools import header_to_unicode

@@ -35,7 +35,7 @@ from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from zope.interface import implements
 
-from cloud_mailing.master import settings_vars
+from . import settings_vars
 from .models import CloudClient, Mailing, SenderDomain
 from .models import RECIPIENT_STATUS, MAILING_STATUS
 from ..common import settings

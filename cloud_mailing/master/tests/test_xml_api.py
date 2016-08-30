@@ -25,8 +25,8 @@ from twisted.internet import reactor
 from twisted.trial.unittest import TestCase
 from twisted.web import server, xmlrpc
 
-from cloud_mailing.common.db_common import get_db
-from cloud_mailing.master.send_recipients_task import SendRecipientsTask
+from ...common.db_common import get_db
+from ..send_recipients_task import SendRecipientsTask
 from . import factories
 
 from ...common.unittest_mixins import DatabaseMixin

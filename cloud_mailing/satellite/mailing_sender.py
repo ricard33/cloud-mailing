@@ -49,7 +49,7 @@ from twisted.python.failure import Failure
 from twisted.spread import pb
 from twisted.spread.util import CallbackPageCollector
 
-from cloud_mailing.common.db_common import get_db
+from ..common.db_common import get_db
 from . import settings_vars
 from .mail_customizer import MailCustomizer
 from .models import Mailing, MailingRecipient, RECIPIENT_STATUS, HourlyStats, DomainStats, DomainConfiguration, \

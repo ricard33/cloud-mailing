@@ -20,8 +20,8 @@ from datetime import datetime
 
 import pymongo
 
-from cloud_mailing.common.db_common import create_index
-from cloud_mailing.common.email_tools import header_to_unicode
+from ..common.db_common import create_index
+from ..common.email_tools import header_to_unicode
 
 __author__ = 'Cedric RICARD'
 

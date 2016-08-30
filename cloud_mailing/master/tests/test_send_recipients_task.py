@@ -23,11 +23,11 @@ from bson import DBRef
 from twisted.internet import defer
 from twisted.trial import unittest
 
-from cloud_mailing.master import settings_vars
-from cloud_mailing.master.db_initialization import init_master_db
-from cloud_mailing.master.models import MAILING_STATUS
-from cloud_mailing.master.send_recipients_task import SendRecipientsTask
-from cloud_mailing.master.tests import factories
+from .. import settings_vars
+from ..db_initialization import init_master_db
+from ..models import MAILING_STATUS
+from ..send_recipients_task import SendRecipientsTask
+from ..tests import factories
 from ...common.unittest_mixins import DatabaseMixin
 
 

@@ -25,7 +25,7 @@ from twisted.application.service import IService
 from twisted.internet import reactor, ssl
 from twisted.python.log import PythonLoggingObserver
 
-from cloud_mailing.common.db_common import Db, create_index
+from ..common.db_common import Db, create_index
 from .. import __version__ as VERSION
 from ..common import settings
 from ..common.cm_logging import configure_logging

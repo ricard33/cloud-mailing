@@ -21,7 +21,7 @@ from datetime import datetime, timedelta
 from mogo import Model, Field, EnumField, ReferenceField
 from twisted.internet import defer
 
-from cloud_mailing.common.db_common import get_db
+from ..common.db_common import get_db
 
 
 class RECIPIENT_STATUS:

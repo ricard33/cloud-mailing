@@ -32,8 +32,8 @@ from twisted.internet import reactor
 from twisted.python.log import PythonLoggingObserver
 from twisted.web import server
 
-from cloud_mailing.common.db_common import Db
-from cloud_mailing.master.db_initialization import init_master_db
+from ..common.db_common import Db
+from .db_initialization import init_master_db
 from .api_authentication import AdminChecker
 from .. import __version__ as VERSION
 from ..common.api_common import HomePage, AuthenticatedSite

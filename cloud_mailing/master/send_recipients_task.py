@@ -26,10 +26,10 @@ from bson import DBRef
 from twisted.internet import defer
 from twisted.spread import util
 
-from cloud_mailing.common.db_common import get_db
-from cloud_mailing.common.singletonmixin import Singleton
-from cloud_mailing.master import settings_vars
-from cloud_mailing.master.models import MAILING_STATUS, RECIPIENT_STATUS
+from ..common.db_common import get_db
+from ..common.singletonmixin import Singleton
+from . import settings_vars
+from .models import MAILING_STATUS, RECIPIENT_STATUS
 
 __author__ = 'Cedric RICARD'
 

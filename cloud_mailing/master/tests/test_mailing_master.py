@@ -31,8 +31,8 @@ from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from twisted.trial.unittest import TestCase
 
-from cloud_mailing.master import settings_vars
-from cloud_mailing.master.send_recipients_task import SendRecipientsTask
+from .. import settings_vars
+from ..send_recipients_task import SendRecipientsTask
 from . import factories
 from .. import models
 from ..cloud_master import MailingManagerView

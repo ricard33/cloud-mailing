@@ -18,9 +18,9 @@ from bson import ObjectId, DBRef
 from datetime import datetime
 from twisted.trial import unittest
 
-from cloud_mailing.common.unittest_mixins import DatabaseMixin
-from cloud_mailing.master.db_initialization import do_migrations, init_master_db, migrations, _0001_remove_temp_queue
-from cloud_mailing.master.tests import factories
+from ...common.unittest_mixins import DatabaseMixin
+from ..db_initialization import do_migrations, init_master_db, migrations, _0001_remove_temp_queue
+from . import factories
 
 __author__ = 'Cedric RICARD'
 

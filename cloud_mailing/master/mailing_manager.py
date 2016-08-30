@@ -23,9 +23,9 @@ from datetime import datetime, timedelta
 
 from twisted.internet import task, defer
 
-from cloud_mailing.common import settings
-from cloud_mailing.master import settings_vars
-from cloud_mailing.master.send_recipients_task import SendRecipientsTask
+from ..common import settings
+from . import settings_vars
+from .send_recipients_task import SendRecipientsTask
 from .models import Mailing, MailingRecipient, MAILING_STATUS, RECIPIENT_STATUS, MAILING_TYPE
 from ..common.db_common import get_db
 from ..common.singletonmixin import Singleton

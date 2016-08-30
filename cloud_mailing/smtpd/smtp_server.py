@@ -44,8 +44,8 @@ from twisted.cred.checkers import InMemoryUsernamePasswordDatabaseDontUse, Allow
 from twisted.cred.portal import IRealm
 from twisted.cred.portal import Portal
 
-from cloud_mailing.common.db_common import Db, get_db
-from cloud_mailing.master.models import RECIPIENT_STATUS
+from ..common.db_common import Db, get_db
+from ..master.models import RECIPIENT_STATUS
 from .. import __version__ as VERSION
 from ..common import settings
 from ..common.cm_logging import configure_logging
