@@ -26,6 +26,7 @@ from twisted.web.resource import Resource
 from twisted.web.server import Session
 from twisted.web.xmlrpc import Proxy
 
+from .hourly_stats import HourlyStatsApi
 from .satellites import ListSatellitesApi
 from .mailings import ListMailingsApi
 from .recipients import ListRecipientsApi
@@ -230,5 +231,6 @@ def make_rest_api(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
     api.putChild('mailings', ListMailingsApi())
     api.putChild('recipients', ListRecipientsApi())
     api.putChild('satellites', ListSatellitesApi())
+    api.putChild('hourly-stats', HourlyStatsApi())
     api.putChild('os', OsApi())
     return api

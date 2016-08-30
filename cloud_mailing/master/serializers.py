@@ -17,10 +17,13 @@
 import email
 import logging
 import re
+from datetime import timedelta, datetime
 
+import dateutil.parser
 import txmongo.filter
 from twisted.internet import defer
 
+from .api_common import compute_hourly_stats
 from ..common.db_common import get_db
 from . import models
 from ..common import settings
@@ -127,6 +130,7 @@ class Serializer(object):
     @defer.inlineCallbacks
     def find(self, spec, skip=0, limit=settings.PAGE_SIZE, sort=None):
         _filter = self.make_filter(spec)
+        # log.debug("find() filter: %s", _filter)
         results = yield self._collection.find(_filter, fields=self.filtered_fields, skip=skip, limit=limit,
                                               filter=self.make_tx_sort_filter(sort))
         items = []
@@ -242,7 +246,7 @@ class RecipientSerializer(Serializer):
         if 'mailing' in _args:
             _args['mailing.$id'] = _args.pop('mailing')
         smtp_reply = _args.pop('smtp_reply', None)
-        _args =  super(RecipientSerializer, self).make_filter(_args)
+        _args = super(RecipientSerializer, self).make_filter(_args)
         if smtp_reply:
             _args.setdefault('$and', []).append({'$or': [
                 {'reply_code': smtp_reply},
@@ -257,3 +261,44 @@ class SatelliteSerializer(Serializer):
         '_id', 'serial', 'enabled', 'paired', 'date_paired', 'shared_key', 'domain_affinity', 'group', 'version',
         'settings'
     )
+
+class HourlyStatsSerializer(Serializer):
+    model_class = models.MailingHourlyStats
+    fields = (
+        'sender', 'date', 'epoch_hour', 'sent', 'failed', 'tries'
+    )
+
+    # def make_filter(self, args):
+    #     _args = args.copy()
+    #     from_date = dateutil.parser.parse(_args.pop('from_date', None))
+    #     to_date = _args.pop('to_date', None)
+    #     _args.setdefault('date', {})['$gte'] = from_date
+    #     if not to_date:
+    #         to_date = from_date + timedelta(hours=999)
+    #     else:
+    #         to_date = dateutil.parser.parse(to_date)
+    #     _args.setdefault('date', {})['$lte'] = to_date
+    #     _args = super(HourlyStatsSerializer, self).make_filter(_args)
+    #     return _args
+
+    def find(self, spec, skip=0, limit=settings.PAGE_SIZE, sort=None):
+        _args = spec.copy()
+        from_date = _args.pop('from_date', None)
+        if not from_date:
+            from_date = datetime.now() - timedelta(hours=24)
+        from_date = dateutil.parser.parse(from_date, ignoretz=True)
+        to_date = _args.pop('to_date', None)
+        _args = self.make_filter(_args)
+        _args.setdefault('date', {})['$gte'] = from_date
+        if not to_date:
+            to_date = from_date + timedelta(hours=999)
+        else:
+            to_date = dateutil.parser.parse(to_date, ignoretz=True)
+        _args.setdefault('date', {})['$lte'] = to_date
+
+        response = {
+            'items': compute_hourly_stats(_args, from_date, to_date)
+        }
+
+        return response
+

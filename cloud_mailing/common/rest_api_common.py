@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import traceback
 from datetime import datetime
 from xmlrpclib import Fault
 
@@ -134,9 +135,9 @@ class ApiResource(Resource):
             request.setResponseCode(err.value.faultCode)
             request.write(json.dumps({'error': repr(err.value.faultString)}))
         else:
-            log.error("[%s] %s", str(self.__class__), err.value)
+            log.error("[%s] %s", str(self.__class__.__name__), ''.join(traceback.format_exception_only(type(err.value), err.value)))
             request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
-            request.write(json.dumps({'error': repr(err.value)}))
+            request.write(json.dumps({'error': ''.join(traceback.format_exception_only(type(err.value), err.value))}))
         request.finish()
 
     def log_call(self, request, content=None):

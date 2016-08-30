@@ -16,12 +16,17 @@
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 import email
 import logging
+import time
+from datetime import datetime
 from xmlrpclib import Fault
 
 import dateutil.parser
+import pymongo
+from bson import SON
 from twisted.internet.threads import deferToThread
 from twisted.web import http
 
+from .models import MailingHourlyStats
 from .mailing_manager import MailingManager
 from .models import Mailing, MAILING_STATUS
 
@@ -237,3 +242,64 @@ def close_mailing(mailing_id, sync=False):
 def delete_mailing(mailing_id):
     mailing = close_mailing(mailing_id, sync=True)
     mailing.full_remove()
+
+
+def compute_hourly_stats(filter, from_date, to_date):
+    """
+    Returns all stats for every hour between two dates. If statistics don't exist for a given hour, it is created with
+    empty values.
+    So this is warranty to have an entry for every hours.
+    :param filter: DB filter
+    :param from_date: begin datetime
+    :param to_date: end datetime
+    :return: an array of hourly statistics
+    """
+    all_stats = []
+    current_epoch_hour = int((from_date - datetime(1970, 1, 1)).total_seconds() / 3600)
+    max_epoch_hour = int((to_date - datetime(1970, 1, 1)).total_seconds() / 3600)
+    max_epoch_hour = min(int(time.time() / 3600), max_epoch_hour)
+
+    def fill_until(all_stats, epoch_hour, next_epoch_hour):
+        while epoch_hour < next_epoch_hour:
+            stats = {
+                'date': datetime.utcfromtimestamp(epoch_hour * 3600),
+                'epoch_hour': epoch_hour,
+                'sent': 0,
+                'failed': 0,
+                'tries': 0,
+            }
+            # print stats
+            all_stats.append(stats)
+            epoch_hour += 1
+        return epoch_hour
+
+    # for s in MailingHourlyStats.find(filter).sort((('epoch_hour', pymongo.ASCENDING), ('sender', pymongo.ASCENDING))):
+    for s in MailingHourlyStats._get_collection().aggregate([
+        {'$match': filter},
+        {'$group': {
+            '_id': '$epoch_hour',
+            'date': {'$first': '$date'},
+            'sent': {'$sum': '$sent'},
+            'failed': {'$sum': '$failed'},
+            'tries': {'$sum': '$tries'},
+        }},
+        {'$sort': SON([('_id', pymongo.ASCENDING), ('sender', pymongo.ASCENDING)])},
+    ]):
+        # print "AGGREGATE:", s
+        current_epoch_hour = fill_until(all_stats, current_epoch_hour, s['_id'])
+        stats = {
+            # 'sender': s.sender,
+            'date': s['date'],
+            # 'epoch_hour': s.epoch_hour,
+            'epoch_hour': s['_id'],
+            'sent': s['sent'],
+            'failed': s['failed'],
+            'tries': s['tries'],
+        }
+        # print stats
+        all_stats.append(stats)
+        current_epoch_hour += 1
+    fill_until(all_stats, current_epoch_hour, max_epoch_hour + 1)
+    # print len(all_stats)
+    # print all_stats[:100]
+    return all_stats

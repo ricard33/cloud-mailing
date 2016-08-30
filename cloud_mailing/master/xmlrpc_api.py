@@ -31,22 +31,23 @@ from StringIO import StringIO
 from datetime import datetime, timedelta
 
 import pymongo
-from bson import SON, DBRef
+from bson import DBRef
 from mogo.connection import Connection
 from twisted.internet import defer
 from twisted.internet.threads import deferToThread
 from twisted.web import xmlrpc, resource, http, static
 
-from ..common.db_common import get_db
+from .api_common import compute_hourly_stats
 from .api_common import log_cfg, log_security, log_api, pause_mailing, delete_mailing
 from .api_common import set_mailing_properties, start_mailing
 from .cloud_master import make_customized_file_name
 from .mailing_manager import MailingManager
 from .models import CloudClient, Mailing, relay_status, MAILING_STATUS, MailingRecipient, RECIPIENT_STATUS, \
-    recipient_status, MailingHourlyStats
+    recipient_status
 from .serializers import MailingSerializer
 from ..common import settings
 from ..common.config_file import ConfigFile
+from ..common.db_common import get_db
 from ..common.html_tools import strip_tags
 from ..common.xml_api_common import withRequest, doc_signature, BasicHttpAuthXMLRPC, XMLRPCDocGenerator, doc_hide
 
@@ -961,7 +962,6 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             log_api.error("Bad format for 'to_date' parameter.")
             raise Fault(http.NOT_ACCEPTABLE, "Filter 'to_date' has to be a dateTime.iso8601.")
         senders = filters.get('senders')
-        all_stats = []
 
         filter = {}
         filter.setdefault('date', {})['$gte'] = from_date
@@ -970,55 +970,8 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         filter.setdefault('date', {})['$lte'] = to_date
         if senders:
             filter = {'sender': {'$in': senders}}
-        current_epoch_hour = int((from_date - datetime(1970,1,1)).total_seconds() / 3600)
-        max_epoch_hour = int((to_date - datetime(1970,1,1)).total_seconds() / 3600)
-        max_epoch_hour = min(int(time.time() / 3600), max_epoch_hour)
 
-        def fill_until(all_stats, epoch_hour, next_epoch_hour):
-            while epoch_hour < next_epoch_hour:
-                stats = {
-                    'date': datetime.utcfromtimestamp(epoch_hour*3600),
-                    'epoch_hour': epoch_hour,
-                    'sent': 0,
-                    'failed': 0,
-                    'tries': 0,
-                }
-                # print stats
-                all_stats.append(stats)
-                epoch_hour += 1
-            return epoch_hour
-
-        # for s in MailingHourlyStats.find(filter).sort((('epoch_hour', pymongo.ASCENDING), ('sender', pymongo.ASCENDING))):
-        for s in MailingHourlyStats._get_collection().aggregate([
-            {'$match': filter},
-            {'$group': {
-                '_id': '$epoch_hour',
-                'date': {'$first': '$date'},
-                'sent': {'$sum': '$sent'},
-                'failed': {'$sum': '$failed'},
-                'tries': {'$sum': '$tries'},
-            }},
-            {'$sort': SON([('_id', pymongo.ASCENDING), ('sender', pymongo.ASCENDING)])},
-        ]):
-            # print "AGGREGATE:", s
-            current_epoch_hour = fill_until(all_stats, current_epoch_hour, s['_id'])
-            stats = {
-                # 'sender': s.sender,
-                'date': s['date'],
-                # 'epoch_hour': s.epoch_hour,
-                'epoch_hour': s['_id'],
-                'sent': s['sent'],
-                'failed': s['failed'],
-                'tries': s['tries'],
-            }
-            # print stats
-            all_stats.append(stats)
-            current_epoch_hour += 1
-
-        fill_until(all_stats, current_epoch_hour, max_epoch_hour+1)
-        # print len(all_stats)
-        # print all_stats[:100]
-        return all_stats
+        return compute_hourly_stats(filter, from_date, to_date)
 
     # -------------------------------------
     # Deprecated functions
