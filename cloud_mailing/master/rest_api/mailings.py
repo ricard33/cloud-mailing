@@ -7,15 +7,13 @@ from twisted.web.resource import Resource
 
 from ...common import http_status
 from ...common.json_tools import json_default
-from ...common.rest_api_common import ListModelMixin, ApiResource, RetrieveModelMixin
+from ...common.rest_api_common import ListModelMixin, ApiResource, RetrieveModelMixin, integer_re
 from .. import serializers
 from ..api_common import pause_mailing, start_mailing, close_mailing, set_mailing_properties, delete_mailing
 from .recipients import ListRecipientsApi
 from .mailing_contents import MailingContentApi
 
 __author__ = 'Cedric RICARD'
-
-int_re = re.compile(r'^\d+$')
 
 
 # noinspection PyPep8Naming
@@ -30,7 +28,7 @@ class ListMailingsApi(ListModelMixin, ApiResource):
         Resource.__init__(self)
 
     def getChild(self, name, request):
-        if int_re.match(name):
+        if integer_re.match(name):
             return MailingApi(int(name))
         return ApiResource.getChild(self, name, request)
 

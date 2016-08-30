@@ -249,3 +249,11 @@ class RecipientSerializer(Serializer):
                 super(RecipientSerializer, self).make_filter({'reply_text': smtp_reply}),
             ]})
         return _args
+
+
+class SatelliteSerializer(Serializer):
+    model_class = models.CloudClient
+    fields = (
+        '_id', 'serial', 'enabled', 'paired', 'date_paired', 'shared_key', 'domain_affinity', 'group', 'version',
+        'settings'
+    )

@@ -31,7 +31,7 @@ def json_serial(obj):
         return serial
 
 
-integer_re = re.compile(r"\d+")
+integer_re = re.compile(r"^\d+$")
 
 
 def simplify_value(v):
@@ -214,6 +214,15 @@ class ListModelMixin(object):
     """
     List a queryset.
     """
+
+    def render_GET(self, request):
+        self.log_call(request)
+        self.list(request)\
+            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.finish()) \
+            .addErrback(self._on_error, request)
+        return server.NOT_DONE_YET
+
     @defer.inlineCallbacks
     def list(self, request, *args, **kwargs):
         _args = regroup_args(request.args)
@@ -235,6 +244,14 @@ class RetrieveModelMixin(object):
     """
     Retrieve a model instance.
     """
+    def render_GET(self, request):
+        self.log_call(request)
+        self.retrieve(request)\
+            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.finish()) \
+            .addErrback(self._on_error, request)
+        return server.NOT_DONE_YET
+
     @defer.inlineCallbacks
     def retrieve(self, request, *args, **kwargs):
         try:

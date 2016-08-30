@@ -26,8 +26,9 @@ from twisted.web.resource import Resource
 from twisted.web.server import Session
 from twisted.web.xmlrpc import Proxy
 
-from .recipients import ListRecipientsApi
+from .satellites import ListSatellitesApi
 from .mailings import ListMailingsApi
+from .recipients import ListRecipientsApi
 from .. import serializers
 from ..api_common import log_security
 from ... import __version__
@@ -102,7 +103,7 @@ class AuthenticateApi(ApiResource):
     """
     Resource to handle authentication requests
     """
-    # isLeaf = True
+    isLeaf = True
     serializer_class = serializers.UserSerializer
     permission_classes = (AllowAny,)
 
@@ -152,7 +153,7 @@ class LogoutApi(ApiResource):
     """
     Resource to handle logout requests
     """
-    # isLeaf = True
+    isLeaf = True
     permission_classes = (AllowAny,)
 
     def render_POST(self, request):
@@ -165,13 +166,6 @@ class LogoutApi(ApiResource):
         self.write_headers(request)
         log_security.info("User '%s' logged out (%s)" % (username, request.getClientIP()))
         return json.dumps({'status': "Logged out"})
-
-
-class SatelliteApi(ApiResource):
-    def __init__(self):
-        Resource.__init__(self)
-
-    pass
 
 
 class OsApi(ApiResource):
@@ -235,5 +229,6 @@ def make_rest_api(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
     api.putChild('logout', LogoutApi())
     api.putChild('mailings', ListMailingsApi())
     api.putChild('recipients', ListRecipientsApi())
+    api.putChild('satellites', ListSatellitesApi())
     api.putChild('os', OsApi())
     return api
