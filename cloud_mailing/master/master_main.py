@@ -171,8 +171,9 @@ def main(application=None):
     while not db_conn:
         try:
             db_conn = connect(settings.MASTER_DATABASE)
+            init_master_db(db_conn[settings.MASTER_DATABASE])
             log.info("Connected to database '%s'", settings.MASTER_DATABASE)
-        except pymongo.errors.ConnectionFailure:
+        except (pymongo.errors.ConnectionFailure, pymongo.errors.ServerSelectionTimeoutError):
             log.error("Failed to connect to database server!")
             # special case for MailFountain hardward only
             if os.path.exists("/data/mongodb/mongod.lock"):
@@ -183,8 +184,6 @@ def main(application=None):
                 log.info("   Trying again in 5 seconds...")
                 time.sleep(5)
     Db.getInstance(settings.MASTER_DATABASE, pool_size=10, watchdog_timeout=60)
-
-    init_master_db(db_conn[settings.MASTER_DATABASE])
 
     # attach the service to its parent application
     apiService = get_api_service(application, port=args.api_port,
