@@ -525,7 +525,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             if filter is not None:
                 if not isinstance(filter, filter_type):
                     raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
-                ids = map(lambda x: x['_id'], Mailing._collection.find({field: {op: qs_mapper(filter)}}, projection=[]))
+                ids = map(lambda x: x['_id'], Mailing._get_collection().find({field: {op: qs_mapper(filter)}}, projection=[]))
                 filters.setdefault('mailings', []).extend(ids)
 
         apply_mailing_filter(filters, 'owners', (list, tuple), 'an array of strings', 'owner_guid', '$in')
