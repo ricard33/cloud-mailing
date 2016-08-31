@@ -131,6 +131,12 @@ def put_version():
 
 
 @task
+def inject_copyright():
+    """Put or update copyright header in all python source files"""
+    os.system('python ' + os.path.join(WORKSPACE, 'deployment', 'license', 'update_copyright.py'))
+
+
+@task
 def _deploy_cm():
     run("mkdir -p %s" % TARGET_PATH())
     clean_compiled_files()
