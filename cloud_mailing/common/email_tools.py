@@ -16,6 +16,7 @@
 # along with mf.  If not, see <http://www.gnu.org/licenses/>.
 
 import email
+import email.header
 
 __author__ = 'Cedric RICARD'
 

@@ -24,6 +24,7 @@ from bson import DBRef
 from mogo import Model, Field, EnumField, ReferenceField
 from twisted.internet import defer
 
+from cloud_mailing.common.encoding import force_str
 from ..common.email_tools import header_to_unicode
 from ..common.models import Sequence
 
@@ -231,8 +232,8 @@ class Mailing(Model):
         Returns the mailing content as email message object.
         """
         mparser = email.parser.FeedParser()
-        mparser.feed(self.header)
-        mparser.feed(self.body)
+        mparser.feed(force_str(self.header))
+        mparser.feed(force_str(self.body))
         return mparser.close()
 
 
