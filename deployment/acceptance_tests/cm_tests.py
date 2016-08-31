@@ -335,10 +335,12 @@ class CloudMailingsTestCase(unittest.TestCase):
     def test_run_big_mailings(self):
         nb_mailings = test_config.getint("SETTINGS", "total_mailings", 10)
         all_mailings = []
+        total_recipients = 0
 
         for i in range(nb_mailings):
-            mailing_id, total_recipients = self._create_mailing()
+            mailing_id, nb_recipients = self._create_mailing()
             all_mailings.append(mailing_id)
+            total_recipients += nb_recipients
 
         # self.cloudMailingsRpc.mailing_manager_force_check()
         #time.sleep(6)
