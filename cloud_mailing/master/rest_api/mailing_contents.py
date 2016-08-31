@@ -18,6 +18,7 @@
 import email
 import email.errors
 import email.message
+import json
 
 from twisted.web import server
 from twisted.web.resource import Resource
@@ -37,6 +38,12 @@ class MailingContentApi(ApiResource):
     def __init__(self, mailing_id=None):
         Resource.__init__(self)
         self.mailing_id = mailing_id
+
+    def getChild(self, name, request):
+        if name == 'cid':
+            return MailingContentIDsApi(self.mailing_id)
+        return ApiResource.getChild(self, name, request)
+
 
     def render_GET(self, request):
         self.log_call(request)
@@ -93,11 +100,9 @@ class MailingContentApi(ApiResource):
             return ""
 
         request.setResponseCode(http_status.HTTP_200_OK)
-        body = get_html_body(msg)
-        self.log.debug("**body: %s", type(body))
+        request.setHeader('Content-Type', 'text/html')
 
         request.write(get_html_body(msg))
-        # request.write("<html><body><b>Email</b> content.</body></html>")
         request.finish()
 
     def eb_get_mailing(self, error, request):
@@ -105,3 +110,61 @@ class MailingContentApi(ApiResource):
         request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
         request.write("<html><body><b>ERROR</b>: can't get content.</body></html>")
         request.finish()
+
+
+class MailingContentIDsApi(ApiResource):
+    """
+    Should display mailing related attachments (but currently does nothing)
+    """
+    def __init__(self, mailing_id):
+        Resource.__init__(self)
+        self.mailing_id = mailing_id
+
+    def getChild(self, name, request):
+        return MailingRelatedAttachmentApi(self.mailing_id, name)
+
+
+class MailingRelatedAttachmentApi(ApiResource):
+    """
+    Returns a related attachment
+    """
+    def __init__(self, mailing_id, cid):
+        Resource.__init__(self)
+        self.mailing_id = mailing_id
+        self.cid = cid
+
+    def render_GET(self, request):
+        self.log_call(request)
+        db = get_db()
+        db.mailing.find_one({'_id': self.mailing_id}) \
+            .addCallback(self.cb_get_mailing, request) \
+            .addErrback(self.eb_get_mailing, request)
+        return server.NOT_DONE_YET
+
+    def cb_get_mailing(self, mailing, request):
+        mparser = email.parser.FeedParser()
+        mparser.feed(mailing['header'])
+        mparser.feed(mailing['body'])
+        msg = mparser.close()
+
+        cid = '<%s>' % self.cid
+        for part in msg.walk():
+            if part.get('Content-ID', None) == cid:
+                request.setHeader('Content-Type', part.get_content_type())
+                request.write(part.get_payload(decode=True))
+                request.finish()
+                return
+
+        request.setResponseCode(http_status.HTTP_404_NOT_FOUND)
+        request.setHeader('Content-Type', 'application/json')
+        request.write(json.dumps({'error': "Part CID '%s' not found" % self.cid}))
+        request.finish()
+        return
+
+    def eb_get_mailing(self, error, request):
+        self.log.error("Error returning HTML content for mailing [%d]: %s", self.mailing_id, error)
+        request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
+        request.write("<html><body><b>ERROR</b>: can't get content.</body></html>")
+        request.finish()
+
+
