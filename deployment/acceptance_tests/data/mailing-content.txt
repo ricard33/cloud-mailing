@@ -1,0 +1,13 @@
+CloudMailing
+==================================================
+Hello {{ firstname }},
+
+Lorem ipsum dolor sit
+
+Cur solem experimentum?
+Never facilitate the self, for you cannot develop it.
+Sectam regius index est.
+
+
+==================================================
+To unsubscribe: {{ unsubscribe }}

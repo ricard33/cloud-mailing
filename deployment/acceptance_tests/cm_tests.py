@@ -366,10 +366,13 @@ class CloudMailingsTestCase(unittest.TestCase):
 
     def _create_mailing(self):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
-        email_filename = os.path.join('data', 'email.rfc822')
-        self._check_domain_sender(email_filename)
+        email_filename = os.path.join('data', 'mailing-content')
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        # mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        mailing_id = self.cloudMailingsRpc.create_mailing(mail_from, "Mailing Corp",  "Test mailing {{firstname}}",
+                                                          file(email_filename + '.html', 'rt').read().decode('utf-8'),
+                                                          file(email_filename + '.txt', 'rt').read().decode('utf-8'),
+                                                          'utf-8')
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
         self.assertEquals(len(mailings), mailing_count + 1)

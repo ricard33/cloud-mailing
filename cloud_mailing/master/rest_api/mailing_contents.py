@@ -89,8 +89,9 @@ class MailingContentApi(ApiResource):
                 maintype, subtype = part.get_content_type().split('/')
                 if maintype == 'text':
                     self.log.debug("body found (%s/%s)", maintype, subtype)
+                    charset = part.get_content_charset(failobj='us-ascii')
                     # request.setHeader('Content-Type', part.get_content_type())
-                    part_body = part.get_payload().encode('utf8')
+                    part_body = part.get_payload(decode=True).decode(charset)
                     self.log.debug("body type: %s", type(part_body))
                     return part_body
                 else:
@@ -100,7 +101,7 @@ class MailingContentApi(ApiResource):
         request.setResponseCode(http_status.HTTP_200_OK)
         request.setHeader('Content-Type', 'text/html')
 
-        request.write(get_html_body(msg))
+        request.write(get_html_body(msg).encode('utf8'))
         request.finish()
 
     @staticmethod
