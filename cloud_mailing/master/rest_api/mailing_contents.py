@@ -23,6 +23,7 @@ import json
 from twisted.web import server
 from twisted.web.resource import Resource
 
+from cloud_mailing.common.encoding import force_str
 from ...common import http_status
 from ...common.rest_api_common import ApiResource
 from ...common.db_common import get_db
@@ -54,10 +55,7 @@ class MailingContentApi(ApiResource):
         return server.NOT_DONE_YET
 
     def cb_get_mailing(self, mailing, request):
-        mparser = email.parser.FeedParser()
-        mparser.feed(mailing['header'])
-        mparser.feed(mailing['body'])
-        msg = mparser.close()
+        msg = self.get_message(mailing)
 
         def get_html_body(part):
             self.log.debug("***")
@@ -105,6 +103,14 @@ class MailingContentApi(ApiResource):
         request.write(get_html_body(msg))
         request.finish()
 
+    @staticmethod
+    def get_message(mailing):
+        mparser = email.parser.FeedParser()
+        mparser.feed(force_str(mailing['header']))
+        mparser.feed(force_str(mailing['body']))
+        msg = mparser.close()
+        return msg
+
     def eb_get_mailing(self, error, request):
         self.log.error("Error returning HTML content for mailing [%d]: %s", self.mailing_id, error)
         request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -142,10 +148,7 @@ class MailingRelatedAttachmentApi(ApiResource):
         return server.NOT_DONE_YET
 
     def cb_get_mailing(self, mailing, request):
-        mparser = email.parser.FeedParser()
-        mparser.feed(mailing['header'])
-        mparser.feed(mailing['body'])
-        msg = mparser.close()
+        msg = MailingContentApi.get_message(mailing)
 
         cid = '<%s>' % self.cid
         for part in msg.walk():
