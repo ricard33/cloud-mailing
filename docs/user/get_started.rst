@@ -66,6 +66,7 @@ be found.
 You can of course call this function as many time you want. There is no limit to the quantity of recipients a mailing
 can handle. **But** be careful **to not send too many recipients at once** (i.e. in one single call) because depending
 of the amount of customization data per recipient, you may reach the buffer limit of either the XMLRPC client or server.
+By security, the maximum accepted number of recipients in a single call is 1000.
 
 Start a mailing
 ---------------

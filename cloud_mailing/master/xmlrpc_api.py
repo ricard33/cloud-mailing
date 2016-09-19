@@ -587,9 +587,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
 
             (*) 'data' and 'url' fields are mutually exclusive. But at least one of them has to be present.
 
-            WARNING: while there is no hard-coded limit for the number of recipients passed at the
-            same time, passing a huge number of recipients can take a very long time and block all
-            services...
+            WARNING: You can't add more than 1000 recipients per call. If you need to add more, make multiple calls.
 
         :return: A list of structures, one for each recipient in input.
             The structure contains following fields:
@@ -635,9 +633,14 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     @defer.inlineCallbacks
     def _add_recipients(self, request, mailing_id, recipients, primary=False):
         t0 = time.time()
+        if len(recipients) > 1000:
+            log_api.error('Too many recipients! Length = %d exceeded maximum write batch size of 1000', len(recipients))
+            request.setResponseCode(http.BAD_REQUEST)
+            raise Fault(http.BAD_REQUEST, 'Too many recipients! Exceeded maximum write batch size of 1000')
         db = get_db()
         mailing = yield db.mailing.find_one({'_id': mailing_id}, fields=['status', 'mail_from', 'sender_name'])
         if not mailing:
+            log_api.warn('Mailing [%d] not found', mailing_id)
             request.setResponseCode(http.NOT_FOUND)
             raise Fault(http.NOT_FOUND, 'Mailing not found!')
         if mailing['status'] == MAILING_STATUS.FINISHED:
