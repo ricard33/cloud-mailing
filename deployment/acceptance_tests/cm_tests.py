@@ -326,19 +326,22 @@ class CloudMailingsTestCase(unittest.TestCase):
                 'first_name': 'Firstname%(n)d' % d,
                 'last_name': 'Lastname%(n)d' % d,
                 'company': 'The company',
-                'comment': 'Free \n multiline text %(n)d.' % d
+                'comment': 'Free \n multiline text %(n)d.' % d,
             }
+            for v in range(15):
+                recipient['variable%d'%v] = 'This is the data for variable %d' % v,
 
             yield recipient
 
     # @unittest.skip("Too long. Should be run manually.")
     def test_run_big_mailings(self):
         nb_mailings = test_config.getint("SETTINGS", "total_mailings", 10)
+        max_recipients_per_call = test_config.getint("SETTINGS", "max_recipients_per_call", 1000)
         all_mailings = []
         total_recipients = 0
 
         for i in range(nb_mailings):
-            mailing_id, nb_recipients = self._create_mailing()
+            mailing_id, nb_recipients = self._create_mailing(max_recipients_per_call)
             all_mailings.append(mailing_id)
             total_recipients += nb_recipients
 
@@ -364,7 +367,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.assertEqual(sum(map(lambda mailing: mailing['total_sent'], mailings)), total_recipients)
         self.assertEqual(sum(map(lambda mailing: mailing['total_error'], mailings)), 0)
 
-    def _create_mailing(self):
+    def _create_mailing(self, max_recipients_per_call=1000):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'mailing-content')
         mail_from = "my-mailing@%s" % self.domain_name
@@ -385,15 +388,17 @@ class CloudMailingsTestCase(unittest.TestCase):
         rcpts_list2 = []
 
         def _add_recipients(rcpts_list):
+            print "add_recipient size: %d" % len(xmlrpclib.dumps((mailing_id, rcpts_list), "add_recipients")) ,
             results = self.cloudMailingsRpc.add_recipients(mailing_id, rcpts_list)
             for r1, r2 in zip(rcpts_list, results):
                 self.assertDictContainsSubset({'email': r1['email']}, r2)
                 self.assertNotIn('error', r2)
+            print "  OK"
 
         count = 0
         for recipient in recipients_list:
             rcpts_list2.append(recipient)
-            if len(rcpts_list2) >= 1000:
+            if len(rcpts_list2) >= max_recipients_per_call:
                 _add_recipients(rcpts_list2)
                 count += len(rcpts_list2)
                 print("Sent %d recipients over %d" % (count, total_recipients))
