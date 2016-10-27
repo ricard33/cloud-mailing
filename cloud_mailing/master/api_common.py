@@ -72,7 +72,8 @@ def _check_dict_property(name, value, allowed_fields, mandatory_fields):
 def set_mailing_properties(mailing_id, properties):
     mailing = Mailing.grab(mailing_id)
     if not mailing:
-        raise Fault(http.NOT_FOUND, 'Mailing not found!')
+        log_api.error("set_mailing_properties: Mailing [%d] not found", mailing_id)
+        raise Fault(http.NOT_FOUND, 'Mailing [%d] not found!' % mailing_id)
     if mailing.status == MAILING_STATUS.FINISHED:
         raise Fault(http.FORBIDDEN, "Mailing properties can't be changed anymore. "
                                     "Only active mailings can be edited!")

@@ -592,10 +592,11 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :return: A list of structures, one for each recipient in input.
             The structure contains following fields:
                 - email: recipient email. Can be missing if recipient doesn't contains email field.
-                - id: recipient internal id only if recipient has been successfully added.
-                - tracking_id: corresponding tracking_id
+                - id: recipient internal id (= tracking_id). Only present if recipient has been successfully added.
+                        DEPRECATED: Use 'tracking_id' instead.
+                - tracking_id: corresponding tracking_id. Only present if recipient has been successfully added.
                 - error: in case of failure, this field is added and contains the failure reason.
-            'id' and 'error' are mutually exclusive. In case of success, only 'id' is present; in case of failure,
+            'id' (or 'tracking_id') and 'error' are mutually exclusive. In case of success, only 'id' is present; in case of failure,
             only 'error' can be found.
             Results are kept in same order than inputs.
         """
