@@ -179,8 +179,8 @@ class ApiResource(Resource):
         return True
 
     def render(self, request):
-        assert(isinstance(request, server.Request))
-        assert(isinstance(request.site, AuthenticatedSite))
+        # assert(isinstance(request, (server.Request)))
+        # assert(isinstance(request.site, AuthenticatedSite))
         self.request = request
         request.user = request.site.check_authentication(request)
 
