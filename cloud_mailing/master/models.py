@@ -253,7 +253,7 @@ class MailingRecipient(Model):
     reply_text = Field()
     smtp_log         = Field()
     dsn              = Field()  # Delivery Status Notification (if received) RFC-3464
-    in_progress     = Field(bool, default=False)  # added in temp queue
+    in_progress     = Field(bool, default=False)  # added to a satellite for sending
     report_ready    = Field(bool, default=False)  # data ready to report to API client
     cloud_client    = Field()   # help_text="Client used to send the email (serial)
     date_delegated  = Field(datetime)    # When this recipient has been delegated to the client.

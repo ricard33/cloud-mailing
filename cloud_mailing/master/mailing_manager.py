@@ -87,14 +87,6 @@ class MailingManager(Singleton):
     def eb_tasks(self, failure, name):
         logging.getLogger('tasks').error("Failure in task '%s': %s", name, failure)
 
-    def clear_all_send_mail_in_progress(self):      # TODO To be removed because not used
-        t0 = time.time()
-        self.log.debug("Resetting IN PROGRESS flag for all mailing recipients...")
-        MailingRecipient.update({'$or': [{'send_status': RECIPIENT_STATUS.IN_PROGRESS}, {'in_progress': True}]},
-                                {'$set': {'send_status': RECIPIENT_STATUS.READY, 'in_progress': False}},
-                                multi=True)
-        self.log.debug("Reset done in %.1fs", time.time() - t0)
-
     @defer.inlineCallbacks
     def update_status_for_finished_mailings(self):
         self.log.debug("update_status_for_finished_mailings")

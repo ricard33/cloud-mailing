@@ -872,8 +872,8 @@ class Queue(object):
                                                                                          recipient,
                                                                                          recipient.next_try.isoformat(' ')))
                     else:
-                        self.log.error("Max errors count reach for domain '%s', rejecting recipient '%s'", domain, recipient)
-                        print fatal_errors_count
+                        self.log.error("Max errors count reach (%d) for domain '%s', rejecting recipient '%s'",
+                                       fatal_errors_count, domain, recipient)
                         recipient.update_send_status(RECIPIENT_STATUS.ERROR, smtp_message = err_msg)
                         recipient.mark_as_finished()
                         HourlyStats.add_failed()
