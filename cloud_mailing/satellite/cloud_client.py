@@ -84,7 +84,11 @@ class CloudClient(pb.Referenceable):
                 self.mailing_queue.nextTime = 0
             else:
                 self.mailing_queue.delay_if_empty = 10
-    
+
+    def remote_set_settings(self, settings):
+        for key, value in settings.items():
+            Settings.set(key, value)
+
     def remote_close_mailing(self, mailing_id):
         """Ask queue to remove all recipients from this mailing id."""
         self.mailing_queue.close_mailing(mailing_id)

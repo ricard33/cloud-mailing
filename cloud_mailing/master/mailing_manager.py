@@ -23,6 +23,7 @@ from datetime import datetime, timedelta
 
 from twisted.internet import task, defer
 
+from cloud_mailing.master.monitor_satellites_task import MonitorSatellitesTask
 from ..common import settings
 from . import settings_vars
 from .send_recipients_task import SendRecipientsTask
@@ -59,7 +60,8 @@ class MailingManager(Singleton):
                                     (self.check_orphan_recipients, 10, False),
                                     (self.retrieve_customized_content, 60, False),
                                     (self.purge_customized_content, 3600, False),
-                                    (SendRecipientsTask.getInstance().run, 10, False)
+                                    (SendRecipientsTask.getInstance().run, 10, False),
+                                    (MonitorSatellitesTask.getInstance().run, 30, False),
                                     ):
             t = task.LoopingCall(self.task_wrapper(fn))
             t.start(delay, now=startNow).addErrback(self.eb_tasks, fn.__name__)

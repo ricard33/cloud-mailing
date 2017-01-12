@@ -44,9 +44,10 @@ class Settings(Model):
         var = Settings.search(var_name=name).first()
         if var:
             old_value = var.var_value
-            var.var_value = value
-            var.last_modified = datetime.utcnow()
-            var.save()
+            if value != old_value:
+                var.var_value = value
+                var.last_modified = datetime.utcnow()
+                var.save()
             return old_value
         else:
             Settings.create(var_name=name, var_value=value)

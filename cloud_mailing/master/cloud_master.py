@@ -130,6 +130,10 @@ class ClientAvatar(pb.Avatar):
             logging.debug("Calling activate_unittest_mode() for %s", c)
             c.callRemote("activate_unittest_mode", activated)
 
+    def set_settings(self, settings):
+        for c in self.clients:
+            c.callRemote("set_settings", settings)
+
     def close_mailing(self, mailing):
         """Ask clients to close a mailing and immediately stops to send any related email."""
         for c in self.clients:
@@ -202,8 +206,16 @@ class ClientAvatar(pb.Avatar):
         if satellite_config:
             self.cloud_client = CloudClient.grab(self.cloud_client.id)  # reload object
             self.cloud_client.version = satellite_config.get('version')
-            self.cloud_client.settings = satellite_config.get('settings')
             self.cloud_client.save()
+
+            sat_settings = satellite_config.get('settings', {})
+            new_settings = self.cloud_client.settings or {}
+            for key, value in new_settings.items():
+                if sat_settings.get(key) != value:
+                    # at least one changed
+                    self.set_settings(new_settings)
+                    break
+
         if not self.mailing_manager:
             self.mailing_manager = MailingManagerView(self.cloud_client)
         return self.mailing_manager
