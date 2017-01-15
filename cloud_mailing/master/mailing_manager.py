@@ -61,7 +61,7 @@ class MailingManager(Singleton):
                                     (self.retrieve_customized_content, 60, False),
                                     (self.purge_customized_content, 3600, False),
                                     (SendRecipientsTask.getInstance().run, 10, False),
-                                    (MonitorSatellitesTask.getInstance().run, 30, False),
+                                    (MonitorSatellitesTask.getInstance().run, 300, False),
                                     ):
             t = task.LoopingCall(self.task_wrapper(fn))
             t.start(delay, now=startNow).addErrback(self.eb_tasks, fn.__name__)
