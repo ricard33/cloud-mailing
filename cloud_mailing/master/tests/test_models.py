@@ -70,14 +70,14 @@ I=92m happy! Nothing else to say...
         message = parser.parsestr(mailing.header + mailing.body)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
-        self.assertEquals("multipart/alternative", message.get_content_type())
+        self.assertEqual("multipart/alternative", message.get_content_type())
         self.assertIsInstance(message.get_payload(i=0), email.message.Message)
-        self.assertEquals("text/plain", message.get_payload(i=0).get_content_type())
-        self.assertEquals("windows-1252", message.get_payload(i=0).get_param('charset'))
-        self.assertEquals("text/html", message.get_payload(i=1).get_content_type())
-        self.assertEquals("windows-1252", message.get_payload(i=1).get_param('charset'))
-        self.assertEquals("This is a very simple mailing. I\x92m happy.", message.get_payload(i=0).get_payload(decode=True))
-        self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>. I\x92m happy! ", message.get_payload(i=1).get_payload(decode=True))
+        self.assertEqual("text/plain", message.get_payload(i=0).get_content_type())
+        self.assertEqual("windows-1252", message.get_payload(i=0).get_param('charset'))
+        self.assertEqual("text/html", message.get_payload(i=1).get_content_type())
+        self.assertEqual("windows-1252", message.get_payload(i=1).get_param('charset'))
+        self.assertEqual(b"This is a very simple mailing. I\x92m happy.", message.get_payload(i=0).get_payload(decode=True))
+        self.assertIn(b"This is <strong> a very simple</strong> <u>mailing</u>. I\x92m happy! ", message.get_payload(i=1).get_payload(decode=True))
         # print message.as_string()
 
     def test_create_mailing_from_message_with_encoded_headers(self):
@@ -117,5 +117,5 @@ I=92m happy! Nothing else to say...
         assert(isinstance(message, email.message.Message))
         mail_from = header_to_unicode(message.get("From"))
 
-        self.assertEquals(u"Cedric RICARD <my-mailing@cm-unittest.net>", mail_from)
+        self.assertEqual("Cedric RICARD <my-mailing@cm-unittest.net>", mail_from)
         # print message.as_string()

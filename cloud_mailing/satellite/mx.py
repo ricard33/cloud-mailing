@@ -74,7 +74,7 @@ class MXCalculator:
         #noinspection PyUnresolvedReferences
         t = self.clock.seconds()
         toBeDeleted = []
-        for key, value in self.badMXs.items():
+        for key, value in list(self.badMXs.items()):
             if value < t:
                 toBeDeleted.append(key)
         for key in toBeDeleted:
@@ -172,7 +172,7 @@ class MXCalculator:
 
         if exchanges:
             records = []
-            exchanges.sort()
+            exchanges.sort(key=lambda x: x[0])
             for (preference, record) in exchanges:
                 #print preference, record, type(record)
                 host = str(record.name)

@@ -27,7 +27,7 @@ import sys
 
 
 def prompt(prompt):
-    return raw_input(prompt).strip()
+    return input(prompt).strip()
 
 
 def send_mail(serverIp, port, mailfrom, to, content):
@@ -48,7 +48,7 @@ if __name__ == '__main__':
 
     to = args.recipient
     filename = args.filename
-    msg_str = file(filename, 'rt').read()
+    msg_str = open(filename, 'rt').read()
 
     parser = email.parser.HeaderParser()
     header = parser.parsestr(msg_str)
@@ -57,11 +57,11 @@ if __name__ == '__main__':
     serverIp = args.server
     if not args.server:
         domain = to.split('@', 1)[1]
-        print "Query MX for doamin '%s'" % domain
+        print("Query MX for doamin '%s'" % domain)
         answers = dns.resolver.query(domain, 'MX')
         for rdata in answers:
-            print 'Host', rdata.exchange, 'has preference', rdata.preference
+            print('Host', rdata.exchange, 'has preference', rdata.preference)
         serverIp = str(answers[0].exchange)
-    print "Message length is " + repr(len(msg_str))
+    print("Message length is " + repr(len(msg_str)))
 
     send_mail(serverIp=serverIp, port= args.port, mailfrom=fromaddr, to=to, content=msg_str)

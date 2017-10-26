@@ -23,7 +23,7 @@ from datetime import datetime, timedelta
 
 from twisted.internet import task, defer
 
-from cloud_mailing.master.monitor_satellites_task import MonitorSatellitesTask
+from .monitor_satellites_task import MonitorSatellitesTask
 from ..common import settings
 from . import settings_vars
 from .send_recipients_task import SendRecipientsTask
@@ -166,7 +166,7 @@ class MailingManager(Singleton):
             t0 = time.time()
 
             def _set_next_time(result, delay):
-                count = result and sum(map(lambda x: len(x[1]), result)) or 0
+                count = result and sum([len(x[1]) for x in result]) or 0
                 self.log.debug("check_orphan_recipients() finished for %d orphans in %.1fs", count, time.time() - t0)
                 if count:
                     delay = 10

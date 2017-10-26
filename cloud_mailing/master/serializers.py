@@ -24,6 +24,7 @@ import dateutil.parser
 import txmongo.filter
 from twisted.internet import defer
 
+from ..common.encoding import force_text
 from .api_common import compute_hourly_stats
 from ..common.db_common import get_db
 from . import models
@@ -71,10 +72,10 @@ class Serializer(object):
 
     def make_filter(self, args):
         _filter = {}
-        for field, value in args.items():
+        for field, value in list(args.items()):
             if isinstance(value, (list, tuple)):
                 _filter[field] = {'$in': value}
-            elif isinstance(value, basestring):
+            elif isinstance(value, str):
                 _filter[field] = {'$regex': '.*' + re.escape(value) + '.*'}
             else:
                 _filter[field] = value
@@ -113,7 +114,7 @@ class Serializer(object):
     def make_tx_sort_filter(sort):
         if sort is None:
             return None
-        if isinstance(sort, basestring):
+        if isinstance(sort, str):
             return txmongo.filter.sort(txmongo.filter.ASCENDING(sort))
 
         def _get_direction(value):
@@ -123,7 +124,7 @@ class Serializer(object):
 
         assert(isinstance(sort, (list, tuple)))
 
-        if len(sort) == 2 and isinstance(sort[0], basestring):
+        if len(sort) == 2 and isinstance(sort[0], str):
             return txmongo.filter.sort(_get_direction(sort[1](sort[0])))
 
         return txmongo.filter.sort(sort)
@@ -176,13 +177,13 @@ class MailingSerializer(Serializer):
         mailings_filter = {}
         if args:
             available_filters = ('domain', 'id', 'status', 'owner_guid', 'satellite_group')
-            for key in args.keys():
+            for key in list(args.keys()):
                 if key not in available_filters:
                     log.error("Bad filter name '%s'. Available filters are: %s", key, ', '.join(available_filters))
                     raise ValueError("Bad filter name '%s'. Available filters are: %s" % (key, ', '.join(available_filters)))
             if 'domain' in args:
                 domain = args['domain']
-                if isinstance(domain, basestring):
+                if isinstance(domain, str):
                     mailings_filter['domain_name'] = domain
                 else:
                     mailings_filter['domain_name'] = {'$in': domain}
@@ -203,13 +204,13 @@ class MailingSerializer(Serializer):
                 mailings_filter['status'] = {'$in': status_list}
             if 'owner_guid' in args:
                 owners = args['owner_guid']
-                if isinstance(owners, basestring):
+                if isinstance(owners, str):
                     mailings_filter['owner_guid'] = owners
                 else:
                     mailings_filter['owner_guid'] = {'$in': owners}
             if 'satellite_group' in args:
                 satellite_groups = args['satellite_group']
-                if isinstance(satellite_groups, basestring):
+                if isinstance(satellite_groups, str):
                     mailings_filter['satellite_group'] = satellite_groups
                 else:
                     mailings_filter['satellite_group'] = {'$in': satellite_groups}
@@ -237,7 +238,7 @@ class RecipientSerializer(Serializer):
 
     @defer.inlineCallbacks
     def get(self, id):
-        recipient = yield super(RecipientSerializer, self).get(id)
+        recipient = yield super(RecipientSerializer, self).get(force_text(id))
         recipient.pop('id')
         recipient['id'] = recipient.pop('tracking_id')
         defer.returnValue(recipient)

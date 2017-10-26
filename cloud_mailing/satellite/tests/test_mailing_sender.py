@@ -20,7 +20,7 @@ from ..mail_customizer import MailCustomizer
 from ..mailing_sender import MailingSender
 from ..models import MailingRecipient, Mailing
 from twisted.trial.unittest import TestCase
-import factories
+from . import factories
 import os
 import email.parser
 import email.message

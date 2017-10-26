@@ -31,7 +31,7 @@ from datetime import datetime
 from twisted.python import failure
 from twisted.python.log import PythonLoggingObserver
 from twisted.python.util import switchUID
-from zope.interface import implements
+from zope.interface import implementer
 from twisted.application import internet
 from twisted.application import service
 from twisted.internet import reactor
@@ -53,8 +53,8 @@ from ..common.cm_logging import configure_logging
 __author__ = 'Cedric RICARD'
 
 
+@implementer(smtp.IMessageDelivery)
 class ReturnPathMessageDelivery:
-    implements(smtp.IMessageDelivery)
 
     def receivedHeader(self, helo, origin, recipients):
         return "Received: ReturnPathMessageDelivery"
@@ -72,8 +72,8 @@ class ReturnPathMessageDelivery:
         raise smtp.SMTPBadRcpt(user)
 
 
+@implementer(smtp.IMessage)
 class ReturnPathMessage:
-    implements(smtp.IMessage)
 
     def __init__(self, ml_id, recipient_id):
         self.log = logging.getLogger('smtpd')
@@ -185,8 +185,8 @@ class ReturnPathSMTPFactory(smtp.SMTPFactory):
         return p
 
 
+@implementer(IRealm)
 class SimpleRealm:
-    implements(IRealm)
 
     def requestAvatar(self, avatarId, mind, *interfaces):
         if smtp.IMessageDelivery in interfaces:

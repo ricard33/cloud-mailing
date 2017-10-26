@@ -45,7 +45,7 @@ def start_satellite_service(application=None, master_ip='localhost', master_port
 
     ##Services
 
-    from cloud_client import get_cloud_client_factory
+    from .cloud_client import get_cloud_client_factory
     factory = get_cloud_client_factory()
 
     log.info('Trying to connect to Master on %s:%d' % (master_ip, master_port))

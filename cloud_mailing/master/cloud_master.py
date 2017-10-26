@@ -15,8 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-import cPickle as pickle
-import exceptions
+import pickle as pickle
 import logging
 import os
 import time
@@ -33,8 +32,9 @@ from twisted.python.deprecate import deprecated
 from twisted.python.versions import Version
 from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
-from zope.interface import implements
+from zope.interface import implementer
 
+from ..common.encoding import force_bytes
 from . import settings_vars
 from .models import CloudClient, Mailing, SenderDomain
 from .models import RECIPIENT_STATUS, MAILING_STATUS
@@ -210,7 +210,7 @@ class ClientAvatar(pb.Avatar):
 
             sat_settings = satellite_config.get('settings', {})
             new_settings = self.cloud_client.settings or {}
-            for key, value in new_settings.items():
+            for key, value in list(new_settings.items()):
                 if sat_settings.get(key) != value:
                     # at least one changed
                     self.set_settings(new_settings)
@@ -241,7 +241,7 @@ class MailingManagerView(pb.Viewable):
             - delete: True if the mailing should be deleted on slave.
         """
         self.log.debug("get_mailing(%s)", mailing_id)
-        from models import Mailing
+        from .models import Mailing
         self.cloud_client = CloudClient.grab(self.cloud_client.id)  # reload object
         if not self.cloud_client.enabled:
             self.log.warn("get_mailing() refused for disabled client [%s]", self.cloud_client.serial)
@@ -307,13 +307,13 @@ class MailingManagerView(pb.Viewable):
         db = get_db()
         recipients = yield db.mailingrecipient.find({'cloud_client': self.cloud_client.serial, 'in_progress': True}, fields=[])
         # recipients = list(recipients)
-        data = pickle.dumps(map(lambda r: str(r['_id']), recipients))
+        data = pickle.dumps([str(r['_id']) for r in recipients])
         # print "sending %d length data for %d recipients" % (len(data), len(recipients))
         util.StringPager(collector, data)
 
     @staticmethod
     def _store_reports(_recipients, serial, log):
-        from models import MailingRecipient
+        from .models import MailingRecipient
         t0 = time.time()
 
         # We need to keep backup_customized_emails flag for each mailing to avoid consuming requests
@@ -388,7 +388,7 @@ class MailingManagerView(pb.Viewable):
     @staticmethod
     def _update_mailings_stats(result):
         ids_ok, mailings_stats = result
-        for mailing_id, ml_stats in mailings_stats.items():
+        for mailing_id, ml_stats in list(mailings_stats.items()):
             Mailing.update({'_id': mailing_id}, {'$inc': {
                 'total_softbounce': ml_stats.get('total_softbounce', 0),
                 'total_sent': ml_stats.get('total_sent', 0),
@@ -418,7 +418,7 @@ class MailingManagerView(pb.Viewable):
         Each statistics record is described by a dictionary with all its attributes.
         Should returns an array with the IDs of successfully updated records.
         """
-        from models import MailingHourlyStats
+        from .models import MailingHourlyStats
 
         ids_ok = []
         for stats in stats_records:
@@ -445,8 +445,8 @@ class MailingManagerView(pb.Viewable):
         return ids_ok
 
 
+@implementer(portal.IRealm)
 class CloudRealm:
-    implements(portal.IRealm)
 
     def __init__(self, max_connections=1):
         self.log = logging.getLogger('cloud_master')
@@ -472,20 +472,20 @@ class CloudRealm:
         return pb.IPerspective, avatar, lambda a=avatar: a.detached(mind)
 
     def activate_unittest_mode(self, activated):
-        for avatar in self.avatars.values():
+        for avatar in list(self.avatars.values()):
             avatar.activate_unittest_mode(activated)
 
     def close_mailing_on_satellites(self, mailing):
-        from models import Mailing
+        from .models import Mailing
         assert(isinstance(mailing, Mailing))
-        for avatar in self.avatars.values():
+        for avatar in list(self.avatars.values()):
             self.log.debug("close_mailing_on_satellite(%d, %s)", mailing.id, avatar.cloud_client.serial)
             avatar.close_mailing(mailing)
 
     def invalidate_mailing_content_on_satellites(self, mailing):
-        from models import Mailing
+        from .models import Mailing
         assert(isinstance(mailing, Mailing))
-        for avatar in self.avatars.values():
+        for avatar in list(self.avatars.values()):
             avatar.invalidate_mailing_body(mailing)
 
     def check_recipients_in_clients(self, since_seconds=None):
@@ -500,7 +500,7 @@ class CloudRealm:
             self.log.debug("Already checking for orphan recipients!")
             return defer.succeed(None)
         self.__check_for_orphan_recipients = True
-        from models import MailingRecipient
+        from .models import MailingRecipient
         l = []
         try:
             if since_seconds is None:
@@ -535,7 +535,7 @@ class CloudRealm:
                 d.addCallback(self._check_recipients_cb, serial, recipients)\
                     .addErrback(self._check_recipients_eb, serial)
                 l.append(d)
-        except Exception, ex:
+        except Exception as ex:
             self.log.exception("Exception in CloudRealm.check_recipients_in_clients")
 
         def release_check_flag(result):
@@ -552,7 +552,7 @@ class CloudRealm:
     def _check_recipients_cb(self, results, serial, recipient_ids):
         self.log.debug("Queries for handled ids are finished. We can begin the check. (%d recipients)", len(results))
         assert(isinstance(results, dict))
-        unhandled = [ObjectId(id) for id, rcpt in results.items() if not rcpt]
+        unhandled = [ObjectId(id) for id, rcpt in list(results.items()) if not rcpt]
         if unhandled:
             self.log.warn("Found [%d] orphan recipients from client [%s]. Removing them...", len(unhandled), serial)
             yield get_db().mailingrecipient.update_many({'_id': {'$in': unhandled}},
@@ -574,7 +574,7 @@ class CloudRealm:
             if os.path.exists(file_name):
                 self.log.warning("Customized file '%s' already exists!", file_name)
             else:
-                with file(file_name, 'wt') as f:
+                with open(file_name, 'wt') as f:
                     for data in data_list:
                         f.write(data)
                     f.close()
@@ -589,7 +589,7 @@ class CloudRealm:
 
         def _handle_failure(err, recipient):
             self.log.error("Error in retrieve_customized_content: %s", err)
-            if err.check(exceptions.IOError):
+            if err.check(IOError):
                 self.log.error("Can't get customized content for recipient [%s @ %s]",
                                recipient['email'], recipient['mailing'].id)
                 return _update_recipient(None, recipient)
@@ -616,12 +616,12 @@ class CloudRealm:
             if dl:
                 self.log.debug("retrieve_customized_content() for %d recipients", len(dl))
                 yield defer.DeferredList(dl)
-        except Exception, ex:
+        except Exception as ex:
             self.log.exception("Error in retrieve_customized_content()")
 
 
+@implementer(checkers.ICredentialsChecker)
 class CmCloudCredentialsChecker:
-    implements(checkers.ICredentialsChecker)
 
     credentialInterfaces = (credentials.IUsernamePassword,
                             credentials.IUsernameHashedPassword)
@@ -642,7 +642,7 @@ class CmCloudCredentialsChecker:
 
             return defer.maybeDeferred(
                 credentials.checkPassword,
-                hmac.HMAC(str(client.shared_key)).hexdigest()
+                hmac.HMAC(force_bytes(client.shared_key)).hexdigest()
                 ).addCallback(
                     self._cbPasswordMatch, client
                 )

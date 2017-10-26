@@ -49,8 +49,8 @@ date_re = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}")
 
 
 def datetime_parser(dct):
-    for k, v in dct.items():
-        if isinstance(v, basestring) and date_re.search(v):
+    for k, v in list(dct.items()):
+        if isinstance(v, str) and date_re.search(v):
             log.debug("date detected")
             try:
                 dct[k] = datetime.strptime(v[:19], DATE_FORMAT)
@@ -65,7 +65,8 @@ class RestApiHome(ApiResource):
 
     def __init__(self, xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
         Resource.__init__(self)
-        url = '%(protocol)s://127.0.0.1:%(port)d/CloudMailing' % {'protocol': xmlrpc_use_ssl and 'https' or 'http', 'port': xmlrpc_port}
+        url = b'%(protocol)s://127.0.0.1:%(port)d/CloudMailing' % {b'protocol': xmlrpc_use_ssl and b'https' or b'http',
+                                                                   b'port': xmlrpc_port}
         self.proxy = Proxy(url, user='admin', password=api_key, allowNone=True,
                        useDateTime=True, connectTimeout=30.0)
 
@@ -77,13 +78,13 @@ class RestApiHome(ApiResource):
             'api_version': API_VERSION,
         }
         self.write_headers(request)
-        return json.dumps(data)
+        return json.dumps(data).encode()
 
     def _api_callback(self, data, request):
         request.setResponseCode(http_status.HTTP_200_OK)
         self.write_headers(request)
         # print data
-        request.write(json.dumps({'status': 'ok', 'result': data}, default=json_default))
+        request.write(json.dumps({'status': 'ok', 'result': data}, default=json_default).encode())
         request.finish()
 
     def render_POST(self, request):
@@ -142,13 +143,13 @@ class AuthenticateApi(ApiResource):
                 # 'groups': []
             }
             self.write_headers(request)
-            return json.dumps(result, default=json_default)
+            return json.dumps(result, default=json_default).encode()
 
         request.getSession().expire()
         request.setResponseCode(http_status.HTTP_401_UNAUTHORIZED)
         self.write_headers(request)
         log_security.warn("REST authentication failed for user '%s' (%s)" % (username, request.getClientIP()))
-        return json.dumps({'error': "Authorization Failed!"})
+        return json.dumps({'error': "Authorization Failed!"}).encode()
 
 
 class LogoutApi(ApiResource):
@@ -167,7 +168,7 @@ class LogoutApi(ApiResource):
         request.setResponseCode(http_status.HTTP_200_OK)
         self.write_headers(request)
         log_security.info("User '%s' logged out (%s)" % (username, request.getClientIP()))
-        return json.dumps({'status': "Logged out"})
+        return json.dumps({'status': "Logged out"}).encode()
 
 
 class OsApi(ApiResource):
@@ -218,7 +219,7 @@ class OsApi(ApiResource):
         else:
             data = {}
         self.write_headers(request)
-        return json.dumps(data)
+        return json.dumps(data).encode()
 
 
 registerAdapter(CurrentUser, Session, ICurrentUser)
@@ -227,11 +228,11 @@ registerAdapter(CurrentUser, Session, ICurrentUser)
 def make_rest_api(xmlrpc_port=33610, xmlrpc_use_ssl=True, api_key=None):
 
     api = RestApiHome(xmlrpc_port=xmlrpc_port, xmlrpc_use_ssl=True, api_key=api_key)
-    api.putChild('authenticate', AuthenticateApi())
-    api.putChild('logout', LogoutApi())
-    api.putChild('mailings', ListMailingsApi())
-    api.putChild('recipients', ListRecipientsApi())
-    api.putChild('satellites', ListSatellitesApi())
-    api.putChild('hourly-stats', HourlyStatsApi())
-    api.putChild('os', OsApi())
+    api.putChild(b'authenticate', AuthenticateApi())
+    api.putChild(b'logout', LogoutApi())
+    api.putChild(b'mailings', ListMailingsApi())
+    api.putChild(b'recipients', ListRecipientsApi())
+    api.putChild(b'satellites', ListSatellitesApi())
+    api.putChild(b'hourly-stats', HourlyStatsApi())
+    api.putChild(b'os', OsApi())
     return api

@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-import cPickle as pickle
+import pickle as pickle
 import logging
 import re
 import time

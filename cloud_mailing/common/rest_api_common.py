@@ -20,14 +20,16 @@ import logging
 import re
 import traceback
 from datetime import datetime
-from xmlrpclib import Fault
+from xmlrpc.client import Fault
 
 import pymongo
+import six
 from twisted.internet import defer
 from twisted.web.resource import Resource
 from twisted.web import error as web_error, server
-from zope.interface import implements
+from zope.interface import implementer
 
+from .encoding import force_text, force_bytes
 from .api_common import ICurrentUser, AuthenticatedSite
 from .permissions import IsAuthenticated, BasePermission
 from .json_tools import json_default
@@ -49,21 +51,23 @@ def json_serial(obj):
         return serial
 
 
-integer_re = re.compile(r"^\d+$")
+integer_re = re.compile(rb"^\d+$")
 
 
 def simplify_value(v):
     if isinstance(v,list) and len(v) == 1:
         return simplify_value(v[0])
-    elif isinstance(v, basestring) and integer_re.match(v):
-        return int(v)
+    elif isinstance(v, (six.text_type, six.binary_type)):
+        if integer_re.match(force_bytes(v)):
+            return int(v)
+        return force_text(v)
     return v
 
 
-def regroup_args(dd):
+def decode_and_regroup_args(dd):
     ret = {}
-    for k,v in dd.items():
-        ret[k] = simplify_value(v)
+    for k,v in list(dd.items()):
+        ret[force_text(k)] = simplify_value(v)
     return ret
 
 
@@ -134,7 +138,7 @@ class ApiResource(Resource):
 
     def getChild(self, name, request):
         """Allows this resource to be selected with a trailing '/'."""
-        if name == '':
+        if name == b'':
             return self
         return Resource.getChild(self, name, request)
 
@@ -150,11 +154,11 @@ class ApiResource(Resource):
         if err.check(Fault):
             log.error("[%s] %s", str(self.__class__), err.value.faultString)
             request.setResponseCode(err.value.faultCode)
-            request.write(json.dumps({'error': repr(err.value.faultString)}))
+            request.write(json.dumps({'error': repr(err.value.faultString)}).encode())
         else:
             log.error("[%s] %s", str(self.__class__.__name__), ''.join(traceback.format_exception_only(type(err.value), err.value)))
             request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
-            request.write(json.dumps({'error': ''.join(traceback.format_exception_only(type(err.value), err.value))}))
+            request.write(json.dumps({'error': ''.join(traceback.format_exception_only(type(err.value), err.value))}).encode())
         request.finish()
 
     def log_call(self, request, content=None):
@@ -193,9 +197,9 @@ class ApiResource(Resource):
     def access_forbidden(self, request):
         request.setResponseCode(http_status.HTTP_403_FORBIDDEN)
         self.write_headers(request)
-        self.log.warn(
-            "Access forbidden for resource '%s' (user=%s; ip=%s)" % (request.path, request.user, request.getClientIP()))
-        return json.dumps({'error': "Forbidden"})
+        self.log.warning(
+            "Access forbidden for resource '%s' (user=%s; ip=%s)" % (force_text(request.path), request.user, request.getClientIP()))
+        return json.dumps({'error': "Forbidden"}).encode()
 
     def render_OPTIONS(self, request):
         self.log_call(request)
@@ -214,8 +218,8 @@ class ApiResource(Resource):
         return ICurrentUser(session)
 
 
+@implementer(ICurrentUser)
 class CurrentUser(object):
-    implements(ICurrentUser)
 
     def __init__(self, session):
         self.username = ''
@@ -236,14 +240,14 @@ class ListModelMixin(object):
     def render_GET(self, request):
         self.log_call(request)
         self.list(request)\
-            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.write(x.encode())) \
             .addCallback(lambda x: request.finish()) \
             .addErrback(self._on_error, request)
         return server.NOT_DONE_YET
 
     @defer.inlineCallbacks
     def list(self, request, *args, **kwargs):
-        _args = regroup_args(request.args)
+        _args = decode_and_regroup_args(request.args)
         _args.update(kwargs)
         fields_filter = _args.pop('.filter', 'default')
         serializer = self.get_serializer_class()(fields_filter=fields_filter)
@@ -254,7 +258,7 @@ class ListModelMixin(object):
         try:
             result = yield serializer.find(_args, skip = offset, limit = limit, sort=sort)
             defer.returnValue(json.dumps(result, default=json_default))
-        except ValueError, ex:
+        except ValueError as ex:
             raise web_error.Error(http_status.HTTP_406_NOT_ACCEPTABLE, ex.message)
 
 
@@ -265,7 +269,7 @@ class RetrieveModelMixin(object):
     def render_GET(self, request):
         self.log_call(request)
         self.retrieve(request)\
-            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.write(x.encode())) \
             .addCallback(lambda x: request.finish()) \
             .addErrback(self._on_error, request)
         return server.NOT_DONE_YET
@@ -273,7 +277,8 @@ class RetrieveModelMixin(object):
     @defer.inlineCallbacks
     def retrieve(self, request, *args, **kwargs):
         try:
-            _filter = request.args.get('.filter', 'default')
+            _args = decode_and_regroup_args(request.args)
+            _filter = _args.get('.filter', 'default')
             serializer = self.get_serializer_class()(fields_filter=_filter)
             self.write_headers(request)
             result = yield serializer.get(self.get_object_id())

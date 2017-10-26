@@ -19,7 +19,7 @@ import email
 import logging
 import time
 from datetime import datetime
-from xmlrpclib import Fault
+from xmlrpc.client import Fault
 
 import dateutil.parser
 import pymongo
@@ -51,7 +51,7 @@ def _check_dict_property(name, value, allowed_fields, mandatory_fields):
         log_api.error(err_msg)
         raise Fault(http.NOT_ACCEPTABLE, err_msg)
 
-    for key in value.keys():
+    for key in list(value.keys()):
         if key not in allowed_fields:
             err_msg = "Bad value '%(value)s' for property '%(name)s'. " \
                       "Field '%(key)s is not allowed (allowed fields are '%(allowed)s')." \
@@ -78,9 +78,9 @@ def set_mailing_properties(mailing_id, properties):
         raise Fault(http.FORBIDDEN, "Mailing properties can't be changed anymore. "
                                     "Only active mailings can be edited!")
     content_change = False
-    for key, value in properties.items():
+    for key, value in list(properties.items()):
         if key == 'type':
-            from models import mailing_types
+            from .models import mailing_types
             if value not in mailing_types:
                 raise Fault(http.NOT_ACCEPTABLE, "Bad value '%s' for Property type. Acceptable values are (%s)"
                             % (value, ', '.join(mailing_types)))
@@ -147,10 +147,10 @@ def set_mailing_properties(mailing_id, properties):
                             replace_bodies(p, html_content, plain_content)
 
                     elif subtype == 'digest':
-                        raise email.errors.MessageParseError, "multipart/digest not supported"
+                        raise email.errors.MessageParseError("multipart/digest not supported")
 
                     elif subtype == 'parallel':
-                        raise email.errors.MessageParseError, "multipart/parallel not supported"
+                        raise email.errors.MessageParseError("multipart/parallel not supported")
 
                     elif subtype == 'related':
                         replace_bodies(part.get_payload(0), html_content, plain_content)

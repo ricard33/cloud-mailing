@@ -22,7 +22,7 @@ from mogo import connect
 from mogo.connection import Connection
 from twisted.internet.defer import succeed
 from twisted.web.iweb import IBodyProducer
-from zope.interface import implements
+from zope.interface import implementer
 
 from .config_file import ConfigFile
 from .models import Settings
@@ -56,7 +56,10 @@ class DatabaseMixin(object):
             db_name = settings.TEST_DATABASE
         self.db_conn = connect(db_name)
         self.db_sync = self.db_conn[db_name]
-        self.db = Db.getInstance(db_name, pool_size=1).db
+        if Db.isInstantiated():
+            self.db = Db.getInstance().db
+        else:
+            self.db = Db.getInstance(db_name, pool_size=1).db
 
         # self.db_conn.drop_database(db_name)
         db = Connection.instance().get_database()
@@ -70,11 +73,11 @@ class DatabaseMixin(object):
             .addBoth(lambda x: Db._forgetClassInstanceReferenceForTesting())
 
 
+@implementer(IBodyProducer)
 class JsonProducer(object):
-    implements(IBodyProducer)
 
     def __init__(self, body):
-        self.body = json.dumps(body)
+        self.body = json.dumps(body).encode()
         self.length = len(self.body)
 
     def startProducing(self, consumer):

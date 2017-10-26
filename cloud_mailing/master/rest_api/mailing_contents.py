@@ -23,7 +23,7 @@ import json
 from twisted.web import server
 from twisted.web.resource import Resource
 
-from cloud_mailing.common.encoding import force_str
+from ...common.encoding import force_str
 from ...common import http_status
 from ...common.rest_api_common import ApiResource
 from ...common.db_common import get_db
@@ -41,7 +41,7 @@ class MailingContentApi(ApiResource):
         self.mailing_id = mailing_id
 
     def getChild(self, name, request):
-        if name == 'cid':
+        if name == b'cid':
             return MailingContentIDsApi(self.mailing_id)
         return ApiResource.getChild(self, name, request)
 
@@ -74,10 +74,10 @@ class MailingContentApi(ApiResource):
                             return get_html_body(p)
 
                 elif subtype == 'digest':
-                    raise email.errors.MessageParseError, "multipart/digest not supported"
+                    raise email.errors.MessageParseError("multipart/digest not supported")
 
                 elif subtype == 'parallel':
-                    raise email.errors.MessageParseError, "multipart/parallel not supported"
+                    raise email.errors.MessageParseError("multipart/parallel not supported")
 
                 elif subtype == 'related':
                     return get_html_body(part.get_payload(0))
@@ -115,7 +115,7 @@ class MailingContentApi(ApiResource):
     def eb_get_mailing(self, error, request):
         self.log.error("Error returning HTML content for mailing [%d]: %s", self.mailing_id, error)
         request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
-        request.write("<html><body><b>ERROR</b>: can't get content.</body></html>")
+        request.write(b"<html><body><b>ERROR</b>: can't get content.</body></html>")
         request.finish()
 
 
@@ -155,20 +155,20 @@ class MailingRelatedAttachmentApi(ApiResource):
         for part in msg.walk():
             if part.get('Content-ID', None) == cid:
                 request.setHeader('Content-Type', part.get_content_type())
-                request.write(part.get_payload(decode=True))
+                request.write(part.get_payload(decode=True).encode())
                 request.finish()
                 return
 
         request.setResponseCode(http_status.HTTP_404_NOT_FOUND)
         request.setHeader('Content-Type', 'application/json')
-        request.write(json.dumps({'error': "Part CID '%s' not found" % self.cid}))
+        request.write(json.dumps({'error': "Part CID '%s' not found" % self.cid}).encode())
         request.finish()
         return
 
     def eb_get_mailing(self, error, request):
         self.log.error("Error returning HTML content for mailing [%d]: %s", self.mailing_id, error)
         request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
-        request.write("<html><body><b>ERROR</b>: can't get content.</body></html>")
+        request.write(b"<html><body><b>ERROR</b>: can't get content.</body></html>")
         request.finish()
 
 

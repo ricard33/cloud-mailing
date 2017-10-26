@@ -26,7 +26,7 @@ from twisted.internet import reactor
 from ..mx import MXCalculator
 
 #noinspection PyUnresolvedReferences
-from zope.interface import Interface, implements
+from zope.interface import Interface
 
 from twisted.mail import smtp
 from twisted.names import dns
@@ -36,7 +36,7 @@ from twisted.internet.error import DNSLookupError, CannotListenError
 from twisted.python import failure
 
 import twisted.mail.mail
-import twisted.mail.maildir
+# import twisted.mail.maildir
 import twisted.mail.relay
 import twisted.mail.relaymanager
 import twisted.mail.protocols
@@ -102,19 +102,20 @@ def tearDownDNS(self):
         pass
     return defer.DeferredList(dl)
 
-class MXTestCase(DatabaseMixin, unittest.TestCase):
+class MXTestCase(unittest.TestCase):
     """
     Tests for L{mailing.mailing_sender.MXCalculator}.
     """
     def setUp(self):
-        self.connect_to_db()
+        # self.connect_to_db()
         logging.getLogger('mx_calc').setLevel(logging.CRITICAL)
         setUpDNS(self)
         self.clock = task.Clock()
         self.mx = MXCalculator(self.resolver, self.clock)
 
     def tearDown(self):
-        return tearDownDNS(self).addBoth(lambda x: self.disconnect_from_db())
+        # return tearDownDNS(self).addBoth(lambda x: self.disconnect_from_db())
+        return tearDownDNS(self)
 
 
     def test_defaultClock(self):
@@ -127,13 +128,13 @@ class MXTestCase(DatabaseMixin, unittest.TestCase):
 
 
     def testSimpleSuccess(self):
-        self.auth.addresses['test.domain'] = ['the.email.test.domain']
+        self.auth.addresses[b'test.domain'] = [b'the.email.test.domain']
         return self.mx.getMX('test.domain').addCallback(self._cbSimpleSuccess)
 
     def _cbSimpleSuccess(self, mxs):
-        self.assertEquals(1, len(mxs))
-        self.assertEquals(mxs[0].preference, 0)
-        self.assertEquals(str(mxs[0].name), 'the.email.test.domain')
+        self.assertEqual(1, len(mxs))
+        self.assertEqual(mxs[0].preference, 0)
+        self.assertEqual(str(mxs[0].name), 'the.email.test.domain')
 
     def testSimpleFailure(self):
         self.mx.fallbackToDomain = False
@@ -473,24 +474,24 @@ class MXTestCase(DatabaseMixin, unittest.TestCase):
 
 
     def testManyRecords(self):
-        self.auth.addresses['test.domain'] = [
-            'mx1.test.domain', 'mx2.test.domain', 'mx3.test.domain'
+        self.auth.addresses[b'test.domain'] = [
+            b'mx1.test.domain', b'mx2.test.domain', b'mx3.test.domain'
         ]
         return self.mx.getMX('test.domain'
         ).addCallback(self._cbManyRecordsSuccessfulLookup
         )
 
     def _cbManyRecordsSuccessfulLookup(self, mxs):
-        self.assertEquals(3, len(mxs))
+        self.assertEqual(3, len(mxs))
         for mx in mxs:
-            self.failUnless(str(mx.name).split('.', 1)[0] in ('mx1', 'mx2', 'mx3'))
+            self.assertTrue(str(mx.name).split('.', 1)[0] in ('mx1', 'mx2', 'mx3'))
         self.mx.markBad(str(mxs[0].name))
         return self.mx.getMX('test.domain'
         ).addCallback(self._cbManyRecordsDifferentResult, mxs[0]
         )
 
     def _cbManyRecordsDifferentResult(self, nextMXs, mx):
-        self.assertEquals(2, len(nextMXs))
+        self.assertEqual(2, len(nextMXs))
         self.assertNotEqual(str(mx.name), str(nextMXs[0].name))
         self.mx.markBad(str(nextMXs[0].name))
 
@@ -499,7 +500,7 @@ class MXTestCase(DatabaseMixin, unittest.TestCase):
         )
 
     def _cbManyRecordsLastResult(self, lastMXs, mx, nextMX):
-        self.assertEquals(1, len(lastMXs))
+        self.assertEqual(1, len(lastMXs))
         self.assertNotEqual(str(mx.name), str(lastMXs[0].name))
         self.assertNotEqual(str(nextMX.name), str(lastMXs[0].name))
 
@@ -511,7 +512,7 @@ class MXTestCase(DatabaseMixin, unittest.TestCase):
         )
 
     def _cbManyRecordsRepeatSpecificResult(self, againMXs, nextMX):
-        self.assertEquals(1, len(againMXs))
+        self.assertEqual(1, len(againMXs))
         self.assertEqual(str(againMXs[0].name), str(nextMX.name))
 
 

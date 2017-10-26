@@ -19,6 +19,7 @@ import os
 
 from twisted.cred import error
 
+from ..common.encoding import force_bytes
 from ..common import settings
 
 __author__ = 'Cedric RICARD'
@@ -37,15 +38,15 @@ class AdminChecker(object):
 
         if not key:
             raise error.UnauthorizedLogin()
-        return (('admin', key),)
+        return ((b'admin', key.encode()),)
 
     def check_credentials(self, credentials):
-        username = credentials.username
-        if username == 'admin':
+        username = force_bytes(credentials.username)
+        if username == b'admin':
             if self._credCache is None or os.path.getmtime(settings.CONFIG_FILE) > self._cacheTimestamp:
                 self._cacheTimestamp = os.path.getmtime(settings.CONFIG_FILE)
                 self._credCache = dict(self._loadCredentials())
-            if credentials.password == self._credCache[username]:
+            if force_bytes(credentials.password) == self._credCache[username]:
                 return username
         return None
 

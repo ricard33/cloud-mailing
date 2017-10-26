@@ -47,7 +47,7 @@ class ListRecipientsApi(ListModelMixin, ApiResource):
         if self.mailing_id is not None:
             kwargs['mailing.$id'] = self.mailing_id
         self.list(request, **kwargs)\
-            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.write(x.encode())) \
             .addCallback(lambda x: request.finish()) \
             .addErrback(self._on_error, request)
         return server.NOT_DONE_YET
@@ -65,7 +65,7 @@ class RecipientApi(RetrieveModelMixin, ApiResource):
     def render_GET(self, request):
         self.log_call(request)
         self.retrieve(request) \
-            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.write(x.encode())) \
             .addCallback(lambda x: request.finish()) \
             .addErrback(self._on_error, request)
         return server.NOT_DONE_YET

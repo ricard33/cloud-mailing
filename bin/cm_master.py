@@ -27,5 +27,5 @@ if __name__ == '__main__':
     try:
         reactor.run()
     finally:
-        print "Stop all threads"
+        print("Stop all threads")
         cloud_master.stop_all_threadpools()

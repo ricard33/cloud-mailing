@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-import cPickle as pickle
+import pickle as pickle
 import email
 import email.header
 import hmac
@@ -31,6 +31,7 @@ from twisted.spread import pb, util
 from twisted.spread.util import CallbackPageCollector
 from twisted.trial.unittest import TestCase
 
+from ...common.encoding import force_bytes
 from .. import settings_vars
 from ..send_recipients_task import SendRecipientsTask
 from . import factories
@@ -48,7 +49,7 @@ from ...common.unittest_mixins import DatabaseMixin
 def make_email():
     msg = email.mime.multipart.MIMEMultipart("alternative")
 
-    html_content = u"<h1>Hi %%FIRST_NAME%%</h1>\n<p>This is the body of message.</p>\n<a href=\"%%UNSUBSCRIBE%%\">Click here to be removed</a>"
+    html_content = "<h1>Hi %%FIRST_NAME%%</h1>\n<p>This is the body of message.</p>\n<a href=\"%%UNSUBSCRIBE%%\">Click here to be removed</a>"
     plain_content = strip_tags(html_content)
 
     msg.attach(email.mime.text.MIMEText(plain_content.encode('utf-8'), 'plain', 'utf-8'))
@@ -121,7 +122,7 @@ class CloudClient(pb.Referenceable):
         recipients_dict = {}
         for _id in recipient_ids:
             recipients_dict[_id] = None
-        for recipient in MailingRecipient._get_collection().find({'_id': {'$in': map(lambda x: ObjectId(x), recipient_ids)}}):
+        for recipient in MailingRecipient._get_collection().find({'_id': {'$in': [ObjectId(x) for x in recipient_ids]}}):
             for field in ('contact_data', 'unsubscribe_id'):
                 recipient.pop(field, None)
             recipient['_id'] = str(recipient['_id'])
@@ -142,7 +143,7 @@ class CloudClient(pb.Referenceable):
         return count, collector
 
     def cb_get_recipients(self, data_list, t0):
-        recipients = pickle.loads(''.join(data_list))
+        recipients = pickle.loads(b''.join(data_list))
         # print "Received %d new recipients from Manager in %.1fs." % (len(recipients), time.time() - t0)
         self.get_recipients_deferred.callback(recipients)
 
@@ -163,7 +164,8 @@ class CloudClientFactory(pb.PBClientFactory):
         log.info('Started to connect.')
         # self.resetDelay()
         pb.PBClientFactory.clientConnectionMade(self, broker)
-        def1 = self.login(credentials.UsernamePassword(settings.SERIAL, hmac.HMAC("UT_SHARED_KEY").hexdigest()),
+        def1 = self.login(credentials.UsernamePassword(settings.SERIAL,
+                                                       force_bytes(hmac.HMAC(b"UT_SHARED_KEY").hexdigest())),
                           client=self.cloud_client)
         def1.addCallback(self.cloud_client.connected)
 
@@ -190,7 +192,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
     def tearDown(self):
         #print "tearDown"
         stop_master_service()
-        if self.clientConnection:
+        if hasattr(self, "clientConnection") and self.clientConnection:
             self.clientConnection.disconnect()
             self.clientConnection = None
         # MailingRecipient.drop()
@@ -201,7 +203,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
             .addBoth(lambda x: self.disconnect_from_db())
 
     def log(self, msg):
-        print msg
+        print(msg)
         return msg
 
     def connect_client(self, disconnectedDeferred = None):
@@ -234,7 +236,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
     def cb_get_recipients(self, recipients, recipients_count):
         # print "cb_get_recipients", type(data_list), data_list, recipients_count
         # recipients = pickle.loads(''.join(data_list))
-        self.assertEquals(len(recipients), recipients_count)
+        self.assertEqual(len(recipients), recipients_count)
         for recipient in recipients:
             self.assertTrue(isinstance(recipient, dict))
             self.assertTrue('_id' in recipient)
@@ -246,7 +248,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
 
     def cb_get_mailing(self, data_list):
         # print "cb_get_mailing", data_list
-        data = ''.join(data_list)
+        data = b''.join(data_list)
         mailing_id = None
         mailing_dict = pickle.loads(data)
         original = Mailing.grab(mailing_dict['id'])
@@ -293,8 +295,8 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         recipients_count = 10
         self.fill_database(recipients_count)
 
-        self.assertEquals(Mailing.count(), 1)
-        self.assertEquals(MailingRecipient.count(), recipients_count)
+        self.assertEqual(Mailing.count(), 1)
+        self.assertEqual(MailingRecipient.count(), recipients_count)
 
         t0 = time.time()
 
@@ -312,15 +314,15 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         msg = make_email()
         recipients_count = 10
         self.fill_database(recipients_count, satellite_group='my-group')
-        self.fill_database(recipients_count / 2)  # another but with default group
+        self.fill_database(int(recipients_count / 2))  # another but with default group
         self.fill_database(recipients_count * 2, satellite_group='not-my-group')  # third but with other group name
 
         client = models.CloudClient.first()
         client.group = 'my-group'
         client.save()
 
-        self.assertEquals(Mailing.count(), 3)
-        self.assertEquals(MailingRecipient.count(), recipients_count * 3.5)
+        self.assertEqual(Mailing.count(), 3)
+        self.assertEqual(MailingRecipient.count(), recipients_count * 3.5)
 
         t0 = time.time()
 
@@ -339,12 +341,12 @@ class MailingMasterTest(DatabaseMixin, TestCase):
     def test_get_recipients_for_default_group(self):
         msg = make_email()
         recipients_count = 10
-        self.fill_database(recipients_count / 2, satellite_group='my-group')
+        self.fill_database(int(recipients_count / 2), satellite_group='my-group')
         self.fill_database(recipients_count)  # another but with default group
         self.fill_database(recipients_count * 2, satellite_group='not-my-group')  # third but with other group name
 
-        self.assertEquals(Mailing.count(), 3)
-        self.assertEquals(MailingRecipient.count(), recipients_count * 3.5)
+        self.assertEqual(Mailing.count(), 3)
+        self.assertEqual(MailingRecipient.count(), recipients_count * 3.5)
 
         t0 = time.time()
 
@@ -365,8 +367,8 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         recipients_count = 10
         self.fill_database(recipients_count)
 
-        self.assertEquals(Mailing.count(), 1)
-        self.assertEquals(MailingRecipient.count(), recipients_count)
+        self.assertEqual(Mailing.count(), 1)
+        self.assertEqual(MailingRecipient.count(), recipients_count)
 
         t0 = time.time()
 
@@ -392,19 +394,19 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         d2 = defer.Deferred()
         manager = yield self.connect_client(disconnectedDeferred=d2)
 
-        self.cloud_client.recipients = map(lambda x: x['_id'], MailingRecipient._get_collection().find(projection=[]))
+        self.cloud_client.recipients = [x['_id'] for x in MailingRecipient._get_collection().find(projection=[])]
 
         t0 = time.time()
         recipients = yield self.do_get_recipients(manager, recipients_count, t0) # to ensure TempQueue is filled
-        self.assertEquals(recipients_count, len(recipients))
-        self.assertEquals(recipients_count, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEqual(recipients_count, len(recipients))
+        self.assertEqual(recipients_count, MailingRecipient.find({'in_progress': True}).count())
 
         from ..cloud_master import mailing_portal
         mailing_master = mailing_portal.realm
 
         # Recipients are still actives in satellite, no one should be removed
         yield mailing_master.check_recipients_in_clients(since_seconds=0)
-        self.assertEquals(recipients_count, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEqual(recipients_count, MailingRecipient.find({'in_progress': True}).count())
 
         self.clientConnection.disconnect()
         # yield d2
@@ -412,11 +414,11 @@ class MailingMasterTest(DatabaseMixin, TestCase):
 
         # satellite is disconnected, but too recently: no one should be removed
         yield mailing_master.check_recipients_in_clients(since_seconds=60)
-        self.assertEquals(recipients_count, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEqual(recipients_count, MailingRecipient.find({'in_progress': True}).count())
 
         # satellite is disconnected for time: recipients should be removed
         yield mailing_master.check_recipients_in_clients(since_seconds=-10)
-        self.assertEquals(0, MailingRecipient.find({'in_progress': True}).count())
+        self.assertEqual(0, MailingRecipient.find({'in_progress': True}).count())
 
         yield d2
 
@@ -425,8 +427,8 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         self.fill_database(recipients_count)
         self.fill_database(recipients_count, scheduled_start=datetime.utcnow() + timedelta(hours=5))
 
-        self.assertEquals(Mailing.count(), 2)
-        self.assertEquals(MailingRecipient.count(), recipients_count*2)
+        self.assertEqual(Mailing.count(), 2)
+        self.assertEqual(MailingRecipient.count(), recipients_count*2)
 
         t0 = time.time()
 
@@ -447,8 +449,8 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         self.fill_database(recipients_count)
         self.fill_database(recipients_count, scheduled_end=datetime.utcnow() - timedelta(hours=5))
 
-        self.assertEquals(Mailing.count(), 2)
-        self.assertEquals(MailingRecipient.count(), recipients_count*2)
+        self.assertEqual(Mailing.count(), 2)
+        self.assertEqual(MailingRecipient.count(), recipients_count*2)
 
         t0 = time.time()
         manager = MailingManager.getInstance()
@@ -469,8 +471,8 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         self.fill_database(recipients_count)
         self.fill_database(recipients_count, real_start=datetime.utcnow() - timedelta(hours=5), scheduled_duration=60)
 
-        self.assertEquals(Mailing.count(), 2)
-        self.assertEquals(MailingRecipient.count(), recipients_count*2)
+        self.assertEqual(Mailing.count(), 2)
+        self.assertEqual(MailingRecipient.count(), recipients_count*2)
 
         t0 = time.time()
         manager = MailingManager.getInstance()
@@ -514,18 +516,18 @@ class SendReportTest(DatabaseMixin, TestCase):
             } for i in range(len(ids))
         ]
         r, mailings_stats = MailingManagerView._store_reports(recipients, "SERIAL", logging.getLogger())
-        self.assertEquals(100, len(r))
-        self.assertEquals(1, len(mailings_stats))
-        self.assertEquals(20, mailings_stats[ml.id]['total_softbounce'])
-        self.assertEquals(50, mailings_stats[ml.id]['total_sent'])
-        self.assertEquals(30, mailings_stats[ml.id]['total_error'])
+        self.assertEqual(100, len(r))
+        self.assertEqual(1, len(mailings_stats))
+        self.assertEqual(20, mailings_stats[ml.id]['total_softbounce'])
+        self.assertEqual(50, mailings_stats[ml.id]['total_sent'])
+        self.assertEqual(30, mailings_stats[ml.id]['total_error'])
 
         ids_ok = MailingManagerView._update_mailings_stats((r, mailings_stats))
         self.assertEqual(r, ids_ok)
         ml2 = Mailing.grab(ml.id)
-        self.assertEquals(20, ml2.total_softbounce)
-        self.assertEquals(50, ml2.total_sent)
-        self.assertEquals(30, ml2.total_error)
+        self.assertEqual(20, ml2.total_softbounce)
+        self.assertEqual(50, ml2.total_sent)
+        self.assertEqual(30, ml2.total_error)
 
 
 class MailingManagerQueries(DatabaseMixin, TestCase):
@@ -561,9 +563,9 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
 
     def test_make_mailing_queryset(self):
         mq = factories.MailingFactory()
-        self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
+        self.assertEqual(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
         mq.activate()
-        self.assertEquals(MAILING_STATUS.READY, mq.status)
+        self.assertEqual(MAILING_STATUS.READY, mq.status)
         qs = Mailing.find(SendRecipientsTask.make_mailings_queryset())
         self.assertEqual(1, qs.count())
 
@@ -578,7 +580,7 @@ class MailingManagerQueries(DatabaseMixin, TestCase):
         logging.getLogger('django.db_conn.backends').setLevel(logging.DEBUG)
 
         mq = factories.MailingFactory()
-        self.assertEquals(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
+        self.assertEqual(MAILING_STATUS.FILLING_RECIPIENTS, mq.status)
         qs = Mailing.find(SendRecipientsTask.make_mailings_queryset())
         self.assertEqual(0, qs.count())
 
@@ -610,7 +612,7 @@ class CustomizedContentTest(DatabaseMixin, TestCase):
 
     def test_purge(self):
         fname = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, 'cust_ml_UT.rfc822')
-        with file(fname, 'w') as f:
+        with open(fname, 'w') as f:
             f.write("XXX")
 
         self.assertTrue(os.path.exists(fname))

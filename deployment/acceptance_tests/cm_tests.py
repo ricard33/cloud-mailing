@@ -17,13 +17,13 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 # encoding: utf-8
-from ConfigParser import RawConfigParser
-import httplib
+from configparser import RawConfigParser
+import http.client
 import random
 import ssl
 from subprocess import PIPE, Popen
-import urllib2
-import xmlrpclib
+import urllib.request, urllib.error, urllib.parse
+import xmlrpc.client
 import unittest
 import time, os
 import base64
@@ -60,7 +60,7 @@ def load_config(target_name='TARGET'):
             'smtp_port': test_config.getint(target_name, "smtp_port", 25),
             'pop_port': test_config.getint(target_name, "pop_port", 110),
             'admin_pwd': test_config.get(target_name, "admin_pwd", "password"),
-            'api_key': urllib2.quote(test_config.get(target_name, "api_key", "the_api_key")),
+            'api_key': urllib.parse.quote(test_config.get(target_name, "api_key", "the_api_key")),
             'admin_password': test_config.get(target_name, "admin_password", "password"),
             }
 
@@ -95,10 +95,10 @@ domains = (
 class CloudMailingsTestCase(unittest.TestCase):
     def setUp(self):
         self.domain_name = "unittest.cloud-mailing.net"
-        self.cloudMailingsRpc = xmlrpclib.ServerProxy("https://admin:%(api_key)s@%(ip)s:33610/CloudMailing" % CONFIG,
+        self.cloudMailingsRpc = xmlrpc.client.ServerProxy("https://admin:%(api_key)s@%(ip)s:33610/CloudMailing" % CONFIG,
                                                       context=ssl._create_unverified_context())
         if PURGE_OLD_MAILING:
-            print "DELETING ALL PREVIOUS MAILING..."
+            print("DELETING ALL PREVIOUS MAILING...")
             self.cloudMailingsRpc.delete_all_mailings_for_domain(self.domain_name)
 
     def tearDown(self):
@@ -108,12 +108,12 @@ class CloudMailingsTestCase(unittest.TestCase):
         import email.parser
 
         m_parser = email.parser.Parser()
-        with file(email_filename, 'rt') as fp:
+        with open(email_filename, 'rt') as fp:
             message = m_parser.parse(fp)
         import email.utils
 
         domain_name2 = email.utils.getaddresses([message['From']])[0][1].split('@')[1]
-        self.assertEquals(domain_name2, self.domain_name) # security to only test on UT domain
+        self.assertEqual(domain_name2, self.domain_name) # security to only test on UT domain
 
     def _get_memory_for_process(self, proc_name):
         for line in Popen(["ps", "-mA", "-o", "rss,command=CMD"], stdout=PIPE).communicate()[0].splitlines():
@@ -150,10 +150,10 @@ class CloudMailingsTestCase(unittest.TestCase):
                                                        "<h1>Title</h1><p>Coucou</p>", "Title\nCoucou\n", "UTF-8")
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), mailing_count + 1)
+        self.assertEqual(len(mailings), mailing_count + 1)
         mail_from = "my-mailing@%s" % self.domain_name
-        self.assertEquals(mailings[-1]['id'], mailing_id)
-        self.assertEquals(mailings[-1]['mail_from'], mail_from)
+        self.assertEqual(mailings[-1]['id'], mailing_id)
+        self.assertEqual(mailings[-1]['mail_from'], mail_from)
         recipients_list = [{'email': "cedric.ricard@orange.fr"},
                            {'email': "ricard@free.fr"},
                            {'email': "ricard@calexium.com"},
@@ -175,13 +175,43 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
 
-        mailing2_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        mailing2_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
         self.assertGreater(mailing2_id, 0)
-        self.assertEquals(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), mailing_count + 2)
+        self.assertEqual(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), mailing_count + 2)
         mailing = self.cloudMailingsRpc.list_mailings()[-1]
         # self.assertEqual(mailing['id'], mailing2_id)
         # self.assertEqual(mailing['domain_name'], self.domain_name)
         # self.assertEqual(mailing['total_recipient'], 0)
+
+    def test_create_lot_of_mailings(self):
+        mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
+        self.assertGreaterEqual(mailing_count, 0)
+        for i in range(365 * 5):
+            print(("Adding mailing %d" % i))
+            mailing_id = self.cloudMailingsRpc.create_mailing("my-mailing@%s" % self.domain_name, "My Mailing",
+                                                           'The great newsletter',
+                                                           "<h1>Title</h1><p>Coucou</p>", "Title\nCoucou\n", "UTF-8")
+            self.assertGreater(mailing_id, 0)
+            # mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
+            # self.assertEquals(len(mailings), mailing_count + i + 1)
+            # mail_from = "my-mailing@%s" % self.domain_name
+            # self.assertEquals(mailings[-1]['id'], mailing_id)
+            # self.assertEquals(mailings[-1]['mail_from'], mail_from)
+            recipients_list = [{'email': "cedric.ricard@orange.fr"},
+                               {'email': "ricard@free.fr"},
+                               {'email': "ricard@calexium.com"},
+                               {'email': "cedric.ricard@calexium.com"},
+                               {'email': "cant_exist_email_for_error@calexium.com"},
+                               {'email': "cedric@verybaddomainsisijesuissur.com"},
+                               ]
+            results = self.cloudMailingsRpc.add_recipients(mailing_id, recipients_list)
+            for r1, r2 in zip(recipients_list, results):
+                self.assertDictContainsSubset({'email': r1['email']}, r2)
+                self.assertNotIn('error', r2)
+
+            # mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
+            # self.assertEqual(mailing['id'], mailing_id)
+            # self.assertEqual(mailing['total_recipient'], 6)
 
     def test_run_mailing(self):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
@@ -189,11 +219,11 @@ class CloudMailingsTestCase(unittest.TestCase):
         dkim_private_key = open(os.path.join('data', 'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), mailing_count + 1)
-        self.assertEquals(mailings[-1]['mail_from'], mail_from)
+        self.assertEqual(len(mailings), mailing_count + 1)
+        self.assertEqual(mailings[-1]['mail_from'], mail_from)
         recipients_list = [{'email': "cedric.ricard@orange.fr"},
                            {'email': "ricard@free.fr"},
                            {'email': "ricard33+cm@gmail.com"},
@@ -241,7 +271,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
         self.assertGreater(mailing_id, 0)
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'testing': True})
         recipients_list = [{'email': "cedric.ricard@orange.fr"},
@@ -280,11 +310,11 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'medium_sized.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), mailing_count + 1)
-        self.assertEquals(mailings[-1]['mail_from'], mail_from)
+        self.assertEqual(len(mailings), mailing_count + 1)
+        self.assertEqual(mailings[-1]['mail_from'], mail_from)
         recipients_list = self._make_recipients_list(100)
         results = self.cloudMailingsRpc.add_recipients(mailing_id, recipients_list)
         for r1, r2 in zip(recipients_list, results):
@@ -349,7 +379,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         #time.sleep(6)
         mailings = self.cloudMailingsRpc.list_mailings({'id': all_mailings})
         t0 = time.time()
-        while sum(map(lambda mailing: mailing['total_pending'], mailings)) > 0:
+        while sum([mailing['total_pending'] for mailing in mailings]) > 0:
             for mailing in mailings:
                 self.assertTrue(mailing['status'] in ('READY', 'RUNNING', 'FINISHED'))
             self.assertLess(time.time() - t0, 86400) # 1 day max
@@ -362,24 +392,24 @@ class CloudMailingsTestCase(unittest.TestCase):
         mailings = self.cloudMailingsRpc.list_mailings({'id': all_mailings})
         #self.assertEqual(mailing['status'], 'FINISHED')
         #print repr(mailing)
-        self.assertEqual(sum(map(lambda mailing: mailing['total_recipient'], mailings)), total_recipients)
-        self.assertEqual(sum(map(lambda mailing: mailing['total_pending'], mailings)), 0)
-        self.assertEqual(sum(map(lambda mailing: mailing['total_sent'], mailings)), total_recipients)
-        self.assertEqual(sum(map(lambda mailing: mailing['total_error'], mailings)), 0)
+        self.assertEqual(sum([mailing['total_recipient'] for mailing in mailings]), total_recipients)
+        self.assertEqual(sum([mailing['total_pending'] for mailing in mailings]), 0)
+        self.assertEqual(sum([mailing['total_sent'] for mailing in mailings]), total_recipients)
+        self.assertEqual(sum([mailing['total_error'] for mailing in mailings]), 0)
 
     def _create_mailing(self, max_recipients_per_call=1000):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'mailing-content')
         mail_from = "my-mailing@%s" % self.domain_name
-        # mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        # mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
         mailing_id = self.cloudMailingsRpc.create_mailing(mail_from, "Mailing Corp",  "Test mailing {{firstname}}",
-                                                          file(email_filename + '.html', 'rt').read().decode('utf-8'),
-                                                          file(email_filename + '.txt', 'rt').read().decode('utf-8'),
+                                                          open(email_filename + '.html', 'rt').read().decode('utf-8'),
+                                                          open(email_filename + '.txt', 'rt').read().decode('utf-8'),
                                                           'utf-8')
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
-        self.assertEquals(len(mailings), mailing_count + 1)
-        self.assertEquals(mailings[-1]['mail_from'], mail_from)
+        self.assertEqual(len(mailings), mailing_count + 1)
+        self.assertEqual(mailings[-1]['mail_from'], mail_from)
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 1440, 'testing': True,
                                                                   'dont_close_if_empty': True})
         self.cloudMailingsRpc.start_mailing(mailing_id)
@@ -388,12 +418,12 @@ class CloudMailingsTestCase(unittest.TestCase):
         rcpts_list2 = []
 
         def _add_recipients(rcpts_list):
-            print "add_recipient size: %d" % len(xmlrpclib.dumps((mailing_id, rcpts_list), "add_recipients")) ,
+            print("add_recipient size: %d" % len(xmlrpc.client.dumps((mailing_id, rcpts_list), "add_recipients")), end=' ')
             results = self.cloudMailingsRpc.add_recipients(mailing_id, rcpts_list)
             for r1, r2 in zip(rcpts_list, results):
                 self.assertDictContainsSubset({'email': r1['email']}, r2)
                 self.assertNotIn('error', r2)
-            print "  OK"
+            print("  OK")
 
         count = 0
         for recipient in recipients_list:
@@ -401,7 +431,7 @@ class CloudMailingsTestCase(unittest.TestCase):
             if len(rcpts_list2) >= max_recipients_per_call:
                 _add_recipients(rcpts_list2)
                 count += len(rcpts_list2)
-                print("Sent %d recipients over %d" % (count, total_recipients))
+                print(("Sent %d recipients over %d" % (count, total_recipients)))
                 rcpts_list2 = []
         if len(rcpts_list2):
             _add_recipients(rcpts_list2)
@@ -415,7 +445,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(file(email_filename, 'rt').read()))
+        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
         self.assertGreater(mailing_id, 0)
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'testing': True, 'backup_customized_emails': True})
         recipients_list = [{'email': "cedric.ricard@orange.fr", 'firstname': 'Cedric', 'lastname': 'RICARD'},

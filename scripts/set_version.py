@@ -28,7 +28,7 @@ def put_version(repo_path, target_path):
     dirty = len(stats) > 0 and stats[-1]
     version = label + (dirty and "-dirty" or "")
     print version
-    with file(os.path.join(target_path, 'version.properties'), 'wt') as f:
+    with open(os.path.join(target_path, 'version.properties'), 'wt') as f:
         f.write('VERSION=%s\n' % version)
 
 if __name__ == '__main__':

@@ -149,9 +149,9 @@ def _createSingletonInstance(cls, lstArgs, dctKwArgs):
         instance = cls.__new__(cls)
         try:
             instance.__init__(*lstArgs, **dctKwArgs)
-        except TypeError, e:
+        except TypeError as e:
             if e.message.find('__init__() takes') != -1:
-                raise SingletonException, 'If the singleton requires __init__ args, supply them on first call to getInstance().' 
+                raise SingletonException('If the singleton requires __init__ args, supply them on first call to getInstance().') 
             else:
                 raise
         cls.cInstance = instance
@@ -196,16 +196,14 @@ def forgetAllSingletons():
 
 class MetaSingleton(type):
     def __new__(metaclass, strName, tupBases, dct):
-        if dct.has_key('__new__'):
-            raise SingletonException, 'Can not override __new__ in a Singleton'
+        if '__new__' in dct:
+            raise SingletonException('Can not override __new__ in a Singleton')
         return super(MetaSingleton, metaclass).__new__(metaclass, strName, tupBases, dct)
         
     def __call__(cls, *lstArgs, **dictArgs):
-        raise SingletonException, 'Singletons may only be instantiated through getInstance()'
+        raise SingletonException('Singletons may only be instantiated through getInstance()')
         
-class Singleton(object):
-    __metaclass__ = MetaSingleton
-    
+class Singleton(object, metaclass=MetaSingleton):
     def getInstance(cls, *lstArgs, **dctKwArgs):
         """
         Call this to instantiate an instance or retrieve the existing instance.
@@ -214,7 +212,7 @@ class Singleton(object):
         """
         if cls._isInstantiated():
             if (lstArgs or dctKwArgs) and not hasattr(cls, 'ignoreSubsequent'):
-                raise SingletonException, 'Singleton already instantiated, but getInstance() called with args.'
+                raise SingletonException('Singleton already instantiated, but getInstance() called with args.')
         else:
             _createSingletonInstance(cls, lstArgs, dctKwArgs)
             
@@ -271,7 +269,7 @@ if __name__ == '__main__':
                     
             a1 = A.getInstance()
             a2 = A.getInstance()
-            self.assertEquals(id(a1), id(a2))
+            self.assertEqual(id(a1), id(a2))
             
         def testInstantiateWithMultiArgConstructor(self):
             """
@@ -288,9 +286,9 @@ if __name__ == '__main__':
     
             b1 = B.getInstance('arg1 value', 'arg2 value')
             b2 = B.getInstance()
-            self.assertEquals(b1.arg1, 'arg1 value')
-            self.assertEquals(b1.arg2, 'arg2 value')
-            self.assertEquals(id(b1), id(b2))
+            self.assertEqual(b1.arg1, 'arg1 value')
+            self.assertEqual(b1.arg2, 'arg2 value')
+            self.assertEqual(id(b1), id(b2))
             
         def testInstantiateWithKeywordArg(self):
                     
@@ -302,8 +300,8 @@ if __name__ == '__main__':
     
             b1 = B.getInstance('arg1 value')
             b2 = B.getInstance()
-            self.assertEquals(b1.arg1, 'arg1 value')
-            self.assertEquals(id(b1), id(b2))
+            self.assertEqual(b1.arg1, 'arg1 value')
+            self.assertEqual(id(b1), id(b2))
             
         def testTryToInstantiateWithoutNeededArgs(self):
             
@@ -326,7 +324,7 @@ if __name__ == '__main__':
                     super(B, self).__init__()
                     self.arg1 = arg1
                     self.arg2 = arg2
-                    raise TypeError, 'some type error'
+                    raise TypeError('some type error')
     
             self.assertRaises(TypeError, B.getInstance, 1, 2)
     
@@ -430,12 +428,12 @@ if __name__ == '__main__':
                         if fSleepTime > 0:
                             time.sleep(fSleepTime)
                         Test_Singleton.getInstance()
-                    except Exception, e:
+                    except Exception as e:
                         self._eException = e
                     
             fTargetTime = time.time() + 0.1
             lstThreads = []
-            for _ in xrange(100):
+            for _ in range(100):
                 t = Test_SingletonThread(fTargetTime)
                 t.start()
                 lstThreads.append(t)

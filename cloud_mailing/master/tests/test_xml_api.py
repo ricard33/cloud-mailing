@@ -69,7 +69,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         return self.p.stopListening().addBoth(lambda x: self.disconnect_from_db())
 
     def log(self, msg):
-        print msg
+        print(msg)
         return msg
 
     def proxy(self):
@@ -79,7 +79,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         self.queryFactory if no factory is provided.
         """
         if not self.__proxy:
-            self.__proxy = xmlrpc.Proxy("http://admin:the_API_key@127.0.0.1:%d/" % self.port, useDateTime=True, allowNone=True)
+            self.__proxy = xmlrpc.Proxy(b"http://admin:the_API_key@127.0.0.1:%d/" % self.port, useDateTime=True, allowNone=True)
         return self.__proxy
 
     def test_get_satellites_count(self):
@@ -287,7 +287,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
             }))
 
         # d.addCallback(lambda x: sys.stderr.write(Mailing.objects.all()[0].content.body))
-        d.addCallback(lambda x: self.assertTrue(u'content="text/html; charset=utf-8"' in
+        d.addCallback(lambda x: self.assertTrue('content="text/html; charset=utf-8"' in
             email.message_from_string(Mailing.first().header
                                       + Mailing.first().body).get_payload()[1].get_payload(decode=True).decode('utf-8')))
 
@@ -303,7 +303,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
 
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings", "my-domain.com"))
         # d.addCallback(lambda x: sys.stderr.write(Mailing.objects.all()[0].content.body))
-        d.addCallback(lambda x: self.assertTrue(u'content="text/html; charset=utf-8"' in
+        d.addCallback(lambda x: self.assertTrue('content="text/html; charset=utf-8"' in
             email.message_from_string(Mailing.first().header
                                       + Mailing.first().body).get_payload()[1].get_payload(decode=True).decode('utf-8')))
 
@@ -314,8 +314,8 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         """
         Test mailings creation using rfc822 form
         """
-        content = file(os.path.join(os.path.dirname(__file__), 'data', 'crash_due_to_us-ascii_charset.rfc822'), 'rt').read()
-        content_b64 = base64.b64encode(content)
+        content = open(os.path.join(os.path.dirname(__file__), 'data', 'crash_due_to_us-ascii_charset.rfc822'), 'rt').read()
+        content_b64 = base64.b64encode(content.encode())
         d = self.proxy().callRemote("list_mailings", "my-domain.com")
         d.addCallback(lambda x: self.assertEqual(len(x), 0) and x)
 
@@ -478,9 +478,9 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         mailing = MailingFactory()
         d = self.proxy().callRemote("add_recipients", mailing.id, [{'email': "new_rcpt@world.com"}])
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
-        d.addCallback(lambda x: self.assertEquals(len(x), 1) and x[0])
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x[0])
         d.addCallback(lambda rcpt: self.assertTrue(isinstance(rcpt, dict)) and rcpt)
-        d.addCallback(lambda rcpt: self.assertEquals("new_rcpt@world.com", rcpt['email']) and rcpt)
+        d.addCallback(lambda rcpt: self.assertEqual("new_rcpt@world.com", rcpt['email']) and rcpt)
         return d
 
     def test_add_recipients(self):
@@ -491,13 +491,13 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
             {'email': "again@its.me"},
         ])
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
-        d.addCallback(lambda x: self.assertEquals(len(x), 3) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x), 3) and x)
 
-        d.addCallback(lambda x: self.assertEquals("new_rcpt@world.com", x[0]['email']) and x)
+        d.addCallback(lambda x: self.assertEqual("new_rcpt@world.com", x[0]['email']) and x)
         d.addCallback(lambda x: self.assertTrue("id" in x[0]) and x)
-        d.addCallback(lambda x: self.assertEquals("another_one@ici.fr", x[1]['email']) and x)
+        d.addCallback(lambda x: self.assertEqual("another_one@ici.fr", x[1]['email']) and x)
         d.addCallback(lambda x: self.assertTrue("id" in x[1]) and x)
-        d.addCallback(lambda x: self.assertEquals("again@its.me", x[2]['email']) and x)
+        d.addCallback(lambda x: self.assertEqual("again@its.me", x[2]['email']) and x)
         d.addCallback(lambda x: self.assertTrue("id" in x[2]) and x)
         return d
 
@@ -509,18 +509,18 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
             {'email': "again@its.me"},
         ])
         d.addCallback(lambda x: self.assertTrue(isinstance(x, list)) and x)
-        d.addCallback(lambda x: self.assertEquals(len(x), 3) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x), 3) and x)
 
-        d.addCallback(lambda x: self.assertEquals("new_rcpt@world.com", x[0]['email']) and x)
+        d.addCallback(lambda x: self.assertEqual("new_rcpt@world.com", x[0]['email']) and x)
         d.addCallback(lambda x: self.assertTrue("id" in x[0]) and x)
-        d.addCallback(lambda x: self.assertEquals("another_one@ici.fr", x[1]['email']) and x)
+        d.addCallback(lambda x: self.assertEqual("another_one@ici.fr", x[1]['email']) and x)
         d.addCallback(lambda x: self.assertTrue("id" in x[1]) and x)
-        d.addCallback(lambda x: self.assertEquals("again@its.me", x[2]['email']) and x)
+        d.addCallback(lambda x: self.assertEqual("again@its.me", x[2]['email']) and x)
         d.addCallback(lambda x: self.assertTrue("id" in x[2]) and x)
 
         # Test emails should be available for Satellites
         d.addCallback(lambda x: self.db.mailingrecipient.find(SendRecipientsTask.make_recipients_queryset(mailing.id, only_primary=True)))
-        d.addCallback(lambda x: self.assertEquals(3, len(x)))
+        d.addCallback(lambda x: self.assertEqual(3, len(x)))
 
         return d
 
@@ -537,7 +537,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d = self.proxy().callRemote("list_mailings", "my-company.biz")
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
 
-        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status", map(str, ids)))
+        d.addCallback(lambda x: self.proxy().callRemote("get_recipients_status", list(map(str, ids))))
         d.addCallback(lambda x: self.assertEqual(len(x), 4) and x)
         d.addCallback(lambda x: self.assertEqual(x[0]['status'], RECIPIENT_STATUS.READY) and x)
 
@@ -763,7 +763,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
             MailingRecipient.find_one({'email': "2@2.fr"}).tracking_id,
         ]
 
-        d = self.proxy().callRemote("reset_recipients_status", map(str, ids))
+        d = self.proxy().callRemote("reset_recipients_status", list(map(str, ids)))
         d.addCallback(lambda x: self.assertEqual(MailingRecipient.find_one({'email': "1@2.fr"}).send_status, RECIPIENT_STATUS.READY) and x)
         d.addCallback(lambda x: self.assertEqual(MailingRecipient.find_one({'email': "2@2.fr"}).send_status, RECIPIENT_STATUS.READY) and x)
         d.addCallback(lambda x: self.assertEqual(MailingRecipient.find_one({'email': "3@2.fr"}).send_status, RECIPIENT_STATUS.ERROR) and x)

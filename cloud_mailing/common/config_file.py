@@ -15,12 +15,12 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-from ConfigParser import RawConfigParser
+from configparser import RawConfigParser
 
 class ConfigFile(RawConfigParser):
-    def get(self, section, option, default = None):
+    def get(self, section, option, default=None, **kwargs):
         if self.has_option(section, option) or default is None:
-            return RawConfigParser.get(self, section, option)
+            return RawConfigParser.get(self, section, option, **kwargs)
         else:
             return default
 

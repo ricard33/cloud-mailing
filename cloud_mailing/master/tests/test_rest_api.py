@@ -56,7 +56,7 @@ class AuthenticationTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, T
             self.assertEqual("admin", body['username'])
             self.assertEqual(True, body['is_superuser'])
 
-        d = self.call_api('POST', '/authenticate', http_status.HTTP_200_OK,
+        d = self.call_api(b'POST', '/authenticate', http_status.HTTP_200_OK,
                           # credentials=('admin', self.api_key),
                           data={'username': 'admin', 'password': self.api_key}, pre_read_body_cb=cb_response)
         d.addCallback(cbBody)
@@ -64,17 +64,17 @@ class AuthenticationTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, T
         return d
 
     def test_unauthenticated(self):
-        d = self.call_api('GET', '/mailings', http_status.HTTP_403_FORBIDDEN)
+        d = self.call_api(b'GET', '/mailings', http_status.HTTP_403_FORBIDDEN)
 
         return d
 
     def test_logout(self):
 
-        d = self.call_api('POST', '/authenticate', http_status.HTTP_200_OK,
+        d = self.call_api(b'POST', '/authenticate', http_status.HTTP_200_OK,
                           data={'username': 'admin', 'password': self.api_key})
-        d.addCallback(lambda x: self.call_api('GET', "/mailings", http_status.HTTP_200_OK))
-        d.addCallback(lambda x: self.call_api('POST', "/logout", http_status.HTTP_200_OK))
-        d.addCallback(lambda x: self.call_api('GET', "/mailings", http_status.HTTP_403_FORBIDDEN))
+        d.addCallback(lambda x: self.call_api(b'GET', "/mailings", http_status.HTTP_200_OK))
+        d.addCallback(lambda x: self.call_api(b'POST', "/logout", http_status.HTTP_200_OK))
+        d.addCallback(lambda x: self.call_api(b'GET', "/mailings", http_status.HTTP_403_FORBIDDEN))
 
         return d
 
@@ -98,7 +98,7 @@ class HomeTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase):
             self.assertIn("product_version", body)
             self.assertIn("api_version", body)
 
-        d = self.call_api('GET', '/', http_status.HTTP_200_OK)  # unauthenticated is allowed
+        d = self.call_api('GET', '', http_status.HTTP_200_OK)  # unauthenticated is allowed
         d.addCallback(cbBody)
 
         return d
@@ -221,7 +221,7 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
     def test_delete_mailing(self):
         mailing = factories.MailingFactory(status=MAILING_STATUS.RUNNING, start_time=datetime.utcnow())
 
-        d = self.call_api('DELETE', "/mailings/%d" % mailing.id, expected_status_code=http_status.HTTP_204_NO_CONTENT, credentials=('admin', self.api_key))
+        d = self.call_api('DELETE', "/mailings/%d" % mailing.id, expected_status_code=http_status.HTTP_204_NO_CONTENT, credentials=(b'admin', self.api_key))
         d.addCallback(lambda x: self.assertEqual(None, Mailing.find({'_id': mailing.id}).first()))
         return d
 

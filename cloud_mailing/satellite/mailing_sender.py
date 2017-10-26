@@ -32,7 +32,7 @@ accepting mail for a small set of domains.
 The classes here are meant to facilitate support for such a configuration
 for the twisted.mail SMTP server
 """
-import cPickle as pickle
+import pickle as pickle
 import logging
 import os
 import threading
@@ -145,7 +145,7 @@ class MailingSender(pb.Referenceable):
         return True
     
     def remote_add_recipient(self, arg):
-        print "add_recipient() called with", arg
+        print("add_recipient() called with", arg)
         
     def cb_get_mailing_manager(self, mailing_manager):
         self.mailing_manager = mailing_manager
@@ -166,7 +166,7 @@ class MailingSender(pb.Referenceable):
 
             self.log.debug("Master returns us %d recipients", len(recipient_ids))
             if recipient_ids:
-                yield db.mailingrecipient.update_many({'_id': {'$in': map(lambda _id: ObjectId(_id), recipient_ids)}},
+                yield db.mailingrecipient.update_many({'_id': {'$in': [ObjectId(_id) for _id in recipient_ids]}},
                                                       {'$set': {'send_status': RECIPIENT_STATUS.READY}})
             removed_recipients = yield db.mailingrecipient.count({'send_status': RECIPIENT_STATUS.UNVERIFIED})
             self.log.warning("Found that %d recipients have been removed by master. Deleting them...", removed_recipients)
@@ -176,7 +176,7 @@ class MailingSender(pb.Referenceable):
     def cb_get_recipients(self, data_list, t0):
         self.is_connected = True
         try:
-            recipients = pickle.loads(''.join(data_list))
+            recipients = pickle.loads(b''.join(data_list))
             self.log.debug("Received %d new recipients from Manager in %.1fs.", len(recipients), time.time() - t0)
             mailings = {}   # dict(mailing_id, mailing)
             c = 0
@@ -203,7 +203,7 @@ class MailingSender(pb.Referenceable):
                     )
                     c += 1
                     #print r['id'], '-->', r['recipient']
-                except Exception, ex:
+                except Exception as ex:
                     # print ex
                     self.log.warn("Recipient '%s' was ignored due to Exception: %s", r['email'], ex)
                     # should we inform the master ? it may be not necessary because it means that it is currently already handled
@@ -235,7 +235,7 @@ class MailingSender(pb.Referenceable):
         if mailing:
             mailing_id = mailing._id
         else:
-            existing_mailings_ids = map(lambda m: m._id, Mailing.find({}, projection=[]))
+            existing_mailings_ids = [m._id for m in Mailing.find({}, projection=[])]
             orphan_recipient = MailingRecipient._collection.find_one({'mailing.$id': {'$not': {'$in': existing_mailings_ids}}})
             if orphan_recipient:
                 self.log.warning("Found recipient without mailing for mailing [%s]", orphan_recipient['mailing'])
@@ -348,7 +348,7 @@ class MailingSender(pb.Referenceable):
     def cb_send_reports(self, recipient_ids, t0):
         self.is_connected = True
         try:
-            MailingRecipient.remove({'_id': {'$in': map(lambda id: ObjectId(id), recipient_ids)}})
+            MailingRecipient.remove({'_id': {'$in': [ObjectId(id) for id in recipient_ids]}})
             self.log.debug("Reports for %d recipients sent in %.1f s", len(recipient_ids), time.time() - t0)
         except Exception:
             self.log.exception("Error while removing finished recipients.")
@@ -379,7 +379,7 @@ class MailingSender(pb.Referenceable):
         # BUG possible loose of statistics if row updated since it was sent to master
         try:
             HourlyStats.update({'_id': {'$in': stats_ids}}, {'$set': {'up_to_date': True}}, multi=True)
-        except Exception, ex:
+        except Exception as ex:
             self.log.exception("Error while removing updated statistics for ids [%s].", stats_ids)
         
     def eb_send_statistics(self, err):
@@ -392,8 +392,7 @@ class MailingSender(pb.Referenceable):
 
     @staticmethod
     def make_queue_filter():
-        mailing_ids = map(lambda x: x['_id'],
-                          Mailing._get_collection().find({'body_downloaded': True}, projection=('_id',)))
+        mailing_ids = [x['_id'] for x in Mailing._get_collection().find({'body_downloaded': True}, projection=('_id',))]
         queue_filter = {'$or': [{'in_progress': False}, {'in_progress': None}],
                         'send_status': RECIPIENT_STATUS.READY,
                         'finished': False,
@@ -474,7 +473,7 @@ class MailingSender(pb.Referenceable):
 
             Queue.mxcalc.cleanupBadMXs()
 
-            testing_mailings = map(lambda x: x['_id'], Mailing._get_collection().find({'testing': True}, projection=('_id',)))
+            testing_mailings = [x['_id'] for x in Mailing._get_collection().find({'testing': True}, projection=('_id',))]
             testing_queue_filter = queue_filter.copy()
             queue_filter.setdefault('$and', []).append({'mailing.$id': {'$nin': testing_mailings}})
             testing_queue_filter.setdefault('$and', []).append({'mailing.$id': {'$in': testing_mailings}})
@@ -535,7 +534,7 @@ class MailingSender(pb.Referenceable):
         return exchanges
 
     def _make_relayers(self, exchanges, mail_server, testing=False):
-        for (domain, recipients) in exchanges.iteritems():
+        for (domain, recipients) in exchanges.items():
             q_manager = Queue(domain, recipients, mail_server, testing)
             queue_id = self.relay_manager.add_queue(q_manager)
             self.log.debug("Relayer for '%s' created." % domain)
@@ -757,7 +756,7 @@ class Queue(object):
 
     def _cb_store_mx_list(self, mxs):
         self.log.debug("MX list for '%s': %s", self.domain, repr(mxs))
-        return map(lambda mx: str(mx.name), mxs)
+        return [str(mx.name) for mx in mxs]
 
     def _cbConnectionClosed(self, connector):
         """Callback called by SMTPRelayerFactory for connection closed normally.
@@ -849,7 +848,7 @@ class Queue(object):
             else:
                 from twisted.names.dns import Message
                 if err.value and isinstance(err.value, DomainError):
-                    if isinstance(err.value.message, basestring):
+                    if isinstance(err.value.message, str):
                         err_msg = err.value.message
                     else:
                         err_msg = str(err.value.__name__)
@@ -921,14 +920,14 @@ class RecipientManager(object):
             self.factory.send_email(email_from, (self.email_to,), path)\
                 .addCallbacks(self.onSuccess, self.onFailure)
 
-        except OSError, ex:
+        except OSError as ex:
             self.log.error("Mailing customizer failure for mailing %s and recipient %s: %s", self.email_from, self.email_to, str(ex))
             if ex.errno == 2:  # No such file or directory
                 self.recipient.update_send_status(RECIPIENT_STATUS.WARNING, smtp_message = "Email customization temporary error: %s" % str(ex.message))
             else:
                 self.recipient.update_send_status(RECIPIENT_STATUS.GENERAL_ERROR, smtp_message = str(ex))
 
-        except smtp.AddressError, ex:
+        except smtp.AddressError as ex:
             self.log.error("[Mailing %s] Failed to add email '%s' to SMTPRelayerFactory: %s", self.email_from, self.email_to, ex.message)
             self.recipient.update_send_status(RECIPIENT_STATUS.GENERAL_ERROR, smtp_message = ex.message)
             self.recipient.mark_as_finished()
@@ -936,7 +935,7 @@ class RecipientManager(object):
             DomainStats.add_failed(self.factory.targetDomain)
             self.deferred.errback(Failure(ex))
 
-        except Exception, ex:
+        except Exception as ex:
             self.log.exception("[Mailing %s] Failed to handle email '%s'", self.email_from, self.email_to)
             self.recipient.update_send_status(RECIPIENT_STATUS.GENERAL_ERROR, smtp_message = str(ex))
             self.recipient.mark_as_finished()

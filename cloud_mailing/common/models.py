@@ -62,7 +62,7 @@ class Settings(Model):
     @staticmethod
     def get_bool(name, default = None):
         value = Settings.get_str(name, default)
-        if isinstance(value, basestring):
+        if isinstance(value, str):
             if value.lower() == 'true' or safe_int(value) != 0:
                 return True
             return False
@@ -79,7 +79,7 @@ class Settings(Model):
     def get_long(name, default = None):
         var = Settings.search(var_name=name).first()
         if var:
-            return long(var.var_value)
+            return int(var.var_value)
         return default
 
     @staticmethod
@@ -95,7 +95,7 @@ class Settings(Model):
         if var:
             try:
                 return datetime.strptime(var.var_value, "%Y-%m-%dT%H:%M:%S.%f")
-            except Exception, ex:
+            except Exception as ex:
                 logging.exception("Error parsing date [%s]", var.var_value)
         return default
 

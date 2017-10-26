@@ -86,7 +86,7 @@ class CloudClient(pb.Referenceable):
                 self.mailing_queue.delay_if_empty = 10
 
     def remote_set_settings(self, settings):
-        for key, value in settings.items():
+        for key, value in list(settings.items()):
             Settings.set(key, value)
 
     def remote_close_mailing(self, mailing_id):
@@ -107,7 +107,7 @@ class CloudClient(pb.Referenceable):
         """
         Returns the list of currently handled recipient ids.
         """
-        return map(lambda x: str(x['_id']), MailingRecipient._get_collection().find(projection=('_id',)))
+        return [str(x['_id']) for x in MailingRecipient._get_collection().find(projection=('_id',))]
 
     def remote_check_recipients(self, recipient_ids):
         """
@@ -117,7 +117,7 @@ class CloudClient(pb.Referenceable):
         recipients_dict = {}
         for _id in recipient_ids:
             recipients_dict[_id] = None
-        for recipient in MailingRecipient._get_collection().find({'_id': {'$in': map(lambda x: ObjectId(x), recipient_ids)}}):
+        for recipient in MailingRecipient._get_collection().find({'_id': {'$in': [ObjectId(x) for x in recipient_ids]}}):
             for field in ('contact_data', 'unsubscribe_id'):
                 recipient.pop(field, None)
             recipient['_id'] = str(recipient['_id'])
@@ -154,7 +154,7 @@ class CloudClient(pb.Referenceable):
             def _remove_file():
                 log.debug("Removing customized file '%s'", fullpath)
                 os.remove(fullpath)
-            util.FilePager(collector, file(fullpath, 'rt'), callback=_remove_file)
+            util.FilePager(collector, open(fullpath, 'rt'), callback=_remove_file)
         else:
             log.error("Requested customized content not found: %s", fullpath)
             return defer.fail(IOError(errno.ENOENT, "No such file or directory", fullpath))
@@ -200,7 +200,7 @@ class CloudClientFactory(pb.PBClientFactory, ReconnectingClientFactory):
         config = ConfigFile()
         config.read(settings.CONFIG_FILE)
         pb.PBClientFactory.clientConnectionMade(self, broker)
-        def1 = self.login(credentials.UsernamePassword(settings.SERIAL, hmac.HMAC(config.get("MAILING", 'shared_key', '!')).hexdigest()),
+        def1 = self.login(credentials.UsernamePassword(settings.SERIAL, hmac.HMAC(config.get("MAILING", 'shared_key', '!').encode()).hexdigest().encode()),
                           client=self.cloud_client)
         def1.addCallback(self.cloud_client.connected)
         

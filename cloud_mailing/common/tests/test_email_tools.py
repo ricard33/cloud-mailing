@@ -25,9 +25,9 @@ class RegroupArgsTestCase(TestCase):
 
     def test_header_to_unicode(self):
         # Example from RFC2047 page 12
-        self.assertEqual(u"a", header_to_unicode("=?ISO-8859-1?Q?a?="))
-        self.assertEqual(u"ab", header_to_unicode("=?ISO-8859-1?Q?a?= =?ISO-8859-1?Q?b?="))
-        self.assertEqual(u"ab", header_to_unicode("=?ISO-8859-1?Q?a?= =?UTF-8?Q?b?="))
-        self.assertEqual(u"a b", header_to_unicode("=?ISO-8859-1?Q?a?= b"))
-        self.assertEqual(u'C\xe9dric RICARD <my-mailing@unittest.cloud-mailing.net>',
+        self.assertEqual("a", header_to_unicode("=?ISO-8859-1?Q?a?="))
+        self.assertEqual("ab", header_to_unicode("=?ISO-8859-1?Q?a?= =?ISO-8859-1?Q?b?="))
+        self.assertEqual("ab", header_to_unicode("=?ISO-8859-1?Q?a?= =?UTF-8?Q?b?="))
+        self.assertEqual("a b", header_to_unicode("=?ISO-8859-1?Q?a?= b"))
+        self.assertEqual('C\xe9dric RICARD <my-mailing@unittest.cloud-mailing.net>',
                          header_to_unicode("=?UTF-8?B?Q8OpZHJpYyBSSUNBUkQ=?= <my-mailing@unittest.cloud-mailing.net>"))

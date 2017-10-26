@@ -34,7 +34,7 @@ def configure_logging(log_name, LOG_CONFIG_PATH, LOG_PATH, DEFAULT_LOG_FORMAT, R
         try:
             import pyreadline
         #    except ImportError, ex:
-        except Exception, ex:
+        except Exception as ex:
             # print >> sys.stderr, "IMPORT ERROR with pyreadline:", ex.message
             pass
         # logger = logging.getLogger()
@@ -52,7 +52,7 @@ def configure_logging(log_name, LOG_CONFIG_PATH, LOG_PATH, DEFAULT_LOG_FORMAT, R
             observer = Observer()
             # observer.schedule(LoggingEventHandler(), LOG_CONFIG_PATH, recursive=False)
             observer.schedule(handler, LOG_CONFIG_PATH, recursive=False)
-            print "log watcher to '%s'" % LOG_CONFIG_PATH
+            print("log watcher to '%s'" % LOG_CONFIG_PATH)
             observer.daemon = True  # should not block the program ending
             observer.start()
 
@@ -67,7 +67,7 @@ class LoggingConfigEventHandler(FileSystemEventHandler):
         self.base_filename = 'logging-%s' % self.log_name
 
     def on_any_event(self, event):
-        print("Event %s" % repr(event))
+        print(("Event %s" % repr(event)))
         logging.debug("Event %s", event)
         if not event.is_directory:
             filename = os.path.basename(event.src_path)
@@ -99,7 +99,7 @@ class LoggingConfigEventHandler(FileSystemEventHandler):
                 traceback.print_exc()
 
         if not log_ok:
-            print "Loading log config not found or badly formated, loading default config."
+            print("Loading log config not found or badly formated, loading default config.")
 
             log_level = logging.INFO
             formatter = logging.Formatter(self.default_log_format)

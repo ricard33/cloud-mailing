@@ -47,7 +47,7 @@ def mx_resolver(recipientOrDomain):
                 ips.append(ip.address)
         return ips
     
-    except DNSException, ex:
+    except DNSException as ex:
         logging.getLogger('sendmail').warning("Can't get MX record for domain '%s': %s" % (domain, str(ex)))
         raise
     
@@ -136,7 +136,7 @@ class EmailSender(smtplib.SMTP):
             self.rset()
             raise smtplib.SMTPSenderRefused(code, resp, from_addr)
         senderrs={}
-        if isinstance(to_addrs, basestring):
+        if isinstance(to_addrs, str):
             to_addrs = [to_addrs]
         for each in to_addrs:
             (code,resp)=self.rcpt(each, rcpt_options)
@@ -365,7 +365,7 @@ class SMTPRelayerFactory(protocol.ClientFactory):
         @param timeout: Period, in seconds, for which to wait for
         server responses, or None to wait forever.
         """
-        assert isinstance(retries, (int, long))
+        assert isinstance(retries, int)
 
         self.targetDomain = targetDomain
 
@@ -393,7 +393,7 @@ class SMTPRelayerFactory(protocol.ClientFactory):
                                                       self.targetDomain, id(self))
         
     def __unicode__(self):
-        return u"<%s.%s instance for '%s' at 0x%x>" % (self.__module__, self.__class__.__name__, 
+        return "<%s.%s instance for '%s' at 0x%x>" % (self.__module__, self.__class__.__name__, 
                                                        self.targetDomain, id(self))
 
     @property
@@ -492,7 +492,7 @@ class SMTPRelayerFactory(protocol.ClientFactory):
         """
         deferred = defer.Deferred()
         self.log.debug("Add %s into factory (%s)", ', '.join(toEmails), self.targetDomain)
-        self.mails.insert(0, (Address(fromEmail), map(Address, toEmails), fileName, deferred))
+        self.mails.insert(0, (Address(fromEmail), list(map(Address, toEmails)), fileName, deferred))
         return deferred
     
     def getNextEmail(self):

@@ -48,7 +48,7 @@ class MigrationsTestCase(DatabaseMixin, unittest.TestCase):
         client = factories.CloudClientFactory()
         mailing = factories.MailingFactory()
         result1 = self.db_sync.mailingrecipient.insert_one({
-            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "next_try" : datetime(2016, 0o3, 16, 0o6, 23, 0o6, 826000),
             "in_progress" : False,
             "send_status" : "READY",
             "contact" : {
@@ -60,7 +60,7 @@ class MigrationsTestCase(DatabaseMixin, unittest.TestCase):
             "email" : "email13@my-company.biz",
         })
         result2 = self.db_sync.mailingrecipient.insert_one({
-            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "next_try" : datetime(2016, 0o3, 16, 0o6, 23, 0o6, 826000),
             "in_progress" : True,
             "send_status" : "READY",
             "contact" : {
@@ -73,7 +73,7 @@ class MigrationsTestCase(DatabaseMixin, unittest.TestCase):
         })
         self.db_sync.mailingtempqueue.insert_one({
             "mail_from" : "sender@cloud-mailing.net",
-            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "next_try" : datetime(2016, 0o3, 16, 0o6, 23, 0o6, 826000),
             "sender_name" : "CM Tests",
             "recipient" : self.db_sync.mailingrecipient.find_one({'_id': result2.inserted_id}),
             "in_progress" : True,
@@ -84,7 +84,7 @@ class MigrationsTestCase(DatabaseMixin, unittest.TestCase):
             "domain_name" : "my-company.biz"
         })
         result3 = self.db_sync.mailingrecipient.insert_one({
-            "next_try" : datetime(2016, 03, 16, 06, 23, 06, 826000),
+            "next_try" : datetime(2016, 0o3, 16, 0o6, 23, 0o6, 826000),
             "in_progress" : True,
             "send_status" : "READY",
             "contact" : {

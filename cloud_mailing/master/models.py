@@ -24,7 +24,7 @@ from bson import DBRef
 from mogo import Model, Field, EnumField, ReferenceField
 from twisted.internet import defer
 
-from cloud_mailing.common.encoding import force_str
+from ..common.encoding import force_str
 from ..common.email_tools import header_to_unicode
 from ..common.models import Sequence
 
@@ -213,7 +213,7 @@ class Mailing(Model):
     def activate(self):
         """Activate the mailing, allowing it to be handled by the mailing sender."""
         if self.status != MAILING_STATUS.FILLING_RECIPIENTS:
-            raise ValueError, _('Only mailings in FILLING_RECIPIENTS state can be activated')
+            raise ValueError(_('Only mailings in FILLING_RECIPIENTS state can be activated'))
         self.update(status=MAILING_STATUS.READY)
 
     def update_stats(self):

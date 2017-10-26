@@ -16,7 +16,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-from __future__ import with_statement
+
 
 import random
 import smtpd
@@ -29,7 +29,7 @@ from datetime import datetime
 
 class FakeSMTPChannel(smtpd.SMTPChannel):
     def smtp_RCPT(self, arg):
-        print >> smtpd.DEBUGSTREAM, '===> RCPT', arg
+        print('===> RCPT', arg, file=smtpd.DEBUGSTREAM)
         if not self._SMTPChannel__mailfrom:
             self.push('503 Error: need MAIL command')
             return
@@ -48,7 +48,7 @@ class FakeSMTPChannel(smtpd.SMTPChannel):
         #     return
 
         self._SMTPChannel__rcpttos.append(address)
-        print 'recips:', self._SMTPChannel__rcpttos
+        print('recips:', self._SMTPChannel__rcpttos)
         self.push('250 Ok')
 
 class FakeSMTPD(smtpd.SMTPServer):
@@ -66,14 +66,14 @@ class FakeSMTPD(smtpd.SMTPServer):
         pair = self.accept()
         if pair is not None:
             conn, addr = pair
-            print 'Incoming connection from %s' % repr(addr)
+            print('Incoming connection from %s' % repr(addr))
             channel = FakeSMTPChannel(self, conn, addr)
 
     def process_message(self, peer, mailfrom, rcpttos, data):
         with self.lock:
             t1 = time.time()
             if t1 - self.last_time > self.max_delay_before_reset:
-                print "Resetting Bandwidth statistics due to too high delay between messages."
+                print("Resetting Bandwidth statistics due to too high delay between messages.")
                 self.t0 = t1 - 0.1  # to avoid a 'division by zero' error
                 self.email_count = 0
                 self.bandwidth = 0
@@ -83,12 +83,12 @@ class FakeSMTPD(smtpd.SMTPServer):
             delta = t1 - self.t0
             if rcpttos[0] in self.d:
                 self.d[rcpttos[0]] +=1
-                print >> sys.stderr, '[%s] %s received %d times' % (datetime.now(), rcpttos[0], self.d[rcpttos[0]])
+                print('[%s] %s received %d times' % (datetime.now(), rcpttos[0], self.d[rcpttos[0]]), file=sys.stderr)
             else:
                 self.d[rcpttos[0]] = 1
-            print '\r[%s] %d messages received into %d seconds. Rate = %.1f mails/s | %d mails/day  Bandwidth = %.1f Kb/s' % (
+            print('\r[%s] %d messages received into %d seconds. Rate = %.1f mails/s | %d mails/day  Bandwidth = %.1f Kb/s' % (
                 datetime.now(), self.email_count, delta, self.email_count / delta, (self.email_count * 86400) / delta,
-                (self.bandwidth / 1024.0) / delta)
+                (self.bandwidth / 1024.0) / delta))
         
 if __name__ == "__main__":
     port = 25
@@ -97,6 +97,6 @@ if __name__ == "__main__":
     # smtpd.DEBUGSTREAM = sys.stdout
     server = FakeSMTPD(("0.0.0.0", port), None)
     
-    print "Fake SMTP server listening on port %d" % port
+    print("Fake SMTP server listening on port %d" % port)
     asyncore.loop()
     

@@ -74,7 +74,7 @@ class Mailing(Model):
     _id_type = int
 
     def __unicode__(self):
-        return u"Queue[%d]" % self.id
+        return "Queue[%d]" % self.id
 
     def save(self, *args, **kwargs):
         if not self._id:
@@ -139,8 +139,8 @@ class MailingRecipient(Model):
             self.next_try = datetime.utcnow()
         self.reply_code = smtp_code and smtp_code or None
         self.reply_enhanced_code = smtp_e_code and smtp_e_code or None
-        self.reply_text = smtp_message and unicode(smtp_message, errors='replace') or None
-        self.smtp_log = smtp_log and unicode(smtp_log, errors='replace') or None
+        self.reply_text = smtp_message and str(smtp_message, errors='replace') or None
+        self.smtp_log = smtp_log and str(smtp_log, errors='replace') or None
         self.in_progress = in_progress
         self.save()
         #if send_status in (RECIPIENT_STATUS.ERROR, RECIPIENT_STATUS.GENERAL_ERROR):

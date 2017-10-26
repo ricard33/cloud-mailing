@@ -18,17 +18,18 @@
 import pymongo
 from twisted.trial.unittest import TestCase
 
-from ..rest_api_common import regroup_args, make_sort_filter
+from ..rest_api_common import decode_and_regroup_args, make_sort_filter
 
 __author__ = 'Cedric RICARD'
 
 
 class RegroupArgsTestCase(TestCase):
     def test_regroup_args(self):
-        self.assertDictEqual({'.filter': 'total'}, regroup_args({'.filter': ['total']}))
-        self.assertDictEqual({'.limit': 100}, regroup_args({'.limit': ['100']}))
+        self.assertDictEqual({'.filter': 'total'}, decode_and_regroup_args({'.filter': ['total']}))
+        self.assertDictEqual({'.filter': 'total'}, decode_and_regroup_args({b'.filter': [b'total']}))
+        self.assertDictEqual({'.limit': 100}, decode_and_regroup_args({'.limit': ['100']}))
         self.assertDictEqual({'status': ['FILLING_RECIPIENTS', 'READY', 'RUNNING', 'PAUSED']},
-                             regroup_args({'status': ['FILLING_RECIPIENTS', 'READY', 'RUNNING', 'PAUSED']}))
+                             decode_and_regroup_args({'status': ['FILLING_RECIPIENTS', 'READY', 'RUNNING', 'PAUSED']}))
 
     def test_make_sort_filter(self):
         self.assertEqual([('field', pymongo.ASCENDING)], make_sort_filter('field'))

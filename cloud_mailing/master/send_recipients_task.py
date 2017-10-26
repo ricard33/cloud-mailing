@@ -15,7 +15,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-import cPickle as pickle
+import pickle as pickle
 import logging
 import re
 import time
@@ -92,15 +92,15 @@ class SendRecipientsTask(Singleton):
                             continue
                         excluded.append(domain)
 
-            elif isinstance(domain_affinity, basestring):
+            elif isinstance(domain_affinity, str):
                 affinity = domain_affinity and eval(domain_affinity)
 
                 if affinity:
                     if not isinstance(affinity, dict):
-                        raise TypeError, "Affinity is not a dictionary!"
+                        raise TypeError("Affinity is not a dictionary!")
                     # print self.cloud_client.serial, repr(affinity)
                     if affinity.get('enabled', True):
-                        for domain, value in affinity.items():
+                        for domain, value in list(affinity.items()):
                             if domain == 'enabled':
                                 continue
                             if not domain_re.match(domain):
@@ -175,7 +175,7 @@ class SendRecipientsTask(Singleton):
             'satellite_group': satellite_group
         }
         _list_of_mailings = yield db.mailing.find(mailing_filter, fields=[])
-        mailing_ids = map(lambda x: x['_id'], _list_of_mailings)
+        mailing_ids = [x['_id'] for x in _list_of_mailings]
 
         filter = SendRecipientsTask.make_recipients_queryset({'$in': mailing_ids}, included, excluded, only_primary=True)
         f = txmongo.filter.sort(txmongo.filter.ASCENDING("next_try"))
@@ -230,7 +230,7 @@ class SendRecipientsTask(Singleton):
                         }})
                     nb_max = max(100, mailing.get('total_pending', 0)
                                  * nb_recipients / total_recipients_pending)
-                    nb_max = min(nb_max, max_nb_recipients - len(recipients))
+                    nb_max = int(min(nb_max, max_nb_recipients - len(recipients)))
                     if nb_max <= 0:
                         self.log.error("Filling mailing queue: nb_max has to be strictly greater than 0! Logic error!")
                         break
@@ -345,7 +345,7 @@ class SendRecipientsTask(Singleton):
             ])
             current_load = {load['_id']: load['count'] for load in current_load}
             self.log.debug("Current satellite load:")
-            for _id, count in current_load.items():
+            for _id, count in list(current_load.items()):
                 self.log.debug("    - %s: %d recipients", _id, count)
 
             all_satellites.sort(key=lambda x: current_load.get(x['serial'], 0))

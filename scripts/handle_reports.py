@@ -48,20 +48,20 @@ def handle_report(message_str, mailing_ids):
                 recipient = recipient.split(';')[1]
                 status = per_recipient_status['Status']
                 details = per_recipient_status['Diagnostic-Code']
-                print 'Report found:'
-                print '  action:', action
-                print '  Recipient:', recipient
-                print '  Status:', status
-                print '  Details:', details
+                print('Report found:')
+                print('  action:', action)
+                print('  Recipient:', recipient)
+                print('  Status:', status)
+                print('  Details:', details)
 
-                print "######"
+                print("######")
 
                 # print message.get_payload(2).as_string()
 
                 return store_recipient_report(recipient, status, details, message_str, mailing_ids)
 
     except Exception as ex:
-        print ex
+        print(ex)
         return defer.fail(failure.Failure(ex))
 
     return defer.succeed(None)
@@ -87,10 +87,10 @@ def cb_update_recipient(result):
 
 
 def eb_update_recipient(err):
-    print("Error trying to update recipient status: %s" % err)
+    print(("Error trying to update recipient status: %s" % err))
     return err
 
 
 def onError(err):
-    print err
+    print(err)
     return err

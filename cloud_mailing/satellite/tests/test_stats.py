@@ -19,7 +19,7 @@ from ...common.unittest_mixins import DatabaseMixin
 from ..mail_customizer import MailCustomizer
 from ..models import MailingRecipient, Mailing, DomainStats, HourlyStats
 from twisted.trial.unittest import TestCase
-import factories
+from . import factories
 import os
 import email.parser
 import email.message
@@ -110,7 +110,7 @@ class TestDomainStats(DatabaseMixin, TestCase):
         self.assertEqual(1, DomainStats.find_one({'domain_name': 'example.org'}).dns_cumulative_temp_errors)
         self.assertEqual(0, DomainStats.find_one({'domain_name': 'example.org'}).dns_fatal_errors)
         self.assertEqual(0, DomainStats.find_one({'domain_name': 'example.org'}).dns_cumulative_fatal_errors)
-        self.assertEqual('exceptions.Exception', DomainStats.find_one({'domain_name': 'example.org'}).dns_last_error)
+        self.assertEqual('builtins.Exception', DomainStats.find_one({'domain_name': 'example.org'}).dns_last_error)
 
         DomainStats.add_dns_success("example.org")
         self.assertEqual(1, DomainStats.find_one({'domain_name': 'example.org'}).tries)
@@ -129,7 +129,7 @@ class TestDomainStats(DatabaseMixin, TestCase):
         self.assertEqual(0, DomainStats.find_one({'domain_name': 'example.org'}).dns_cumulative_temp_errors)
         self.assertEqual(1, DomainStats.find_one({'domain_name': 'example.org'}).dns_fatal_errors)
         self.assertEqual(1, DomainStats.find_one({'domain_name': 'example.org'}).dns_cumulative_fatal_errors)
-        self.assertEqual('exceptions.Exception', DomainStats.find_one({'domain_name': 'example.org'}).dns_last_error)
+        self.assertEqual('builtins.Exception', DomainStats.find_one({'domain_name': 'example.org'}).dns_last_error)
 
         DomainStats.add_dns_success("example.org")
         self.assertEqual(1, DomainStats.find_one({'domain_name': 'example.org'}).tries)

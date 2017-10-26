@@ -16,8 +16,8 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import base64
-import cPickle
-import cStringIO
+import pickle
+import io
 import email
 import email.generator
 import email.parser
@@ -25,7 +25,7 @@ import logging
 import os
 import re
 import threading
-import urllib
+import urllib.request, urllib.parse, urllib.error
 from email.header import Header
 from email.message import Message
 
@@ -34,6 +34,9 @@ import jinja2
 from jinja2 import nodes
 from jinja2.ext import Extension
 
+import sys
+print(sys.path)
+from ..common.encoding import force_bytes, force_str
 from .models import MailingRecipient
 from ..common import settings
 from ..common.email_tools import header_to_unicode
@@ -132,11 +135,11 @@ class MailCustomizer:
 
         charset = message.get_content_charset(failobj='us-ascii')
         original = message.get_payload(decode=True)
-        if isinstance(original, unicode):
+        if isinstance(original, str):
             decoded = original
         else:
             decoded = original.decode(charset)
-        assert(isinstance(decoded, unicode))
+        assert(isinstance(decoded, str))
         encoding = message['Content-Transfer-Encoding']
         del message['Content-Transfer-Encoding']
         new_body = self._do_customization(decoded,
@@ -185,7 +188,7 @@ class MailCustomizer:
         #noinspection PyBroadException
         try:
             contact_data = recipient.contact_data
-        except Exception, ex:
+        except Exception as ex:
             self.log.exception("Error evaluating Contact data: '%s'", repr(recipient.contact_data))
             contact_data = {'email': str(recipient.email)}
         return contact_data
@@ -201,7 +204,7 @@ class MailCustomizer:
             if os.path.exists(fullpath):
                 self.log.debug("Customized email found here: %s", fullpath)
                 parser = email.parser.Parser()
-                with file(fullpath, 'rt') as fd:
+                with open(fullpath, 'rt') as fd:
                     header = parser.parse(fd, headersonly=True)
                     return header['Message-ID'], fullpath
             contact_data = self.make_contact_data_dict(self.recipient)
@@ -248,10 +251,10 @@ class MailCustomizer:
                             convert_to_mixed(part, mixed_attachments, subtype="alternative")
 
                     elif subtype == 'digest':
-                        raise email.errors.MessageParseError, "multipart/digest not supported"
+                        raise email.errors.MessageParseError("multipart/digest not supported")
 
                     elif subtype == 'parallel':
-                        raise email.errors.MessageParseError, "multipart/parallel not supported"
+                        raise email.errors.MessageParseError("multipart/parallel not supported")
 
                     elif subtype == 'related':
                         personalise_bodies(part.get_payload(0))
@@ -271,7 +274,7 @@ class MailCustomizer:
                         if mixed_attachments:
                             import email.mime.text
 
-                            part2 = email.mime.text.MIMEText(part.get_payload(decode=True))
+                            part2 = email.mime.text.MIMEText(part.get_payload(decode=True).decode())
                             del part['Content-Type']
                             part['Content-Type'] = 'multipart/mixed'
                             part.set_payload(None)
@@ -311,7 +314,7 @@ class MailCustomizer:
             if self.unsubscribe_url:
                 message['List-Unsubscribe'] = self.unsubscribe_url
 
-            fp = cStringIO.StringIO()
+            fp = io.StringIO()
             generator = email.generator.Generator(fp, mangle_from_=False)
             generator.flatten(message)
             flattened_message = fp.getvalue()
@@ -334,14 +337,14 @@ class MailCustomizer:
         sig = ''
         dkim_settings = self.recipient.mailing.get('dkim', None)
         if dkim_settings and dkim_settings.get('enabled', True):
-            sig = dkim.sign(flattened_message, dkim_settings['selector'], dkim_settings['domain'],
-                            dkim_settings['privkey'],
-                            canonicalize=dkim_settings.get('canonicalize', (b'relaxed', b'simple')),
-                            signature_algorithm=dkim_settings.get('signature_algorithm', b'rsa-sha256'),
-                            include_headers=dkim_settings.get('include_headers'),
+            sig = dkim.sign(flattened_message.encode(), dkim_settings['selector'].encode(), dkim_settings['domain'].encode(),
+                            dkim_settings['privkey'].encode(),
+                            canonicalize=map(force_bytes, dkim_settings.get('canonicalize', (b'relaxed', b'simple'))),
+                            signature_algorithm=dkim_settings.get('signature_algorithm', 'rsa-sha256').encode(),
+                            include_headers=list(map(force_bytes, dkim_settings.get('include_headers', []))) or None,
                             length=dkim_settings.get('length', False),
                             logger=self.log)
-            sig = str(sig.replace(b'\r\n', b'\n'))  # sig is in unicode
+            sig = sig.replace(b'\r\n', b'\n').decode()
         return sig + flattened_message
 
     def add_fbl(self, flattened_message):
@@ -358,13 +361,15 @@ class MailCustomizer:
             mail_type_id = fbl_settings.get('mail_type_id', mailing.type)
             fbl_header = 'Feedback-ID: %s:%s:%s:%s\n' % (campaign_id, customer_id, mail_type_id, sender_id)
             flattened_message = fbl_header + flattened_message
-            d = dkim.DKIM(flattened_message, signature_algorithm=dkim_settings.get('signature_algorithm', b'rsa-sha256'), logger=self.log)
-            sig = d.sign(dkim_settings['selector'], dkim_settings['domain'], dkim_settings['privkey'],
-                         canonicalize=dkim_settings.get('canonicalize', (b'relaxed', b'simple')),
-                         include_headers=dkim_settings.get('include_headers', d.default_sign_headers()) + ['Feedback-ID'],
+            d = dkim.DKIM(flattened_message.encode(),
+                          signature_algorithm=dkim_settings.get('signature_algorithm', 'rsa-sha256').encode(),
+                          logger=self.log)
+            sig = d.sign(dkim_settings['selector'].encode(), dkim_settings['domain'].encode(), dkim_settings['privkey'].encode(),
+                         canonicalize=map(force_bytes, dkim_settings.get('canonicalize', (b'relaxed', b'simple'))),
+                         include_headers=map(force_bytes, dkim_settings.get('include_headers', d.default_sign_headers()) + [b'Feedback-ID']),
                          length=dkim_settings.get('length', False),
                          )
-            sig = str(sig.replace(b'\r\n', b'\n'))  # sig is in unicode
+            sig = sig.replace(b'\r\n', b'\n').decode()  # sig is in unicode
         return sig + flattened_message
 
     def _parse_message(self):
@@ -372,14 +377,14 @@ class MailCustomizer:
         try:
             result = MailCustomizer.mailingsContent.get(self.recipient.mailing.id, None)
             if result:
-                return cPickle.loads(result)
+                return pickle.loads(result)
             else:
                 # parse email
                 mparser = email.parser.FeedParser()
                 mparser.feed(self.recipient.mailing.header)
                 mparser.feed(self.recipient.mailing.body)
                 result = mparser.close()
-                MailCustomizer.mailingsContent[self.recipient.mailing.id] = cPickle.dumps(result)
+                MailCustomizer.mailingsContent[self.recipient.mailing.id] = pickle.dumps(result)
             return result
         finally:
             MailCustomizer._parserLock.release()
@@ -415,7 +420,7 @@ class ClickExtension(Extension):
         # we only listen to ``'click'`` so this will be a name token with
         # `click` as value.  We get the line number so that we can give
         # that line number to the nodes we create by hand.
-        lineno = parser.stream.next().lineno
+        lineno = next(parser.stream).lineno
         ctx_ref = jinja2.nodes.ContextReference()
 
         # # now we parse a single expression that is used as cache key.
@@ -444,7 +449,8 @@ class ClickExtension(Extension):
 
     @jinja2.contextfilter
     def do_url_encode(self, context, s):
+        s = force_bytes(s)
         if context['_url_encoding'] == 'base64':
-            return base64.urlsafe_b64encode(s).strip('=')
+            return force_str(base64.urlsafe_b64encode(s).strip(b'='))
         else:
-            return urllib.quote(s)
+            return urllib.parse.quote(s)

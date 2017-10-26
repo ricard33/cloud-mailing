@@ -15,8 +15,8 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
-from cStringIO import StringIO
-from twisted.web import xmlrpc, resource, http, server, static
+from io import StringIO
+from twisted.web import xmlrpc as tx_xmlrpc, resource, http, server, static
 from twisted.internet import defer, protocol, reactor
 from twisted.python import log
 import os
@@ -25,12 +25,12 @@ import pydoc
 import inspect
 import re
 import traceback
-import xmlrpclib
+import xmlrpc.client
 
-Fault = xmlrpclib.Fault
-Binary = xmlrpclib.Binary
-Boolean = xmlrpclib.Boolean
-DateTime = xmlrpclib.DateTime
+Fault = xmlrpc.client.Fault
+Binary = xmlrpc.client.Binary
+Boolean = xmlrpc.client.Boolean
+DateTime = xmlrpc.client.DateTime
 
 try:
     withRequest = xmlrpc.withRequest
@@ -90,7 +90,7 @@ class XmlRcpError(Exception):
         self.http_code = http_code
 
 
-class TwistedRPCServer(xmlrpc.XMLRPC):
+class TwistedRPCServer(tx_xmlrpc.XMLRPC):
     """ A class which works as an XML-RPC server with
     HTTP basic authentication """
 
@@ -98,7 +98,7 @@ class TwistedRPCServer(xmlrpc.XMLRPC):
         self._user = user
         self._password = password
         self._auth = (self._user !='')
-        xmlrpc.XMLRPC.__init__(self)
+        tx_xmlrpc.XMLRPC.__init__(self)
 
     def xmlrpc_echo(self, x):
         return x
@@ -125,10 +125,10 @@ class TwistedRPCServer(xmlrpc.XMLRPC):
                     return 'Authorization Failed!'
 
         request.content.seek(0, 0)
-        args, functionPath = xmlrpclib.loads(request.content.read())
+        args, functionPath = xmlrpc.client.loads(request.content.read())
         try:
             function = self._getFunction(functionPath)
-        except Fault, f:
+        except Fault as f:
             self._cbRender(f, request)
         else:
             request.setHeader("content-type", "text/xml")
@@ -145,7 +145,7 @@ def _authenticate(rpc_server, username, password, remote_ip):
     raise Fault(http.UNAUTHORIZED, 'Authorization Failed!')
 
 
-class BasicHttpAuthXMLRPC(xmlrpc.XMLRPC):
+class BasicHttpAuthXMLRPC(tx_xmlrpc.XMLRPC):
     _anonymous_allowed = False
     _no_auth_for_local = False
     _user = None   # user object returned by authenticate method
@@ -181,7 +181,7 @@ class BasicHttpAuthXMLRPC(xmlrpc.XMLRPC):
                 # Warning: self is given as hidden argument, like a member function
                 user = self._authenticate_method(username=request.getUser(), password=request.getPassword(), remote_ip=remote_ip)
                 self._user = user
-            except Fault, f:
+            except Fault as f:
                 self._cbRender(f, request)
                 return server.NOT_DONE_YET
 
@@ -190,12 +190,12 @@ class BasicHttpAuthXMLRPC(xmlrpc.XMLRPC):
         request.setHeader("content-type", "text/xml")
         try:
             if self.useDateTime:
-                args, functionPath = xmlrpclib.loads(request.content.read(),
+                args, functionPath = xmlrpc.client.loads(request.content.read(),
                     use_datetime=True)
             else:
                 # Maintain backwards compatibility with Python < 2.5
-                args, functionPath = xmlrpclib.loads(request.content.read())
-        except Exception, e:
+                args, functionPath = xmlrpc.client.loads(request.content.read())
+        except Exception as e:
             f = Fault(self.FAILURE, "Can't deserialize input: %s" % (e,))
             self._cbRender(f, request)
         else:
@@ -204,7 +204,7 @@ class BasicHttpAuthXMLRPC(xmlrpc.XMLRPC):
                     function = self.lookupProcedure(functionPath)
                 else:
                     function = self._getFunction(functionPath)
-            except Fault, f:
+            except Fault as f:
                 self._cbRender(f, request)
             else:
                 # Use this list to track whether the response has failed or not.
@@ -377,7 +377,7 @@ class ServerHTMLDoc(HTMLDoc):
             self.escape(anchor), self.escape(name))
 
         if inspect.ismethod(object):
-            args, varargs, varkw, defaults = inspect.getargspec(object.im_func)
+            args, varargs, varkw, defaults = inspect.getargspec(object.__func__)
             # exclude the argument bound to the instance, it will be
             # confusing to the non-Python user
             argspec = inspect.formatargspec (
@@ -417,7 +417,7 @@ class ServerHTMLDoc(HTMLDoc):
             docstring, self.preformat, funcs, classes, methods)
         doc = doc and '<dd><tt>%s</tt></dd>' % doc
         if isinstance(decl, list):
-            return '<dl>%s%s</dl>\n' % (''.join(map(lambda d: '<dt>%s</dt>' % d, decl)),
+            return '<dl>%s%s</dl>\n' % (''.join(['<dt>%s</dt>' % d for d in decl]),
                                        doc)
         else:
             return '<dl><dt>%s</dt>%s</dl>\n' % (decl, doc)
@@ -426,7 +426,7 @@ class ServerHTMLDoc(HTMLDoc):
         """Produce HTML documentation for an XML-RPC server."""
 
         fdict = {}
-        for key, value in methods.items():
+        for key, value in list(methods.items()):
             fdict[key] = '#-' + key
             #fdict[value] = fdict[key]
 
@@ -530,7 +530,7 @@ class XMLRPCDocGenerator(object):
         
         request.setHeader("content-type", "text/html")
         request.setHeader("content-length", str(len(content)))
-        request.write(content)
+        request.write(content.encode())
         request.finish()
 
         return server.NOT_DONE_YET

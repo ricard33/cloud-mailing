@@ -23,7 +23,7 @@ import os
 import dkim
 from twisted.trial.unittest import TestCase
 
-import factories
+from . import factories
 from ..mail_customizer import MailCustomizer
 from ...common.unittest_mixins import DatabaseMixin
 
@@ -43,7 +43,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
 
 
         customizer = MailCustomizer(recipient)
-        self.assertEquals(customizer._do_customization(recipient.mailing.body, recipient.contact_data),
+        self.assertEqual(customizer._do_customization(recipient.mailing.body, recipient.contact_data),
                           'This is a very simple mailing.')
 
     def test_customize_message(self):
@@ -60,13 +60,13 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        # print file(fullpath, 'rt').read()
+        # print open(fullpath, 'rt').read()
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertFalse(message.is_multipart())
         self.assertTrue('Date' in message)
-        self.assertEquals('This is a very simple mailing.', message.get_payload())
+        self.assertEqual('This is a very simple mailing.', message.get_payload())
 
     def test_customize_simple_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -76,7 +76,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
                 'attachments': [
                     {
                         'filename': "export.csv",
-                        'data': base64.b64encode("col1;col2;col3\nval1;val2;val3\n"),
+                        'data': base64.b64encode(b"col1;col2;col3\nval1;val2;val3\n"),
                         'content-type': 'text/plain',
                         'charset': 'us-ascii',
                     },
@@ -97,13 +97,13 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
         # print
         # print message.as_string()
-        self.assertEquals(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
-        self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
+        self.assertEqual(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
+        self.assertEqual(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_mixed_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -140,7 +140,7 @@ Nothing else to say...
                 'attachments': [
                     {
                         'filename': "export.csv",
-                        'data': base64.b64encode("col1;col2;col3\nval1;val2;val3\n"),
+                        'data': base64.b64encode(b"col1;col2;col3\nval1;val2;val3\n"),
                         'content-type': 'text/plain',
                         'charset': 'us-ascii',
                     },
@@ -159,14 +159,14 @@ Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
         # print
         # print message.as_string()
-        self.assertEquals(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
+        self.assertEqual(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
         self.assertIn("This is an attachment common for all recipients.", message.get_payload(i=1).get_payload())
-        self.assertEquals(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
+        self.assertEqual(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_alternative_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -205,7 +205,7 @@ Nothing else to say...
                 'attachments': [
                     {
                         'filename': "export.csv",
-                        'data': base64.b64encode("col1;col2;col3\nval1;val2;val3\n"),
+                        'data': base64.b64encode(b"col1;col2;col3\nval1;val2;val3\n"),
                         'content-type': 'text/plain',
                         'charset': 'us-ascii',
                     },
@@ -224,16 +224,16 @@ Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
         self.assertTrue(message.is_multipart())
-        self.assertEquals("multipart/mixed", message.get_content_type())
-        self.assertEquals("multipart/alternative", message.get_payload(i=0).get_content_type())
-        self.assertEquals(message.get_payload(i=0).get_payload(i=0).get_payload(), 'This is a very simple mailing.')
+        self.assertEqual("multipart/mixed", message.get_content_type())
+        self.assertEqual("multipart/alternative", message.get_payload(i=0).get_content_type())
+        self.assertEqual(message.get_payload(i=0).get_payload(i=0).get_payload(), 'This is a very simple mailing.')
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload())
-        self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
+        self.assertEqual(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -280,7 +280,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
                 'attachments': [
                     {
                         'filename': "export.csv",
-                        'data': base64.b64encode("col1;col2;col3\nval1;val2;val3\n"),
+                        'data': base64.b64encode(b"col1;col2;col3\nval1;val2;val3\n"),
                         'content-type': 'text/plain',
                         'charset': 'us-ascii',
                     },
@@ -299,16 +299,16 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
         self.assertTrue(message.is_multipart())
-        self.assertEquals("multipart/mixed", message.get_content_type())
-        self.assertEquals("multipart/related", message.get_payload(i=0).get_content_type())
-        self.assertEquals("image/jpeg", message.get_payload(i=0).get_payload(i=1).get_content_type())
+        self.assertEqual("multipart/mixed", message.get_content_type())
+        self.assertEqual("multipart/related", message.get_payload(i=0).get_content_type())
+        self.assertEqual("image/jpeg", message.get_payload(i=0).get_payload(i=1).get_content_type())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=0).get_payload())
-        self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
+        self.assertEqual(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_alternative_and_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -367,7 +367,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
                 'attachments': [
                     {
                         'filename': "export.csv",
-                        'data': base64.b64encode("col1;col2;col3\nval1;val2;val3\n"),
+                        'data': base64.b64encode(b"col1;col2;col3\nval1;val2;val3\n"),
                         'content-type': 'text/plain',
                         'charset': 'us-ascii',
                     },
@@ -386,18 +386,18 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
         self.assertTrue(message.is_multipart())
-        self.assertEquals("multipart/mixed",       message.get_content_type())
-        self.assertEquals("multipart/alternative", message.get_payload(i=0).get_content_type())
-        self.assertEquals("text/plain",            message.get_payload(i=0).get_payload(i=0).get_content_type())
-        self.assertEquals("multipart/related",     message.get_payload(i=0).get_payload(i=1).get_content_type())
-        self.assertEquals('This is a very simple mailing.', message.get_payload(i=0).get_payload(i=0).get_payload())
+        self.assertEqual("multipart/mixed",       message.get_content_type())
+        self.assertEqual("multipart/alternative", message.get_payload(i=0).get_content_type())
+        self.assertEqual("text/plain",            message.get_payload(i=0).get_payload(i=0).get_content_type())
+        self.assertEqual("multipart/related",     message.get_payload(i=0).get_payload(i=1).get_content_type())
+        self.assertEqual('This is a very simple mailing.', message.get_payload(i=0).get_payload(i=0).get_payload())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload(i=0).get_payload())
-        self.assertEquals(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
+        self.assertEqual(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_mixed_and_alternative_and_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -471,7 +471,7 @@ Nothing else to say...
                 'attachments': [
                     {
                         'filename': "export.csv",
-                        'data': base64.b64encode("col1;col2;col3\nval1;val2;val3\n"),
+                        'data': base64.b64encode(b"col1;col2;col3\nval1;val2;val3\n"),
                         'content-type': 'text/plain',
                         'charset': 'us-ascii',
                     },
@@ -490,19 +490,19 @@ Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
         self.assertTrue(message.is_multipart())
-        self.assertEquals("multipart/mixed",       message.get_content_type())
-        self.assertEquals("multipart/alternative", message.get_payload(i=0).get_content_type())
-        self.assertEquals("text/plain",            message.get_payload(i=0).get_payload(i=0).get_content_type())
-        self.assertEquals("multipart/related",     message.get_payload(i=0).get_payload(i=1).get_content_type())
-        self.assertEquals('This is a very simple mailing.', message.get_payload(i=0).get_payload(i=0).get_payload())
+        self.assertEqual("multipart/mixed",       message.get_content_type())
+        self.assertEqual("multipart/alternative", message.get_payload(i=0).get_content_type())
+        self.assertEqual("text/plain",            message.get_payload(i=0).get_payload(i=0).get_content_type())
+        self.assertEqual("multipart/related",     message.get_payload(i=0).get_payload(i=1).get_content_type())
+        self.assertEqual('This is a very simple mailing.', message.get_payload(i=0).get_payload(i=0).get_payload())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload(i=0).get_payload())
         self.assertIn("This is an attachment", message.get_payload(i=1).get_payload())
-        self.assertEquals(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
+        self.assertEqual(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_clicks_tracking(self):
         mailing = factories.MailingFactory(tracking_url='http://tracking.net/')
@@ -515,7 +515,7 @@ Nothing else to say...
             contact_data=customizer.make_contact_data_dict(recipient),
             is_html=True
         )
-        self.assertEquals(
+        self.assertEqual(
             # '<p>Please <a href="http://tracking.net/c/?o=http://www.mydomain.com/the_page?p=parameter">click here</a></p>',
             '<p>Please <a href="http://tracking.net/c/TRACKING_ID/?o=http%3A//www.mydomain.com/the_page%3Fp%3Dparameter'
                     '&t=http%3A//www.mydomain.com/the_page%3Fp%3Dparameter">click here</a></p>',
@@ -537,7 +537,7 @@ Nothing else to say...
             contact_data=customizer.make_contact_data_dict(recipient),
             is_html=True
         )
-        self.assertEquals(
+        self.assertEqual(
             '<p>Please <a href="http://tr.net/c/TRACKING_ID/?o=http%3A//my.com/the_page%3Fid%3D%7B%7B%20id%20%7D%7D'
                     '&t=http%3A//my.com/the_page%3Fid%3D123">click here</a></p>',
             new_content)
@@ -589,14 +589,14 @@ I'm happy! Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
-        self.assertEquals("multipart/alternative", message.get_content_type())
-        self.assertEquals("text/plain", message.get_payload(i=0).get_content_type())
-        self.assertEquals("text/html", message.get_payload(i=1).get_content_type())
-        self.assertEquals(message.get_payload(i=0).get_payload(decode=True), "This is a very simple mailing. I'm happy.")
-        self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>. I'm happy! ", message.get_payload(i=1).get_payload(decode=True))
+        self.assertEqual("multipart/alternative", message.get_content_type())
+        self.assertEqual("text/plain", message.get_payload(i=0).get_content_type())
+        self.assertEqual("text/html", message.get_payload(i=1).get_content_type())
+        self.assertEqual(message.get_payload(i=0).get_payload(decode=True), b"This is a very simple mailing. I'm happy.")
+        self.assertIn(b"This is <strong> a very simple</strong> <u>mailing</u>. I'm happy! ", message.get_payload(i=1).get_payload(decode=True))
 
     def test_customize_message_bad_encoding_iso_8859_1_from_msword(self):
         """
@@ -652,13 +652,13 @@ I=92m happy! Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser()
-        message = parser.parse(file(fullpath, 'rt'), headersonly = False)
+        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
-        self.assertEquals("multipart/alternative", message.get_content_type())
-        self.assertEquals("text/plain", message.get_payload(i=0).get_content_type())
-        self.assertEquals("text/html", message.get_payload(i=1).get_content_type())
-        self.assertEquals("This is a very simple mailing. I\x92m happy.", message.get_payload(i=0).get_payload(decode=True))
+        self.assertEqual("multipart/alternative", message.get_content_type())
+        self.assertEqual("text/plain", message.get_payload(i=0).get_content_type())
+        self.assertEqual("text/html", message.get_payload(i=1).get_content_type())
+        self.assertEqual("This is a very simple mailing. I\x92m happy.", message.get_payload(i=0).get_payload(decode=True))
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>. I\x92m happy! ", message.get_payload(i=1).get_payload(decode=True))
 
     def test_dkim(self):
@@ -668,7 +668,7 @@ I=92m happy! Nothing else to say...
 
         message_str = self._customize(recipient)
 
-        self.assertNotIn(b"\r\n", message_str)
+        self.assertNotIn("\r\n", message_str)
 
         parser = email.parser.Parser()
         message = parser.parsestr(message_str, headersonly=False)
@@ -676,7 +676,7 @@ I=92m happy! Nothing else to say...
         self.assertTrue('DKIM-Signature' in message)
         # print message['DKIM-Signature']
 
-        self.assertTrue(dkim.verify(message_str, dnsfunc=self._get_txt))
+        self.assertTrue(dkim.verify(message_str.encode(), dnsfunc=self._get_txt))
 
     def test_feedback_loop(self):
         privkey = self._get_dkim_privkey()
@@ -687,7 +687,7 @@ I=92m happy! Nothing else to say...
 
         message_str = self._customize(recipient)
 
-        self.assertNotIn(b"\r\n", message_str)
+        self.assertNotIn("\r\n", message_str)
 
         parser = email.parser.Parser()
         message = parser.parsestr(message_str, headersonly=False)
@@ -697,7 +697,7 @@ I=92m happy! Nothing else to say...
         # print message['Feedback-ID']
         self.assertEqual('%d:cloud-mailing.net:%s:CloudMailing' % (mailing.id, mailing.type), message['Feedback-ID'])
 
-        self.assertTrue(dkim.verify(message_str, dnsfunc=self._get_txt))
+        self.assertTrue(dkim.verify(message_str.encode(), dnsfunc=self._get_txt))
 
     def test_dkim_and_feedback_loop(self):
         privkey = self._get_dkim_privkey()
@@ -708,7 +708,7 @@ I=92m happy! Nothing else to say...
 
         message_str = self._customize(recipient)
 
-        self.assertNotIn(b"\r\n", message_str)
+        self.assertNotIn("\r\n", message_str)
 
         parser = email.parser.Parser()
         message = parser.parsestr(message_str, headersonly=False)
@@ -716,12 +716,12 @@ I=92m happy! Nothing else to say...
         self.assertTrue('Feedback-ID' in message)
         self.assertEqual(2, len(message.get_all('DKIM-Signature')))
 
-        d = dkim.DKIM(message_str)
+        d = dkim.DKIM(message_str.encode())
         self.assertTrue(d.verify(0, dnsfunc=self._get_txt))
         self.assertTrue(d.verify(1, dnsfunc=self._get_txt))
 
     def _get_txt(self, name):
-        self.assertEqual("mail._domainkey.unittest.cloud-mailing.net.", name)
+        self.assertEqual(b"mail._domainkey.unittest.cloud-mailing.net.", name)
         return "v=DKIM1; h=sha256; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDQKTyffdhVj+Z7xke+b3/ns2u9ls3pVdI0tgCYKe8Fi6mXbF+Bri6rBadih/etMNOZ1BO/meLF8wfVgbizxAXjeinKH23HXjqTipJXoWWiwFLIijmSG/2Q+9vseAPGlVpgormOVj67gJRhjJw50i9COiHIq6ChpE969i2LGIfXpQIDAQAB"
 
     def _customize(self, recipient):
@@ -732,12 +732,12 @@ I=92m happy! Nothing else to say...
         self.assertFalse(os.path.exists(fullpath))
         customizer._run_customizer()
         self.assertTrue(os.path.exists(fullpath))
-        # print file(fullpath, 'rt').read()
-        message_str = file(fullpath, 'rt').read()
+        # print open(fullpath, 'rt').read()
+        message_str = open(fullpath, 'rt').read()
         return message_str
 
     def _get_dkim_privkey(self):
-        return file(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deployment', 'acceptance_tests', 'data',
+        return open(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deployment', 'acceptance_tests', 'data',
                                  'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()
 
     def test_rotate_encryption_in_tracking_links(self):
@@ -746,12 +746,13 @@ I=92m happy! Nothing else to say...
 
         customizer = MailCustomizer(recipient, read_tracking=False, click_tracking=True, url_encoding='base64')
         content = '<p>Please <a href="http://www.mydomain.com/the_page?p=parameter">click here</a></p>'
+        d = customizer.make_contact_data_dict(recipient)
         new_content = customizer._do_customization(
             body=content,
             contact_data=customizer.make_contact_data_dict(recipient),
             is_html=True
         )
-        self.assertEquals(
+        self.assertEqual(
             # '<p>Please <a href="http://tracking.net/c/?o=http://www.mydomain.com/the_page?p=parameter">click here</a></p>',
             '<p>Please <a href="http://tracking.net/c/TRACKING_ID/?c=b64&o=aHR0cDovL3d3dy5teWRvbWFpbi5jb20vdGhlX3BhZ2U_cD1wYXJhbWV0ZXI'
             '&t=aHR0cDovL3d3dy5teWRvbWFpbi5jb20vdGhlX3BhZ2U_cD1wYXJhbWV0ZXI">click here</a></p>',

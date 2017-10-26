@@ -18,6 +18,8 @@
 import email
 import email.header
 
+from .encoding import force_text
+
 __author__ = 'Cedric RICARD'
 
 
@@ -28,14 +30,9 @@ def header_to_unicode(header_str):
     :return: An unicode string
     """
     l = []
-    last_encoding = None
     for txt, encoding in email.header.decode_header(header_str):
         if encoding is not None:
             l.append(txt.decode(encoding, errors='replace'))
-            last_encoding = encoding
         else:
-            if last_encoding:  # in the case of encoded-word followed by unencoded text, spaces must be preserved
-                l.append(' ')
-            last_encoding = None
-            l.append(txt)
+            l.append(force_text(txt))
     return ''.join(l)

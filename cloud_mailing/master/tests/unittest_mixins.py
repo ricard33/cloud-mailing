@@ -17,7 +17,7 @@
 
 import base64
 import json
-from cookielib import CookieJar
+from http.cookiejar import CookieJar
 
 from twisted.internet import reactor
 from twisted.web import resource, server
@@ -25,6 +25,7 @@ from twisted.web.guard import BasicCredentialFactory, DigestCredentialFactory
 from twisted.web.client import readBody, Agent, CookieAgent
 from twisted.web.http_headers import Headers
 
+from ...common.encoding import force_bytes
 from ...common import http_status
 from ...common.api_common import AuthenticatedSite
 from ...common.unittest_mixins import JsonProducer
@@ -43,15 +44,15 @@ class RestApiTestMixin(object):
 
     def start_rest_api(self):
         root_page = resource.Resource()
-        root_page.putChild('api', make_rest_api())
+        root_page.putChild(b'api', make_rest_api())
         site = AuthenticatedSite(root_page)
-        site.credentialFactories = [BasicCredentialFactory("CloudMailing API"), DigestCredentialFactory("md5", "CloudMailing API")]
+        site.credentialFactories = [BasicCredentialFactory(b"CloudMailing API"), DigestCredentialFactory(b"md5", b"CloudMailing API")]
         site.credentialsCheckers = [AdminChecker()]
         site.sessionFactory = UTSession
         self.p = reactor.listenTCP(0, site,
                                     interface="127.0.0.1")
         self.port = self.p.getHost().port
-        self.api_base_url = 'http://127.0.0.1:%d/api/' % self.port
+        self.api_base_url = b'http://127.0.0.1:%d/api' % self.port
         self.agent = None
 
     def stop_rest_api(self):
@@ -60,7 +61,7 @@ class RestApiTestMixin(object):
 
 
     def log(self, msg):
-        print msg
+        print(msg)
         return msg
 
     @staticmethod
@@ -87,7 +88,7 @@ class RestApiTestMixin(object):
 
         _headers = {'User-Agent': ['Twisted Web Client Example']}
         if credentials is not None:
-            _headers['authorization'] = ['basic %s' % base64.encodestring('%s:%s' % credentials)]
+            _headers['authorization'] = ['basic %s' % base64.encodebytes(force_bytes(credentials[0]) + b':' + force_bytes(credentials[1])).decode()]
         if headers:
             _headers.update(headers)
         if self.agent is None:
@@ -95,8 +96,8 @@ class RestApiTestMixin(object):
         body = None
         if data is not None:
             body = JsonProducer(data)
-        d = self.agent.request(verb,
-                          self.api_base_url + url,
+        d = self.agent.request(force_bytes(verb),
+                          self.api_base_url + force_bytes(url),
                           Headers(_headers),
                           body)
         d.addCallback(cbResponse)

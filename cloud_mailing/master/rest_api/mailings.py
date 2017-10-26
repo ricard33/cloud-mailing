@@ -16,7 +16,7 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import json
-from xmlrpclib import Fault
+from xmlrpc.client import Fault
 
 import re
 from twisted.web import server
@@ -52,7 +52,7 @@ class ListMailingsApi(ListModelMixin, ApiResource):
     def render_GET(self, request):
         self.log_call(request)
         self.list(request)\
-            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.write(x.encode())) \
             .addCallback(lambda x: request.finish()) \
             .addErrback(self._on_error, request)
         return server.NOT_DONE_YET
@@ -71,16 +71,16 @@ class MailingApi(RetrieveModelMixin, ApiResource):
         self.object_id = mailing_id
 
     def getChild(self, name, request):
-        if name == 'recipients':
+        if name == b'recipients':
             return ListRecipientsApi(self.mailing_id)
-        if name == 'content':
+        if name == b'content':
             return MailingContentApi(self.mailing_id)
         return ApiResource.getChild(self, name, request)
 
     def render_GET(self, request):
         self.log_call(request)
         self.retrieve(request)\
-            .addCallback(lambda x: request.write(x)) \
+            .addCallback(lambda x: request.write(x.encode())) \
             .addCallback(lambda x: request.finish()) \
             .addErrback(self._on_error, request)
         return server.NOT_DONE_YET
@@ -97,7 +97,7 @@ class MailingApi(RetrieveModelMixin, ApiResource):
                 request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
                 self.write_headers(request)
                 self.log.warning(" Mailing 'status' field should be changed alone.")
-                return json.dumps({'error': " Mailing 'status' field should be changed alone."})
+                return json.dumps({'error': " Mailing 'status' field should be changed alone."}).encode()
 
             status = data['status']
             if status == 'PAUSED':
@@ -110,22 +110,22 @@ class MailingApi(RetrieveModelMixin, ApiResource):
                 request.setResponseCode(http_status.HTTP_400_BAD_REQUEST)
                 self.write_headers(request)
                 self.log.warning("Unsupported status value")
-                return json.dumps({'error': "Unsupported status value"})
+                return json.dumps({'error': "Unsupported status value"}).encode()
 
         else:  # 'status' not in data
             try:
                 mailing = set_mailing_properties(self.mailing_id, data)
-            except Fault, ex:
+            except Fault as ex:
                 request.setResponseCode(ex.faultCode)
                 self.write_headers(request)
                 self.log.error("Error setting mailing properties: %s", ex.faultString)
-                return json.dumps({'error': ex.faultString})
+                return json.dumps({'error': ex.faultString}).encode()
 
         # finally returns the modified mailing
         self.write_headers(request)
         serializers.MailingSerializer().get(mailing.id)\
             .addCallback(lambda result: json.dumps(result, default=json_default)) \
-            .addCallback(lambda data: request.write(data)) \
+            .addCallback(lambda data: request.write(data.encode())) \
             .addCallback(lambda data: request.finish()) \
             .addErrback(self._on_error, request)
         return server.NOT_DONE_YET
@@ -135,4 +135,4 @@ class MailingApi(RetrieveModelMixin, ApiResource):
         delete_mailing(self.mailing_id)
         self.write_headers(request)
         request.setResponseCode(http_status.HTTP_204_NO_CONTENT)
-        return ""
+        return b""

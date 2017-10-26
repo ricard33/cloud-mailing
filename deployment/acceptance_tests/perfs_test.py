@@ -171,7 +171,7 @@ def make_master(path):
     config.set("CM_MASTER", "api_key", API_KEY)
     config.add_section("MASTER_DATABASE")
     config.set("MASTER_DATABASE", "name", "perfs_cm_master")
-    with file(os.path.join(config_dir, 'cloud-mailing.ini'), 'wt') as fp:
+    with open(os.path.join(config_dir, 'cloud-mailing.ini'), 'wt') as fp:
         config.write(fp)
 
     shutil.copy(os.path.join(SOURCES_PATH, '..', 'config', 'logging-master.py'), config_dir)
@@ -196,7 +196,7 @@ def make_satellite(path, index):
     config.set("MAILING", "test_faked_dns", True)
     config.add_section("SATELLITE_DATABASE")
     config.set("SATELLITE_DATABASE", "name", "perfs_cm_satellite_%d" % index)
-    with file(os.path.join(config_dir, 'cloud-mailing.ini'), 'wt') as fp:
+    with open(os.path.join(config_dir, 'cloud-mailing.ini'), 'wt') as fp:
         config.write(fp)
 
     cm_script = os.path.join(SOURCES_PATH, "bin", "cm_satellite.py")

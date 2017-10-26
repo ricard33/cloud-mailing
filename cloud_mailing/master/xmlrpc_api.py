@@ -26,8 +26,8 @@ import inspect
 import os
 import re
 import time
-import xmlrpclib
-from StringIO import StringIO
+import xmlrpc.client
+from io import StringIO
 from datetime import datetime, timedelta
 
 import pymongo
@@ -35,8 +35,9 @@ from bson import DBRef
 from mogo.connection import Connection
 from twisted.internet import defer
 from twisted.internet.threads import deferToThread
-from twisted.web import xmlrpc, resource, http, static
+from twisted.web import xmlrpc as tx_xmlrpc, resource, http, static
 
+from ..common.encoding import force_text, force_bytes
 from .api_common import compute_hourly_stats
 from .api_common import log_cfg, log_security, log_api, pause_mailing, delete_mailing
 from .api_common import set_mailing_properties, start_mailing
@@ -51,10 +52,10 @@ from ..common.db_common import get_db
 from ..common.html_tools import strip_tags
 from ..common.xml_api_common import withRequest, doc_signature, BasicHttpAuthXMLRPC, XMLRPCDocGenerator, doc_hide
 
-Fault = xmlrpclib.Fault
-Binary = xmlrpclib.Binary
-Boolean = xmlrpclib.Boolean
-DateTime = xmlrpclib.DateTime
+Fault = xmlrpc.client.Fault
+Binary = xmlrpc.client.Binary
+Boolean = xmlrpc.client.Boolean
+DateTime = xmlrpc.client.DateTime
 
 email_re = re.compile(
     r"(^[-!#$%&'*+/=?^_`{}|~0-9A-Z]+(\.[-!#$%&'*+/=?^_`{}|~0-9A-Z]+)*"  # dot-atom
@@ -69,7 +70,7 @@ def authenticate(rpc_server, username, password, remote_ip):
     config.read(settings.CONFIG_FILE)
 
     key = config.get('CM_MASTER', 'API_KEY', '')
-    if key and username == 'admin' and password == key:
+    if key and force_text(username) == 'admin' and force_text(password) == key:
         return username
 
     log_security.warn("XMLRPC authentication failed for user '%s' (%s)" % (username, remote_ip))
@@ -79,7 +80,7 @@ def authenticate(rpc_server, username, password, remote_ip):
 
 
 def ensure_no_null_values(d):
-    null_values = [name for name, value in d.items() if value is None]
+    null_values = [name for name, value in list(d.items()) if value is None]
     for name in null_values:
         del d[name]
 
@@ -141,13 +142,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         if 'enabled' in properties:
             try:
                 properties['enabled'] = bool(properties['enabled'])
-            except Exception, ex:
+            except Exception as ex:
                 log_api.exception("Can't convert '%s' to boolean (property 'enabled')", properties['enabled'])
                 raise Fault(http.NOT_ACCEPTABLE,
                             "Can't convert '%s' to boolean (property 'enabled')" % properties['enabled'])
         if 'domain_affinity' in properties:
             domain_affinity = properties['domain_affinity']
-            if isinstance(domain_affinity, basestring):     # old format
+            if isinstance(domain_affinity, str):     # old format
                 import ast
 
                 try:
@@ -200,7 +201,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         if not s:
             raise Fault(http.NOT_FOUND, "Unknown satellite with id %d" % id)
 
-        for name, value in properties.items():
+        for name, value in list(properties.items()):
             setattr(s, name, value)
         s.save()
         return s.id
@@ -226,13 +227,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     def _make_mailings_filter(self, filters):
         mailings_filter = {}
         if filters:
-            if isinstance(filters, basestring):
+            if isinstance(filters, str):
                 mailings_filter['domain_name'] = filters
             else:
                 if not isinstance(filters, dict):
                     raise Fault(http.NOT_ACCEPTABLE, "Filters argument has to be a dictionary.")
                 available_filters = ('domain', 'id', 'status', 'owner_guid')
-                for key in filters.keys():
+                for key in list(filters.keys()):
                     if key not in available_filters:
                         raise Fault(http.NOT_ACCEPTABLE,
                                     "Bad filter name. Available filters are: %s" % ', '.join(available_filters))
@@ -249,13 +250,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                     mailings_filter['status'] = {'$in': filters['status']}
                 if 'owner_guid' in filters:
                     owners = filters['owner_guid']
-                    if isinstance(owners, basestring):
+                    if isinstance(owners, str):
                         mailings_filter['owner_guid'] = owners
                     else:
                         mailings_filter['owner_guid'] = {'$in': owners}
                 if 'satellite_group' in filters:
                     satellite_groups = filters['satellite_group']
-                    if isinstance(satellite_groups, basestring):
+                    if isinstance(satellite_groups, str):
                         mailings_filter['satellite_group'] = satellite_groups
                     else:
                         mailings_filter['satellite_group'] = {'$in': satellite_groups}
@@ -375,8 +376,10 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         import email.parser
         log_api.debug("XMLRPC: create_mailing_ext(...)")
 
+        if isinstance(rfc822_string, Binary):
+            rfc822_string = rfc822_string.data
         m_parser = email.parser.FeedParser()
-        m_parser.feed(base64.b64decode(rfc822_string))
+        m_parser.feed(base64.b64decode(force_bytes(rfc822_string)).decode())
         message = m_parser.close()
         return self._create_mailing(message)
 
@@ -428,7 +431,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         log_api.debug("XMLRPC: set_mailing_properties(%s, %s)", mailing_id, repr(properties))
         try:
             set_mailing_properties(mailing_id, properties)
-        except Fault, ex:
+        except Fault as ex:
             request.setResponseCode(ex.faultCode)
             raise
         return 0
@@ -441,7 +444,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         log_api.debug("XMLRPC: delete_mailing(%s)", mailing_id)
         try:
             delete_mailing(mailing_id)
-        except Fault, ex:
+        except Fault as ex:
             request.setResponseCode(ex.faultCode)
             raise
 
@@ -472,7 +475,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         log_api.debug("XMLRPC: start_mailing(%s, %s)", mailing_id, when)
         try:
             mailing = start_mailing(mailing_id)
-        except Fault, ex:
+        except Fault as ex:
             request.setResponseCode(ex.faultCode)
             raise
         return mailing.status
@@ -487,7 +490,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         log_api.debug("XMLRPC: pause_mailing(%s)", mailing_id)
         try:
             mailing = pause_mailing(mailing_id)
-        except Fault, ex:
+        except Fault as ex:
             request.setResponseCode(ex.faultCode)
             raise
         return mailing.status
@@ -525,13 +528,13 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
             if filter is not None:
                 if not isinstance(filter, filter_type):
                     raise Fault(http.NOT_ACCEPTABLE, "Filter '%s' has to be %s." % (name, type_description))
-                ids = map(lambda x: x['_id'], Mailing._get_collection().find({field: {op: qs_mapper(filter)}}, projection=[]))
+                ids = [x['_id'] for x in Mailing._get_collection().find({field: {op: qs_mapper(filter)}}, projection=[])]
                 filters.setdefault('mailings', []).extend(ids)
 
         apply_mailing_filter(filters, 'owners', (list, tuple), 'an array of strings', 'owner_guid', '$in')
         apply_mailing_filter(filters, 'sender_domains', (list, tuple), 'an array of strings', 'domain_name', '$in')
         recipients_filter.update(
-            apply_filter(filters, 'mailings', (list, tuple), 'an array of mailing_ids', 'mailing.$id', '$in', qs_mapper=lambda x: map(int, x)))
+            apply_filter(filters, 'mailings', (list, tuple), 'an array of mailing_ids', 'mailing.$id', '$in', qs_mapper=lambda x: list(map(int, x))))
         return recipients_filter
 
     def _update_pending_recipients(self, result):
@@ -777,7 +780,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         file_name = make_customized_file_name(mailing_id, recipient_id)
         fullpath = os.path.join(settings.CUSTOMIZED_CONTENT_FOLDER, file_name)
         if os.path.exists(fullpath):
-            with file(fullpath, 'rt') as f:
+            with open(fullpath, 'rt') as f:
                 data = f.read()
                 f.close()
             if delete_customized_content:
@@ -850,7 +853,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
                     from_date = datetime.strptime(from_date, "%Y-%m-%dT%H:%M:%S.%f")
                     count = int(count)
                     offset = int(offset)
-                except Exception, ex:
+                except Exception as ex:
                     log_api.error("Bad cursor format. Can't extract values: %s", ex)
                     from_date = None
                     offset = count = 0
@@ -1017,7 +1020,7 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
     @withRequest
     @doc_hide
     def xmlrpc_activate_unittest_mode(self, request, activated):
-        import cloud_master
+        from . import cloud_master
         if cloud_master.MailingPortal.instance:
             mailing_master = cloud_master.MailingPortal.instance.realm
             mailing_master.activate_unittest_mode(activated)
@@ -1079,7 +1082,7 @@ class HomePage(resource.Resource):
     def put_child(self, folder, rpc, add_introspection = False):
         if add_introspection:
             self.sub_services.append([folder, rpc])
-            xmlrpc.addIntrospection(rpc)
+            tx_xmlrpc.addIntrospection(rpc)
         self.putChild(folder, rpc)
 
     def make_home_page(self):

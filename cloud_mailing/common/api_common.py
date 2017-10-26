@@ -17,7 +17,7 @@
 
 import inspect
 import logging
-from cStringIO import StringIO
+from io import StringIO
 
 from twisted.cred import error
 from twisted.web import xmlrpc, resource, static
@@ -80,15 +80,17 @@ class AuthenticatedSite(Site):
         Choose an C{ICredentialFactory} from C{credentialFactories}
         suitable to use to decode the given I{Authenticate} header.
 
+        @type header: L{bytes}
+
         @return: A two-tuple of a factory and the remaining portion of the
             header value to be decoded or a two-tuple of C{None} if no
             factory can decode the header value.
         """
-        elements = header.split(' ')
+        elements = header.split(b' ')
         scheme = elements[0].lower()
         for fact in self.credentialFactories:
             if fact.scheme == scheme:
-                return (fact, ' '.join(elements[1:]))
+                return (fact, b' '.join(elements[1:]))
         return (None, None)
 
     def check_authentication(self, request, credentials=None):
@@ -102,7 +104,7 @@ class AuthenticatedSite(Site):
             if not authheader:
                 return None
 
-            factory, respString = self._selectParseHeader(authheader)
+            factory, respString = self._selectParseHeader(authheader.encode())
             if factory is None:
                 return None
             try:
@@ -117,7 +119,7 @@ class AuthenticatedSite(Site):
             user.username = checker.check_credentials(credentials)
             if user.username:
                 user.is_authenticated = True
-                user.is_superuser = user.username == 'admin'
+                user.is_superuser = user.username == b'admin'
                 return user
 
         return None

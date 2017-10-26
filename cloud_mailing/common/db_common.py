@@ -39,7 +39,7 @@ class Db(Singleton):
 
     @staticmethod
     def disconnect():
-        if Db.isInstantiated:
+        if Db.isInstantiated():
             return Db.getInstance()._pool.disconnect()
 
     @property
@@ -74,9 +74,9 @@ def create_index(collection, keys, name=None, **kwargs):
         kwargs['name'] = name
     try:
         collection.create_index(keys, **kwargs)
-    except OperationFailure, ex:
+    except OperationFailure as ex:
         try:
             collection.drop_index(name)
-        except OperationFailure, ex:
+        except OperationFailure as ex:
             collection.drop_index(keys)
         collection.create_index(keys, **kwargs)

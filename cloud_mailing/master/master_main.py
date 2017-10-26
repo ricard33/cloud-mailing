@@ -71,16 +71,16 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
     if not key:
         logging.warn("API KEY not found. Generating a new one...")
         config.set('CM_MASTER', 'API_KEY', "".join([random.choice("abcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*(-_=+)") for i in range(50)]))
-        with file(settings.CONFIG_FILE, 'wt') as f:
+        with open(settings.CONFIG_FILE, 'wt') as f:
             config.write(f)
 
     home_page = HomePage()
-    home_page.put_child('CloudMailing',  CloudMailingRpc(useDateTime=True), True)
-    home_page.put_child('api',  make_rest_api(xmlrpc_port=port, xmlrpc_use_ssl=ssl_context_factory is not None, api_key=key))
+    home_page.put_child(b'CloudMailing',  CloudMailingRpc(useDateTime=True), True)
+    home_page.put_child(b'api',  make_rest_api(xmlrpc_port=port, xmlrpc_use_ssl=ssl_context_factory is not None, api_key=key))
     home_page.make_home_page()
 
     webServer = AuthenticatedSite( home_page )
-    webServer.credentialFactories = [BasicCredentialFactory("CloudMailing API"), DigestCredentialFactory("md5", "CloudMailing API")]
+    webServer.credentialFactories = [BasicCredentialFactory(b"CloudMailing API"), DigestCredentialFactory(b"md5", b"CloudMailing API")]
     webServer.credentialsCheckers = [AdminChecker()]
 
     if application:
@@ -101,10 +101,10 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
 
 def start_master_service(application=None, master_port=33620, ssl_context_factory=None):
     global service_master, service_manager
-    from mailing_manager import start_mailing_manager
+    from .mailing_manager import start_mailing_manager
     service_manager = start_mailing_manager()
 
-    from cloud_master import get_cloud_master_factory
+    from .cloud_master import get_cloud_master_factory
     factory = get_cloud_master_factory()
 
     if application:
@@ -133,7 +133,7 @@ def stop_master_service():
             service_master.stopListening()
     if service_manager:
         service_manager.stop_tasks()
-    from cloud_master import stop_all_threadpools
+    from .cloud_master import stop_all_threadpools
     stop_all_threadpools()
 
 
