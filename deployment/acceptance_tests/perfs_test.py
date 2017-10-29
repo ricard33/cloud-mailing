@@ -21,7 +21,7 @@ import shutil
 import subprocess
 import sys
 import time
-from ConfigParser import RawConfigParser
+from configparser import RawConfigParser
 from datetime import datetime
 
 import pymongo
@@ -212,17 +212,17 @@ def make_fakesmtp():
 
 def main():
     t0 = time.time()
-    print "Preparing..."
+    print("Preparing...")
     p_list = initialize_cm()
 
-    print "Running..."
+    print("Running...")
     try:
-        print
+        print()
         db = db_client.perfs_cm_master
         while not db.mailing.find_one({'status': 'FINISHED'}):
             ml = db.mailing.find_one({}, projection={'total_pending':True, 'total_recipient': True, '_id': False})
             if ml:
-                print '%d / %d' % (ml['total_recipient'] - ml['total_pending'], ml['total_recipient'])
+                print('%d / %d' % (ml['total_recipient'] - ml['total_pending'], ml['total_recipient']))
             # if time.time() - t0 > 30:
             #     break
 
@@ -231,7 +231,7 @@ def main():
     finally:
         terminate(p_list)
 
-    print "All operations toke %.1f s" % (time.time() - t0)
+    print("All operations toke %.1f s" % (time.time() - t0))
 
 if __name__ == '__main__':
     main()
