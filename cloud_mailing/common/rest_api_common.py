@@ -183,16 +183,22 @@ class ApiResource(Resource):
         return True
 
     def render(self, request):
-        # assert(isinstance(request, (server.Request)))
-        # assert(isinstance(request.site, AuthenticatedSite))
-        self.request = request
-        request.user = request.site.check_authentication(request)
+        try:
+            # assert(isinstance(request, (server.Request)))
+            # assert(isinstance(request.site, AuthenticatedSite))
+            self.request = request
+            request.user = request.site.check_authentication(request)
 
-        request.user = None
-        if not self.check_permissions():
-            return self.access_forbidden(request)
+            if not self.check_permissions():
+                return self.access_forbidden(request)
 
-        return Resource.render(self, request)
+            return Resource.render(self, request)
+        except Exception as ex:
+            self.log.exception("Unhandled exception in handler for request %s: %s (%s)", request.method.upper(), request.path, request.args)
+            request.setResponseCode(http_status.HTTP_500_INTERNAL_SERVER_ERROR)
+            self.write_headers(request)
+            return json.dumps({'error': "Internal Server Error"}).encode()
+
 
     def access_forbidden(self, request):
         request.setResponseCode(http_status.HTTP_403_FORBIDDEN)

@@ -114,17 +114,21 @@ class AuthenticateApi(ApiResource):
         Resource.__init__(self)
 
     def render_GET(self, request):
-        self.log_call(request)
-        if self.check_permissions([IsAuthenticated()]):
-            user = {
-                'username': 'admin',
-                'is_superuser': True,
-                # 'groups': []
-            }
-            self.write_headers(request)
-            return json.dumps(user, default=json_default)
-        else:
-            return self.access_forbidden(request)
+        try:
+            self.log_call(request)
+            if self.check_permissions([IsAuthenticated()]):
+                user = {
+                    'username': 'admin',
+                    'is_superuser': True,
+                    # 'groups': []
+                }
+                self.write_headers(request)
+                return json.dumps(user, default=json_default).encode()
+            else:
+                return self.access_forbidden(request)
+        except Exception as ex:
+            log.exception("Error in AuthenticateApi GET")
+            raise
 
     def render_POST(self, request):
         assert(isinstance(request, server.Request))
@@ -190,7 +194,7 @@ class OsApi(ApiResource):
                 'version': platform.version(),
                 'boot_time': psutil.boot_time()
             }
-        elif section == 'cpu':
+        elif section == b'cpu':
             cpu_times_percent = psutil.cpu_times_percent()
             data = {
                 'total': cpu_times_percent.user + cpu_times_percent.system,
@@ -199,7 +203,7 @@ class OsApi(ApiResource):
                 'idle': cpu_times_percent.idle,
                 # 'total_per_cpu': psutil.cpu_percent(percpu=True),
             }
-        elif section == 'memory':
+        elif section == b'memory':
             vmem = psutil.virtual_memory()
             data = {
                 'total': vmem.total,
@@ -208,7 +212,7 @@ class OsApi(ApiResource):
                 'used': vmem.used,
                 'free': vmem.free,
             }
-        elif section == 'disk':
+        elif section == b'disk':
             disk = psutil.disk_usage(settings.PROJECT_ROOT)
             data = {
                 'total': disk.total,
