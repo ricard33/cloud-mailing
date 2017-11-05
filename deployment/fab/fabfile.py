@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-import StringIO
+import io
 
 import glob
 import os
@@ -32,7 +32,7 @@ try:
     env.roledefs = local_settings.roledefs
     default_cm_config = local_settings.default_cm_config
 except ImportError:
-    print >> sys.stderr, "Can't find local_settings.py ; No roles definitions"
+    print("Can't find local_settings.py ; No roles definitions", file=sys.stderr)
     default_cm_config = {}
 
 FAB_PATH = os.path.dirname(os.path.abspath(__file__))
@@ -89,9 +89,9 @@ def start_satellite():
 @task
 def test():
     host_conf = get_host_conf()
-    print host_conf
+    print(host_conf)
     with cd(TARGET_PATH()):
-        print 'exist:', os.path.exists('/Users')
+        print('exist:', os.path.exists('/Users'))
 
 
 def clean_compiled_files():
@@ -127,7 +127,7 @@ def put_version():
     stats = subprocess.check_output(['git', 'diff', '--shortstat'])
     dirty = len(stats) > 0 and stats[-1]
     with cd(TARGET_PATH() + '/cloud_mailing'):
-        put(StringIO.StringIO('VERSION=%s%s\n' % (label, dirty and "-dirty" or "")), 'version.properties')
+        put(io.StringIO('VERSION=%s%s\n' % (label, dirty and "-dirty" or "")), 'version.properties')
 
 
 @task
@@ -180,7 +180,7 @@ def create_user():
     """
     username = "cm"
     if 'uid=' in run("id %s" % username):
-        print("User '%s' already exists" % username)
+        print(("User '%s' already exists" % username))
         return
     remote_system = get_system_name()
     if remote_system == "Linux":
@@ -189,7 +189,7 @@ def create_user():
     elif remote_system == "FreeBSD":
         run("pw useradd %(username)s -d %(TARGET_PATH)s -m -s /bin/tcsh -w no" % {'TARGET_PATH': TARGET_PATH(), 'username': username})
     else:
-        print("create_user: Unsupported remote system '%s'" % remote_system)
+        print(("create_user: Unsupported remote system '%s'" % remote_system))
 
 
 
@@ -201,7 +201,7 @@ def create_initial_config():
     """
     config_filename = os.path.join(TARGET_PATH(), 'config', 'cloud-mailing.ini')
 
-    from ConfigParser import RawConfigParser
+    from configparser import RawConfigParser
     config = RawConfigParser()
     host_conf = local_settings.targets.get(env.host_string, {})
     serial = host_conf.get('serial')
@@ -230,10 +230,10 @@ def create_initial_config():
 
     other_config = host_conf.get('config')
     if other_config:
-        for section, content in other_config.items():
+        for section, content in list(other_config.items()):
             if not config.has_section(section):
                 config.add_section(section)
-            for key, value in content.items():
+            for key, value in list(content.items()):
                 config.set(section, key, value)
 
     with tempfile.NamedTemporaryFile('w+t') as tmp:
@@ -326,7 +326,7 @@ def remove_mf_from_startup():
 @task()
 def first_setup():
     host_conf = get_host_conf()
-    print host_conf
+    print(host_conf)
     # satellite_only = host_conf.get('remote_master') is not None
 
     # init_db()
@@ -351,4 +351,4 @@ def deploy():
 
 @task
 def test_env():
-    print "running", env.host_string, env.host, local_settings.targets.get(env.host_string, {})
+    print("running", env.host_string, env.host, local_settings.targets.get(env.host_string, {}))
