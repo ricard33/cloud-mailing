@@ -16,12 +16,15 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import email
+import email.parser
+import email.policy
 import logging
 from datetime import datetime
 
 import pymongo
 
 from ..common.db_common import create_index
+from ..common.encoding import force_bytes
 from ..common.email_tools import header_to_unicode
 
 __author__ = 'Cedric RICARD'
@@ -68,13 +71,23 @@ def _0001_remove_temp_queue(db):
 
 def _0002_set_subject(db):
     for mailing in db.mailing.find({'subject': None}, projection=('header',)):
-        parser = email.parser.HeaderParser()
-        header = parser.parsestr(mailing.get('header', ''))
-        subject = header_to_unicode(header.get("Subject"))
+        parser = email.parser.BytesHeaderParser(policy=email.policy.default)
+        header = parser.parsebytes(force_bytes(mailing.get('header', b'')))
+        subject = header.get("Subject")
         db.mailing.update_one({'_id': mailing['_id']}, {'$set': {'subject': subject}})
+
+def _0003_convert_headers_and_bodies_to_bytes_object(db):
+    for mailing in db.mailing.find({}, projection=('header', 'body')):
+        header = force_bytes(mailing.get('header', b''))
+        body = force_bytes(mailing.get('body', b''))
+        db.mailing.update_one({'_id': mailing['_id']}, {'$set': {
+            'header': header,
+            'body': body,
+        }})
 
 
 migrations = [
     _0001_remove_temp_queue,
     _0002_set_subject,
+    _0003_convert_headers_and_bodies_to_bytes_object,
 ]

@@ -351,17 +351,16 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
         :return: Returns the mailing internal id
         """
         log_api.debug("XMLRPC: create_mailing(%s, %s, %s, ...)", mail_from, sender_name, subject)
-        msg = email.mime.multipart.MIMEMultipart("alternative")
+        msg = email.message.EmailMessage()
 
         if not plain_content:
             # TODO MAILING improve this too simple conversion...
             plain_content = strip_tags(html_content)
 
-        msg.attach(email.mime.text.MIMEText(plain_content.encode('utf-8'), 'plain', 'utf-8'))
-        msg.attach(email.mime.text.MIMEText(html_content.encode('utf-8'), 'html', 'utf-8'))
+        msg.set_content(force_text(plain_content, encoding=charset))
+        msg.add_alternative(force_text(html_content, encoding=charset), subtype="html")
 
-        msg['Subject'] = email.header.Header(subject, header_name='Subject')
-        # msg['From'] = email.utils.formataddr((sender_name, mail_from))
+        msg['Subject'] = force_text(subject, encoding=charset)
         msg['Date'] = email.utils.formatdate()
         return self._create_mailing(msg, mail_from=mail_from, sender_name=sender_name)
 
@@ -374,17 +373,21 @@ class CloudMailingRpc(BasicHttpAuthXMLRPC, XMLRPCDocGenerator):
          encoding problem.
         """
         import email.parser
+        import email.policy
         log_api.debug("XMLRPC: create_mailing_ext(...)")
-
-        if isinstance(rfc822_string, Binary):
-            rfc822_string = rfc822_string.data
-        m_parser = email.parser.FeedParser()
-        m_parser.feed(base64.b64decode(force_bytes(rfc822_string)).decode())
-        message = m_parser.close()
-        return self._create_mailing(message)
+        try:
+            if isinstance(rfc822_string, Binary):
+                rfc822_string = rfc822_string.data
+            m_parser = email.parser.BytesFeedParser(policy=email.policy.default)
+            m_parser.feed(base64.b64decode(force_bytes(rfc822_string)))
+            message = m_parser.close()
+            return self._create_mailing(message)
+        except Fault as ex:
+            request.setResponseCode(ex.faultCode)
+            raise
 
     def _create_mailing(self, msg, mail_from=None, sender_name=None):
-        assert (isinstance(msg, email.message.Message))
+        assert (isinstance(msg, email.message.EmailMessage))
 
         mailing = Mailing.create_from_message(msg, mail_from=mail_from, sender_name=sender_name,
                                                                scheduled_start=None, scheduled_duration=None)

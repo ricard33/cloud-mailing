@@ -72,7 +72,7 @@ def is_protected_type(obj):
     return isinstance(obj, _PROTECTED_TYPES)
 
 
-def force_text(s, encoding='utf-8', strings_only=False, errors='strict'):
+def force_text(s, encoding='utf-8', strings_only=False, errors='strict') -> str:
     """
     Returns a text object representing 's' -- unicode on Python 2 and str on
     Python 3. Treats bytestrings using the 'encoding' codec.
@@ -114,7 +114,7 @@ def force_text(s, encoding='utf-8', strings_only=False, errors='strict'):
     return s
 
 
-def force_bytes(s, encoding='utf-8', strings_only=False, errors='strict'):
+def force_bytes(s, encoding='utf-8', strings_only=False, errors='strict') -> bytes:
     """
     Returns a bytestring version of 's', encoded as specified in 'encoding'.
 

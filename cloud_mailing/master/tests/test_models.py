@@ -34,8 +34,8 @@ class MailingTestCase(DatabaseMixin, unittest.TestCase):
 
     def test_create_mailing_from_message(self):
 
-        parser = email.parser.Parser()
-        msg = parser.parsestr("""Content-Transfer-Encoding: 7bit
+        parser = email.parser.BytesParser()
+        msg = parser.parsebytes(b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/alternative; boundary="===============2840728917476054151=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
@@ -67,7 +67,7 @@ I=92m happy! Nothing else to say...
                                                    sender_name='Mailing Sender',
                                                    scheduled_start=None, scheduled_duration=None)
 
-        message = parser.parsestr(mailing.header + mailing.body)
+        message = parser.parsebytes(mailing.header + mailing.body)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
         self.assertEqual("multipart/alternative", message.get_content_type())
@@ -82,8 +82,8 @@ I=92m happy! Nothing else to say...
 
     def test_create_mailing_from_message_with_encoded_headers(self):
 
-        parser = email.parser.Parser()
-        msg = parser.parsestr("""Content-Transfer-Encoding: 7bit
+        parser = email.parser.BytesParser()
+        msg = parser.parsebytes(b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/alternative; boundary="===============2840728917476054151=="
 Subject: Great news!
 From: =?UTF-8?B?Q2VkcmljIFJJQ0FSRA==?= <my-mailing@cm-unittest.net>
@@ -113,7 +113,7 @@ I=92m happy! Nothing else to say...
 """)
         mailing = Mailing.create_from_message(msg, scheduled_start=None, scheduled_duration=None)
 
-        message = parser.parsestr(mailing.header + mailing.body)
+        message = parser.parsebytes(mailing.header + mailing.body)
         assert(isinstance(message, email.message.Message))
         mail_from = header_to_unicode(message.get("From"))
 

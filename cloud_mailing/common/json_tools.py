@@ -14,11 +14,12 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-
+import base64
 import datetime
 
 import bson
 import bson.json_util
+from six import PY3, binary_type
 
 __author__ = 'Cedric RICARD'
 
@@ -62,10 +63,23 @@ def json_default(obj):
     #     return bson.SON([
     #         ('$binary', base64.b64encode(obj).decode()),
     #         ('$type', "%02x" % obj.subtype)])
-    # if PY3 and isinstance(obj, binary_type):
-    #     return bson.SON([
-    #         ('$binary', base64.b64encode(obj).decode()),
-    #         ('$type', "00")])
-    if bson.has_uuid() and isinstance(obj, bson.uuid.UUID):
+    if PY3 and isinstance(obj, binary_type):
+        return bson.SON([
+            ('$binary', base64.b64encode(obj).decode()),
+            ('$type', "00")])
+    if isinstance(obj, bson.uuid.UUID):
         return obj.hex
     raise TypeError("%r is not JSON serializable" % obj)
+
+
+def decode_binary(value):
+    """
+    Convert a bson.Binary to a bytes object.
+    :param value:
+    :return:
+    """
+    assert(isinstance(value, bson.Binary))
+    bin_type = value.get('$type', None)
+    if bin_type == "00":
+        return base64.b64decode(value['$binary'])
+    raise ValueError("Binary decode: unknown type'%s'" % bin_type)

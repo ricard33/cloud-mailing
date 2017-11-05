@@ -17,7 +17,7 @@
 
 import pickle as pickle
 import email
-import email.header
+import email.message
 import hmac
 import logging
 import os
@@ -47,16 +47,16 @@ from ...common.unittest_mixins import DatabaseMixin
 
 
 def make_email():
-    msg = email.mime.multipart.MIMEMultipart("alternative")
+    msg = email.message.EmailMessage()
 
     html_content = "<h1>Hi %%FIRST_NAME%%</h1>\n<p>This is the body of message.</p>\n<a href=\"%%UNSUBSCRIBE%%\">Click here to be removed</a>"
     plain_content = strip_tags(html_content)
 
-    msg.attach(email.mime.text.MIMEText(plain_content.encode('utf-8'), 'plain', 'utf-8'))
-    msg.attach(email.mime.text.MIMEText(html_content.encode('utf-8'), 'html', 'utf-8'))
+    msg.set_content(plain_content)
+    msg.add_alternative(html_content, subtype='html')
 
     msg['X-Mailer'] = 'CloudMailing'
-    msg['Subject'] = email.header.Header('Hi %%FIRST_NAME%%!', header_name='Subject')
+    msg['Subject'] = 'Hi %%FIRST_NAME%%!'
     msg['From'] = 'user1@my-domain.com'
     msg['To'] = 'mailing@my-domain.com'
     msg['Date'] = email.utils.formatdate()
@@ -291,7 +291,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         mq.save()
 
     def test_get_recipients(self):
-        msg = make_email()
+        # msg = make_email()
         recipients_count = 10
         self.fill_database(recipients_count)
 
@@ -311,7 +311,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         return d
 
     def test_get_recipients_with_satellite_group(self):
-        msg = make_email()
+        # msg = make_email()
         recipients_count = 10
         self.fill_database(recipients_count, satellite_group='my-group')
         self.fill_database(int(recipients_count / 2))  # another but with default group
@@ -339,7 +339,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         return d
 
     def test_get_recipients_for_default_group(self):
-        msg = make_email()
+        # msg = make_email()
         recipients_count = 10
         self.fill_database(int(recipients_count / 2), satellite_group='my-group')
         self.fill_database(recipients_count)  # another but with default group
@@ -363,7 +363,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
         return d
 
     def test_get_mailing(self):
-        msg = make_email()
+        # msg = make_email()
         recipients_count = 10
         self.fill_database(recipients_count)
 
@@ -384,7 +384,7 @@ class MailingMasterTest(DatabaseMixin, TestCase):
 
     @defer.inlineCallbacks
     def test_check_orphan_recipients(self):
-        msg = make_email()
+        # msg = make_email()
         recipients_count = 10
         self.fill_database(recipients_count)
 

@@ -14,7 +14,8 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-
+import email
+import email.policy
 import time
 from datetime import datetime, timedelta
 
@@ -22,6 +23,7 @@ from mogo import Model, Field, EnumField, ReferenceField
 from twisted.internet import defer
 
 from ..common.db_common import get_db
+from ..common.encoding import force_str, force_bytes
 
 
 class RECIPIENT_STATUS:
@@ -83,6 +85,15 @@ class Mailing(Model):
         self.modified = datetime.utcnow()
         return super(Mailing, self).save(*args, **kwargs)
 
+    def get_message(self):
+        """
+        Returns the mailing content as email message object.
+        """
+        mparser = email.parser.BytesFeedParser(policy=email.policy.default)
+        mparser.feed(force_bytes(self.header))
+        mparser.feed(force_bytes(self.body))
+        return mparser.close()
+
 
 class MailingRecipient(Model):
     # id              = AutoField(primary_key=True)
@@ -139,7 +150,7 @@ class MailingRecipient(Model):
             self.next_try = datetime.utcnow()
         self.reply_code = smtp_code and smtp_code or None
         self.reply_enhanced_code = smtp_e_code and smtp_e_code or None
-        self.reply_text = smtp_message and str(smtp_message, errors='replace') or None
+        self.reply_text = smtp_message and force_str(smtp_message, errors='replace') or None
         self.smtp_log = smtp_log and str(smtp_log, errors='replace') or None
         self.in_progress = in_progress
         self.save()

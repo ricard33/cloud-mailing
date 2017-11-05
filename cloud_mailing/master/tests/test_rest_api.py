@@ -171,7 +171,7 @@ class MailingTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin, TestCase
         d.addCallback(lambda x: self.call_api('PATCH', "/mailings/%d" % mailing.id, data={'owner_guid': "UT", }))
 
         d.addCallback(lambda x: self.call_api('GET', "/mailings/%d" % mailing.id, http_status.HTTP_200_OK))
-        d.addCallback(lambda x: self.assertEqual("Subject: New subject!", x['header']) and x)
+        d.addCallback(lambda x: self.assertEqual("New subject!", x['subject']) and x)
         d.addCallback(lambda x: self.assertEqual(now.isoformat()[:23], x['scheduled_start'][:23]) and x)
         d.addCallback(lambda x: self.assertTrue(isinstance(x['scheduled_duration'], int)) and x)
         # Test if GUID is correctly set

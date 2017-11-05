@@ -17,20 +17,56 @@
 
 import email
 import email.parser
+import email.policy
 import time
 from datetime import datetime, timedelta
 
-from bson import DBRef
+from bson import DBRef, ObjectId
 from mogo import Model, Field, EnumField, ReferenceField
 from twisted.internet import defer
 
-from ..common.encoding import force_str
+from ..common.encoding import force_str, force_bytes
 from ..common.email_tools import header_to_unicode
 from ..common.models import Sequence
 
 DATABASE = "cm_master"
 
 _ = lambda x: x
+
+
+class _Model(dict):
+    """
+    A simple model that wraps mongodb document
+    """
+    __getattr__ = dict.get
+    __delattr__ = dict.__delitem__
+    __setattr__ = dict.__setitem__
+
+    @classmethod
+    def grab(_class, id):
+        document = _class({
+            "_id": id
+        })
+        document.reload()
+        return document
+
+    def save(self):
+        if not self._id:
+            self.collection.insert(self)
+        else:
+            self.collection.update(
+                { "_id": ObjectId(self._id) }, self)
+
+    def reload(self):
+        if self._id:
+            self.update(self.collection\
+                    .find_one({"_id": ObjectId(self._id)}))
+
+    def remove(self):
+        if self._id:
+            self.collection.remove({"_id": ObjectId(self._id)})
+            self.clear()
+
 
 
 class User(Model):
@@ -181,8 +217,8 @@ class Mailing(Model):
                             scheduled_start=None, scheduled_duration=None):
         assert(isinstance(msg, email.message.Message))
 
-        text = msg.as_string()
-        p = text.find("\n\n")
+        text = msg.as_bytes()
+        p = text.find(b"\n\n")
         header = text[:p+2]
         body = text[p+2:]
         if not mail_from:
@@ -231,9 +267,9 @@ class Mailing(Model):
         """
         Returns the mailing content as email message object.
         """
-        mparser = email.parser.FeedParser()
-        mparser.feed(force_str(self.header))
-        mparser.feed(force_str(self.body))
+        mparser = email.parser.BytesFeedParser(policy=email.policy.default)
+        mparser.feed(force_bytes(self.header))
+        mparser.feed(force_bytes(self.body))
         return mparser.close()
 
 

@@ -48,10 +48,10 @@ if __name__ == '__main__':
 
     to = args.recipient
     filename = args.filename
-    msg_str = open(filename, 'rt').read()
+    msg_bytes = open(filename, 'rb').read()
 
-    parser = email.parser.HeaderParser()
-    header = parser.parsestr(msg_str)
+    parser = email.parser.BytesHeaderParser()
+    header = parser.parsebytes(msg_bytes)
     fromaddr = header["From"]
     # to = email.utils.parseaddr(header["To"])
     serverIp = args.server
@@ -62,6 +62,6 @@ if __name__ == '__main__':
         for rdata in answers:
             print('Host', rdata.exchange, 'has preference', rdata.preference)
         serverIp = str(answers[0].exchange)
-    print("Message length is " + repr(len(msg_str)))
+    print("Message length is " + repr(len(msg_bytes)))
 
-    send_mail(serverIp=serverIp, port= args.port, mailfrom=fromaddr, to=to, content=msg_str)
+    send_mail(serverIp=serverIp, port= args.port, mailfrom=fromaddr, to=to, content=msg_bytes)

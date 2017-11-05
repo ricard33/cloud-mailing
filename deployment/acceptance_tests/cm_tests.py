@@ -16,34 +16,37 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
+import os
+import ssl
+import sys
+import time
+import unittest
+import urllib.error
+import urllib.parse
+import urllib.request
+import xmlrpc.client
 # encoding: utf-8
 from configparser import RawConfigParser
-import http.client
-import random
-import ssl
 from subprocess import PIPE, Popen
-import urllib.request, urllib.error, urllib.parse
-import xmlrpc.client
-import unittest
-import time, os
+
 import base64
-import sys
+import random
 
 
 class Config(RawConfigParser):
-    def get(self, section, option, default = None):
+    def get(self, section, option, default=None, *args, **kwargs):
         if self.has_option(section, option) or default is None:
             return RawConfigParser.get(self, section, option)
         else:
             return default
 
-    def getint(self, section, option, default = None):
+    def getint(self, section, option, default=None, *args, **kwargs):
         if self.has_option(section, option) or not isinstance(default, int):
             return RawConfigParser.getint(self, section, option)
         else:
             return default
 
-    def getboolean(self, section, option, default = None):
+    def getboolean(self, section, option, default=None, *args, **kwargs):
         if self.has_option(section, option) or not isinstance(default, bool):
             return RawConfigParser.getboolean(self, section, option)
         else:
@@ -102,7 +105,7 @@ class CloudMailingsTestCase(unittest.TestCase):
             self.cloudMailingsRpc.delete_all_mailings_for_domain(self.domain_name)
 
     def tearDown(self):
-        pass
+        self.cloudMailingsRpc("close")()
 
     def _check_domain_sender(self, email_filename):
         import email.parser
@@ -175,7 +178,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
 
-        mailing2_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
+        with open(email_filename, 'rb') as f:
+            mailing2_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(f.read()))
         self.assertGreater(mailing2_id, 0)
         self.assertEqual(len(self.cloudMailingsRpc.list_mailings(self.domain_name)), mailing_count + 2)
         mailing = self.cloudMailingsRpc.list_mailings()[-1]
@@ -219,7 +223,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         dkim_private_key = open(os.path.join('data', 'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
+        with open(email_filename, 'rb') as f:
+            mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(f.read()))
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
         self.assertEqual(len(mailings), mailing_count + 1)
@@ -254,7 +259,6 @@ class CloudMailingsTestCase(unittest.TestCase):
         while mailing['total_pending'] > 0:
             self.assertTrue(mailing['status'] in ('READY', 'RUNNING'))
             self.assertLess(time.time() - t0, 120) # 2 minutes max
-            self.cloudMailingsRpc.mailing_manager_force_check()
             time.sleep(2)
             mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         # stats not up to date

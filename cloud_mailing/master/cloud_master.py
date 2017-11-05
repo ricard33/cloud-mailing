@@ -252,8 +252,8 @@ class MailingManagerView(pb.Viewable):
                                                            MAILING_STATUS.READY,
                                                            MAILING_STATUS.RUNNING)}})
             if mailing:
-                header = str(mailing.header).replace('\r\n', '\n')
-                body = mailing.body.replace('\r\n', '\n')
+                header = mailing.header.replace(b'\r\n', b'\n')
+                body = mailing.body.replace(b'\r\n', b'\n')
                 feedback_loop = mailing.feedback_loop or settings_vars.get(settings_vars.FEEDBACK_LOOP_SETTINGS)
                 dkim = mailing.dkim
                 if not dkim:

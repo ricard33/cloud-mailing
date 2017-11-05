@@ -237,7 +237,7 @@ class RelayerMixin:
                 raise smtp.SMTPClientError(471, "Sending aborted. Mailing stopped.")
             self.fromEmail = fromEmail
             self.toEmails = toEmails
-            self.mailFile = open(filename, 'rt')
+            self.mailFile = open(filename, 'rb')
             self.result = deferred
             #WHY? self.result.addBoth(self._removeDeferred)
             return str(self.fromEmail)
@@ -306,12 +306,12 @@ class RelayerMixin:
             errlog = []
             for addr, acode, aresp in addresses:
                 if acode not in smtp.SUCCESS:
-                    errlog.append("%s: %03d %s" % (str(addr), acode, aresp))
+                    errlog.append(b"%s: %03d %s" % (bytes(addr), acode, aresp))
 
-            errlog.append(log.str())
+            errlog.append(bytes(log))
             #print '\n'.join(errlog)
             log.clear()
-            exc = smtp.SMTPDeliveryError(code, resp, '\n'.join(errlog), addresses)
+            exc = smtp.SMTPDeliveryError(code, resp, b'\n'.join(errlog), addresses)
             self.result.errback(Failure(exc))
         else:
             log.clear()

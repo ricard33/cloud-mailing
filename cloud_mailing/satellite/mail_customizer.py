@@ -14,6 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
+from email.headerregistry import Address
 
 import base64
 import pickle
@@ -21,13 +22,13 @@ import io
 import email
 import email.generator
 import email.parser
+import email.policy
 import logging
 import os
 import re
 import threading
 import urllib.request, urllib.parse, urllib.error
-from email.header import Header
-from email.message import Message
+from email.message import EmailMessage
 
 import dkim
 import jinja2
@@ -47,7 +48,7 @@ __author__ = 'ricard'
 class MailCustomizer:
     """Customize the mailing email to a recipient, then save it to a folder."""
 
-    mailingsContent = {} # key = mailing__id, value = email.message.Message
+    mailingsContent = {} # key = mailing__id, value = email.message.EmailMessage
     _parserLock = threading.Lock()
     re_links = re.compile(r"(<a [^>]*href\s*=\s*['\"])(https?://[^'\"]*)(['\"])")
 
@@ -61,7 +62,6 @@ class MailCustomizer:
         self.temp_path = settings.MAIL_TEMP
         if not os.path.exists(settings.MAIL_TEMP):
             os.makedirs(settings.MAIL_TEMP)
-        self._do_customization = self._do_customization
         self.read_tracking = read_tracking
         self.click_tracking = click_tracking
         self.url_encoding = url_encoding
@@ -129,30 +129,28 @@ class MailCustomizer:
 
         The given message HAVE TO be single part and of type "text/*".
         """
-        assert(isinstance(message, Message))
+        assert(isinstance(message, EmailMessage))
         assert(message.is_multipart() == False)
         assert(message.get_content_maintype() == 'text')
 
-        charset = message.get_content_charset(failobj='us-ascii')
-        original = message.get_payload(decode=True)
-        if isinstance(original, str):
-            decoded = original
-        else:
-            decoded = original.decode(charset)
-        assert(isinstance(decoded, str))
-        encoding = message['Content-Transfer-Encoding']
-        del message['Content-Transfer-Encoding']
+        # charset = message.get_content_charset(failobj='us-ascii')
+        # original = message.get_payload(decode=True)
+        original = message.get_content()
+        assert isinstance(original, str)
+        decoded = original
+        # encoding = message['Content-Transfer-Encoding']
+        # del message['Content-Transfer-Encoding']
         new_body = self._do_customization(decoded,
                                           contact_data,
                                           message.get_content_subtype() == 'html'
-                                          ).encode(charset)
-        message.set_payload(new_body)
-        if encoding == 'quoted-printable':
-            email.encoders.encode_quopri(message)
-        elif encoding == 'base64':
-            email.encoders.encode_base64(message)
-        else:
-            email.encoders.encode_7or8bit(message)
+                                          )
+        message.set_content(new_body, message.get_content_subtype())
+        # if encoding == 'quoted-printable':
+        #     email.encoders.encode_quopri(message)
+        # elif encoding == 'base64':
+        #     email.encoders.encode_base64(message)
+        # else:
+        #     email.encoders.encode_7or8bit(message)
 
     def _make_mime_part(self, attachment):
         from email import encoders
@@ -210,7 +208,7 @@ class MailCustomizer:
             contact_data = self.make_contact_data_dict(self.recipient)
             message = self._parse_message()
             assert(isinstance(contact_data, dict))
-            assert(isinstance(message, Message))
+            assert(isinstance(message, EmailMessage))
             #email.iterators._structure(message)
 
             mixed_attachments=[]
@@ -236,7 +234,7 @@ class MailCustomizer:
 
             def personalise_bodies(part, mixed_attachments=[], related_attachments=[]):
                 import email.message
-                assert(isinstance(part, email.message.Message))
+                assert(isinstance(part, email.message.EmailMessage))
                 if part.is_multipart():
                     subtype = part.get_content_subtype()
                     if subtype == 'mixed':
@@ -296,18 +294,13 @@ class MailCustomizer:
                 if header in message:
                     del message[header]
 
-            message['Subject'] = Header(subject)
+            message['Subject'] = subject
 
             # Adding missing headers
             # message['Precedence'] = "bulk"
-            h = Header(self.recipient.sender_name or '')
-            h.append("<%s>" % self.recipient.mail_from)
-            message['From'] = h
-            h = Header()
-            h.append(contact_data.get('firstname') or '')
-            h.append(contact_data.get('lastname') or '')
-            h.append("<%s>" % contact_data['email'])
-            message['To'] = h
+            message['From'] = Address(self.recipient.sender_name, *self.recipient.mail_from.split('@'))
+            message['To'] = Address(('%s %s' % (contact_data.get('firstname'), contact_data.get('lastname'))).strip(),
+                                    *contact_data['email'].split('@'))
             message['Date'] = email.utils.formatdate()
             # message['Message-ID'] = email.utils.make_msgid()  # very very slow on certain circumstance
             message['Message-ID'] = "<%s.%d@cm.%s>" % (self.recipient.id, self.recipient.mailing.id, self.recipient.domain_name )
@@ -379,11 +372,7 @@ class MailCustomizer:
             if result:
                 return pickle.loads(result)
             else:
-                # parse email
-                mparser = email.parser.FeedParser()
-                mparser.feed(self.recipient.mailing.header)
-                mparser.feed(self.recipient.mailing.body)
-                result = mparser.close()
+                result = self.recipient.mailing.get_message()
                 MailCustomizer.mailingsContent[self.recipient.mailing.id] = pickle.dumps(result)
             return result
         finally:

@@ -247,7 +247,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.assertEqual(len(x), 0) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("create_mailing", "mailing@my-domain.com", "My Domain", "New Mailing",
-                                                        "<h1>Title</h1><p>blabla</p>", "", "utf-8"))
+                                                        b"<h1>Title</h1><p>blabla</p>", b"", "utf-8"))
         d.addCallback(lambda x: self.assertTrue(x > 0) and x)
 
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings", "my-domain.com"))
@@ -288,7 +288,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
 
         # d.addCallback(lambda x: sys.stderr.write(Mailing.objects.all()[0].content.body))
         d.addCallback(lambda x: self.assertTrue('content="text/html; charset=utf-8"' in
-            email.message_from_string(Mailing.first().header
+            email.message_from_bytes(Mailing.first().header
                                       + Mailing.first().body).get_payload()[1].get_payload(decode=True).decode('utf-8')))
 
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings", "my-domain.com"))
@@ -304,7 +304,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings", "my-domain.com"))
         # d.addCallback(lambda x: sys.stderr.write(Mailing.objects.all()[0].content.body))
         d.addCallback(lambda x: self.assertTrue('content="text/html; charset=utf-8"' in
-            email.message_from_string(Mailing.first().header
+            email.message_from_bytes(Mailing.first().header
                                       + Mailing.first().body).get_payload()[1].get_payload(decode=True).decode('utf-8')))
 
 
@@ -382,7 +382,7 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
 
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings"))
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
-        d.addCallback(lambda x: self.assertEqual(x[0]['header'], "Subject: New subject!") and x)
+        d.addCallback(lambda x: self.assertEqual(b"Subject: New subject!\n\n", x[0]['header'].data) and x)
         d.addCallback(lambda x: self.assertTrue(isinstance(x[0]['scheduled_start'], datetime)) and x)
         d.addCallback(lambda x: self.assertTrue(isinstance(x[0]['scheduled_duration'], int)) and x)
         # Test if GUID is correctly set
@@ -410,9 +410,13 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
             }))
 
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings"))
-        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
+        d.addCallback(lambda x: self.assertEqual(len(x), 1) and x[0])
 
-        d.addCallback(lambda x: self.assertTrue("Subject: New subject!" in x[0]['header']) and x)
+        def decode_header(mailing):
+            mailing['header'] = mailing['header'].data
+            return mailing
+        d.addCallback(decode_header)
+        d.addCallback(lambda x: self.assertTrue(b"Subject: New subject!" in x['header']) and x)
         return d
 
     def test_set_empty_subject(self):
@@ -428,7 +432,8 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         d.addCallback(lambda x: self.proxy().callRemote("list_mailings"))
         d.addCallback(lambda x: self.assertEqual(len(x), 1) and x)
         # d.addCallback(lambda x: self.assertEqual(x[0]['subject'], "") and x)
-        d.addCallback(lambda x: self.assertTrue("Subject: \n" in x[0]['header']) and x)
+        d.addCallback(lambda x: self.log(x[0]['header']) and x)
+        d.addCallback(lambda x: self.assertTrue(b"Subject:\n" in x[0]['header'].data) and x)
         return d
 
     def test_delete_mailing(self):

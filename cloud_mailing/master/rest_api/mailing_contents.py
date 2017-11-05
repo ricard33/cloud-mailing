@@ -18,12 +18,13 @@
 import email
 import email.errors
 import email.message
+import email.policy
 import json
 
 from twisted.web import server
 from twisted.web.resource import Resource
 
-from ...common.encoding import force_str
+from ...common.encoding import force_str, force_bytes
 from ...common import http_status
 from ...common.rest_api_common import ApiResource
 from ...common.db_common import get_db
@@ -106,9 +107,9 @@ class MailingContentApi(ApiResource):
 
     @staticmethod
     def get_message(mailing):
-        mparser = email.parser.FeedParser()
-        mparser.feed(force_str(mailing['header']))
-        mparser.feed(force_str(mailing['body']))
+        mparser = email.parser.BytesFeedParser(policy=email.policy.default)
+        mparser.feed(force_bytes(mailing['header']))
+        mparser.feed(force_bytes(mailing['body']))
         msg = mparser.close()
         return msg
 

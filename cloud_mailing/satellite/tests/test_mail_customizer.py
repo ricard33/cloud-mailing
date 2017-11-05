@@ -41,10 +41,10 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
     def test_customization_with_custom_fields(self):
         recipient = factories.RecipientFactory()
 
-
         customizer = MailCustomizer(recipient)
-        self.assertEqual(customizer._do_customization(recipient.mailing.body, recipient.contact_data),
-                          'This is a very simple mailing.')
+        message = recipient.mailing.get_message()
+        self.assertEqual(customizer._do_customization(message.get_content(), recipient.contact_data),
+                         'This is a very simple mailing.')
 
     def test_customize_message(self):
         mailing = factories.MailingFactory()
@@ -66,7 +66,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         assert(isinstance(message, email.message.Message))
         self.assertFalse(message.is_multipart())
         self.assertTrue('Date' in message)
-        self.assertEqual('This is a very simple mailing.', message.get_payload())
+        self.assertEqual('This is a very simple mailing.\n', message.get_payload())
 
     def test_customize_simple_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
@@ -102,20 +102,20 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         self.assertTrue(message.is_multipart())
         # print
         # print message.as_string()
-        self.assertEqual(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
-        self.assertEqual(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
+        self.assertEqual('This is a very simple mailing.\n', message.get_payload(i=0).get_payload())
+        self.assertEqual('col1;col2;col3\nval1;val2;val3\n', message.get_payload(i=1).get_payload())
 
     def test_customize_mixed_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
             mailing = factories.MailingFactory(
-                header="""Content-Transfer-Encoding: 7bit
+                header=b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/mixed; boundary="===============2840728917476054151=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
 To: <firstname.lastname@domain.com>
 Date: Wed, 05 Jun 2013 06:05:56 -0000
 """,
-                body="""
+                body=b"""
 --===============2840728917476054151==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
@@ -164,21 +164,21 @@ Nothing else to say...
         self.assertTrue(message.is_multipart())
         # print
         # print message.as_string()
-        self.assertEqual(message.get_payload(i=0).get_payload(), 'This is a very simple mailing.')
+        self.assertEqual('This is a very simple mailing.\n', message.get_payload(i=0).get_payload())
         self.assertIn("This is an attachment common for all recipients.", message.get_payload(i=1).get_payload())
         self.assertEqual(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_alternative_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
             mailing = factories.MailingFactory(
-                header="""Content-Transfer-Encoding: 7bit
+                header=b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/alternative; boundary="===============2840728917476054151=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
 To: <firstname.lastname@domain.com>
 Date: Wed, 05 Jun 2013 06:05:56 -0000
 """,
-                body="""
+                body=b"""
 This is a multi-part message in MIME format.
 --===============2840728917476054151==
 Content-Type: text/plain; charset="us-ascii"
@@ -231,21 +231,21 @@ Nothing else to say...
         self.assertTrue(message.is_multipart())
         self.assertEqual("multipart/mixed", message.get_content_type())
         self.assertEqual("multipart/alternative", message.get_payload(i=0).get_content_type())
-        self.assertEqual(message.get_payload(i=0).get_payload(i=0).get_payload(), 'This is a very simple mailing.')
+        self.assertEqual('This is a very simple mailing.\n', message.get_payload(i=0).get_payload(i=0).get_payload())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload())
         self.assertEqual(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
             mailing = factories.MailingFactory(
-                header="""Content-Transfer-Encoding: 7bit
+                header=b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/related; boundary="===============2840728917476054151=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
 To: <firstname.lastname@domain.com>
 Date: Wed, 05 Jun 2013 06:05:56 -0000
 """,
-                body="""
+                body=b"""
 This is a multi-part message in MIME format.
 --===============2840728917476054151==
 Content-Type: text/html; charset="us-ascii"
@@ -313,14 +313,14 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
     def test_customize_alternative_and_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
             mailing = factories.MailingFactory(
-                header="""Content-Transfer-Encoding: 7bit
+                header=b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/alternative; boundary="===============1111111111111111111=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
 To: <firstname.lastname@domain.com>
 Date: Wed, 05 Jun 2013 06:05:56 -0000
 """,
-                body="""
+                body=b"""
 This is a multi-part message in MIME format.
 --===============1111111111111111111==
 Content-Type: text/plain; charset="us-ascii"
@@ -395,21 +395,21 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
         self.assertEqual("multipart/alternative", message.get_payload(i=0).get_content_type())
         self.assertEqual("text/plain",            message.get_payload(i=0).get_payload(i=0).get_content_type())
         self.assertEqual("multipart/related",     message.get_payload(i=0).get_payload(i=1).get_content_type())
-        self.assertEqual('This is a very simple mailing.', message.get_payload(i=0).get_payload(i=0).get_payload())
+        self.assertEqual('This is a very simple mailing.\n', message.get_payload(i=0).get_payload(i=0).get_payload())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload(i=0).get_payload())
         self.assertEqual(message.get_payload(i=1).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
 
     def test_customize_mixed_and_alternative_and_related_message_with_recipient_attachment(self):
         recipient = factories.RecipientFactory(
             mailing = factories.MailingFactory(
-                header="""Content-Transfer-Encoding: 7bit
+                header=b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/mixed; boundary="===============0000000000000000000=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
 To: <firstname.lastname@domain.com>
 Date: Wed, 05 Jun 2013 06:05:56 -0000
 """,
-                body="""
+                body=b"""
 This is a multi-part message in MIME format.
 --===============0000000000000000000==
 Content-Type: multipart/alternative; boundary="===============1111111111111111111=="
@@ -499,7 +499,7 @@ Nothing else to say...
         self.assertEqual("multipart/alternative", message.get_payload(i=0).get_content_type())
         self.assertEqual("text/plain",            message.get_payload(i=0).get_payload(i=0).get_content_type())
         self.assertEqual("multipart/related",     message.get_payload(i=0).get_payload(i=1).get_content_type())
-        self.assertEqual('This is a very simple mailing.', message.get_payload(i=0).get_payload(i=0).get_payload())
+        self.assertEqual('This is a very simple mailing.\n', message.get_payload(i=0).get_payload(i=0).get_payload())
         self.assertIn("This is <strong> a very simple</strong> <u>mailing</u>.", message.get_payload(i=0).get_payload(i=1).get_payload(i=0).get_payload())
         self.assertIn("This is an attachment", message.get_payload(i=1).get_payload())
         self.assertEqual(message.get_payload(i=2).get_payload(), 'col1;col2;col3\nval1;val2;val3\n')
@@ -544,14 +544,14 @@ Nothing else to say...
 
     def test_customize_message_encoding(self):
         mailing = factories.MailingFactory(
-            header="""Content-Transfer-Encoding: 7bit
+            header=b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/alternative; boundary="===============2840728917476054151=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
 To: <firstname.lastname@domain.com>
 Date: Wed, 05 Jun 2013 06:05:56 -0000
 """,
-            body="""
+            body=b"""
 This is a multi-part message in MIME format.
 --===============2840728917476054151==
 Content-Type: text/plain; charset="iso-8859-1"
@@ -595,7 +595,7 @@ I'm happy! Nothing else to say...
         self.assertEqual("multipart/alternative", message.get_content_type())
         self.assertEqual("text/plain", message.get_payload(i=0).get_content_type())
         self.assertEqual("text/html", message.get_payload(i=1).get_content_type())
-        self.assertEqual(message.get_payload(i=0).get_payload(decode=True), b"This is a very simple mailing. I'm happy.")
+        self.assertEqual(b"This is a very simple mailing. I'm happy.\n", message.get_payload(i=0).get_payload(decode=True))
         self.assertIn(b"This is <strong> a very simple</strong> <u>mailing</u>. I'm happy! ", message.get_payload(i=1).get_payload(decode=True))
 
     def test_customize_message_bad_encoding_iso_8859_1_from_msword(self):
@@ -606,14 +606,14 @@ I'm happy! Nothing else to say...
         Windows-1252 and represents a lovely apostrophe
         """
         mailing = factories.MailingFactory(
-            header="""Content-Transfer-Encoding: 7bit
+            header=b"""Content-Transfer-Encoding: 7bit
 Content-Type: multipart/alternative; boundary="===============2840728917476054151=="
 Subject: Great news!
 From: Mailing Sender <sender@my-company.biz>
 To: <firstname.lastname@domain.com>
 Date: Wed, 05 Jun 2013 06:05:56 -0000
 """,
-            body="""
+            body=b"""
 This is a multi-part message in MIME format.
 --===============2840728917476054151==
 Content-Type: text/plain; charset="iso-8859-1"

@@ -16,6 +16,8 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import email
+import email.parser
+import email.policy
 import logging
 import re
 from datetime import timedelta, datetime
@@ -97,9 +99,9 @@ class Serializer(object):
             if obj:
                 obj['id'] = obj.pop('_id')
                 if 'subject' not in obj and 'subject' in self.filtered_fields and 'header' in obj:
-                    parser = email.parser.HeaderParser()
-                    msg = parser.parsestr(obj['header'])
-                    obj['subject'] = header_to_unicode(msg.get('Subject'))
+                    parser = email.parser.BytesHeaderParser(policy=email.policy.default)
+                    msg = parser.parsebytes(obj['header'])
+                    obj['subject'] = msg.get('Subject')
                 defer.returnValue(obj)
             raise NotFound
         except IndexError:
@@ -196,6 +198,7 @@ class MailingSerializer(Serializer):
                 status_list = isinstance(value, (list, tuple)) and value or [value]
                 for status in status_list:
                     available_status = models.relay_status
+                    status = force_text(status)
                     if status not in available_status:
                         log.error("Bad status '%s'. Available status are: %s",
                                   status, ', '.join(available_status))

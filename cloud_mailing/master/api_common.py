@@ -27,6 +27,7 @@ from bson import SON
 from twisted.internet.threads import deferToThread
 from twisted.web import http
 
+from ..common.encoding import force_bytes
 from .models import MailingHourlyStats
 from .mailing_manager import MailingManager
 from .models import Mailing, MAILING_STATUS
@@ -98,8 +99,13 @@ def set_mailing_properties(mailing_id, properties):
             setattr(mailing, key, value)
         elif key == 'shown_name':
             mailing.sender_name = value
-        elif key in ('header', 'body'):
-            setattr(mailing, key, value)
+        elif key == 'header':
+            mailing.header = force_bytes(value).strip() + b'\n\n'
+            if key == 'header':
+                message = mailing.get_message()
+                mailing.subject = message.get('Subject')
+        elif key == 'body':
+            mailing.body = force_bytes(value)
         elif key in ('dont_close_if_empty', 'read_tracking', 'click_tracking'):
             setattr(mailing, key, bool(value))
         elif key == 'mail_from':
@@ -130,7 +136,7 @@ def set_mailing_properties(mailing_id, properties):
         if subject is not None:
             if 'Subject' in msg:
                 del msg['Subject']
-            msg['Subject'] = email.header.Header(subject, header_name='Subject')
+            msg['Subject'] = subject
             mailing.subject = subject
 
         if html_content or plain_content:
@@ -179,10 +185,10 @@ def set_mailing_properties(mailing_id, properties):
         # store new message
         # convert_email_charset(msg)
 
-        text = msg.as_string()
-        p = text.find("\n\n")
-        mailing.header = text[:p + 2]
-        mailing.body = text[p + 2:]
+        msg_bytes = msg.as_bytes()
+        p = msg_bytes.find(b"\n\n")
+        mailing.header = msg_bytes[:p + 2]
+        mailing.body = msg_bytes[p + 2:]
     mailing.save()
     from .cloud_master import mailing_portal
     if mailing_portal:

@@ -225,7 +225,7 @@ class BasicHttpAuthXMLRPC(tx_xmlrpc.XMLRPC):
             return failure.value
         log.err(failure)
         if isinstance(failure.value, Exception):
-            return Fault(self.FAILURE, failure.value.message)
+            return Fault(self.FAILURE, str(failure.value))
         return Fault(self.FAILURE, "error")
 
 

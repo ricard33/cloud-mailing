@@ -50,6 +50,7 @@ from twisted.spread import pb
 from twisted.spread.util import CallbackPageCollector
 
 from ..common.db_common import get_db
+from ..common.encoding import force_str
 from . import settings_vars
 from .mail_customizer import MailCustomizer
 from .models import Mailing, MailingRecipient, RECIPIENT_STATUS, HourlyStats, DomainStats, DomainConfiguration, \
@@ -161,7 +162,7 @@ class MailingSender(pb.Referenceable):
         if count:
             self.log.debug("Verifying recipients (%d unverified)...", count)
             data_list = yield getAllPages(self.mailing_manager, "get_my_recipients")
-            data = ''.join(data_list)
+            data = b''.join(data_list)
             recipient_ids = pickle.loads(data)
 
             self.log.debug("Master returns us %d recipients", len(recipient_ids))
@@ -256,7 +257,7 @@ class MailingSender(pb.Referenceable):
 
     def cb_get_mailing(self, data_list):
         self.is_connected = True
-        data = ''.join(data_list)
+        data = b''.join(data_list)
         mailing_id = None
         #noinspection PyBroadException
         try:
@@ -552,7 +553,7 @@ class MailingSender(pb.Referenceable):
         # if err.check(dns.exception.DNSException):
         #     err_msg = str(err.value.__doc__)
         # else:
-        err_msg = (str(err.value) or str(err)).decode('utf-8', 'ignore')
+        err_msg = force_str(str(err.value) or str(err))
         self.log.error("Relayer '%s' finished with error '%s'.", domain, err_msg)
         recipients = self.relay_manager.getActiveRelayRecipients(queue_id)
         if recipients:

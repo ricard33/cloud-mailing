@@ -37,8 +37,8 @@ class MailingFactory(factory.MogoFactory):
 
     mail_from = "sender@my-company.biz"
     sender_name = "Mailing Sender"
-    header = "Subject: Great news!"
-    body = "This is a mailing body."
+    header = b"Subject: Great news!"
+    body = b"This is a mailing body."
 
 
 class RecipientFactory(factory.MogoFactory):

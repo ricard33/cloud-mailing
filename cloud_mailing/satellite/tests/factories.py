@@ -30,8 +30,8 @@ class MailingFactory(factory.MogoFactory):
     tracking_url = 'http://localhost/ml/'
 
     # faked fields needed because used by create() function in models.Manager of Mailing
-    header = "Subject: Great news!\n"
-    body = 'This is a {{ custom }} mailing.'
+    header = b"Subject: Great news!\n"
+    body = b"This is a {{ custom }} mailing."
     body_downloaded = True
     type = 'REGULAR'
 
