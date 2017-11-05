@@ -29,27 +29,44 @@ from datetime import datetime
 
 class FakeSMTPChannel(smtpd.SMTPChannel):
     def smtp_RCPT(self, arg):
+        """Overload to reject recipients with 'error' word in address."""
+        if not self.seen_greeting:
+            self.push('503 Error: send HELO first')
+            return
         print('===> RCPT', arg, file=smtpd.DEBUGSTREAM)
-        if not self._SMTPChannel__mailfrom:
+        if not self.mailfrom:
             self.push('503 Error: need MAIL command')
             return
-        address = self._SMTPChannel__getaddr('TO:', arg) if arg else None
+        syntaxerr = '501 Syntax: RCPT TO: <address>'
+        if self.extended_smtp:
+            syntaxerr += ' [SP <mail-parameters>]'
+        if arg is None:
+            self.push(syntaxerr)
+            return
+        arg = self._strip_command_keyword('TO:', arg)
+        address, params = self._getaddr(arg)
         if not address:
-            self.push('501 Syntax: RCPT TO: <address>')
+            self.push(syntaxerr)
             return
         if 'error' in address:
             self.push('550 Unknown recipient %s' % address)
             return
-        # if random.random() < 0.1:
-        #     self.push('550 Unknown recipient %s' % address)
-        #     return
-        # if random.random() < 0.1:
-        #     self.push('421 Please try later')
-        #     return
+        if not self.extended_smtp and params:
+            self.push(syntaxerr)
+            return
+        self.rcpt_options = params.upper().split()
+        params = self._getparams(self.rcpt_options)
+        if params is None:
+            self.push(syntaxerr)
+            return
+        # XXX currently there are no options we recognize.
+        if len(params.keys()) > 0:
+            self.push('555 RCPT TO parameters not recognized or not implemented')
+            return
+        self.rcpttos.append(address)
+        print('recips:', self.rcpttos, file=smtpd.DEBUGSTREAM)
+        self.push('250 OK')
 
-        self._SMTPChannel__rcpttos.append(address)
-        print('recips:', self._SMTPChannel__rcpttos)
-        self.push('250 Ok')
 
 class FakeSMTPD(smtpd.SMTPServer):
     def __init__(self, localaddr, remoteaddr):
@@ -69,7 +86,7 @@ class FakeSMTPD(smtpd.SMTPServer):
             print('Incoming connection from %s' % repr(addr))
             channel = FakeSMTPChannel(self, conn, addr)
 
-    def process_message(self, peer, mailfrom, rcpttos, data):
+    def process_message(self, peer, mailfrom, rcpttos, data, **kwargs):
         with self.lock:
             t1 = time.time()
             if t1 - self.last_time > self.max_delay_before_reset:

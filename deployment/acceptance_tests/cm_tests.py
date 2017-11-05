@@ -110,8 +110,8 @@ class CloudMailingsTestCase(unittest.TestCase):
     def _check_domain_sender(self, email_filename):
         import email.parser
 
-        m_parser = email.parser.Parser()
-        with open(email_filename, 'rt') as fp:
+        m_parser = email.parser.BytesParser()
+        with open(email_filename, 'rb') as fp:
             message = m_parser.parse(fp)
         import email.utils
 
@@ -187,6 +187,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         # self.assertEqual(mailing['domain_name'], self.domain_name)
         # self.assertEqual(mailing['total_recipient'], 0)
 
+    @unittest.skip
     def test_create_lot_of_mailings(self):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         self.assertGreaterEqual(mailing_count, 0)
@@ -220,7 +221,8 @@ class CloudMailingsTestCase(unittest.TestCase):
     def test_run_mailing(self):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'email.rfc822')
-        dkim_private_key = open(os.path.join('data', 'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()
+        with open(os.path.join('data', 'unittest.cloud-mailing.net', 'mail.private'), 'rt') as f:
+            dkim_private_key = f.read()
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
         with open(email_filename, 'rb') as f:
@@ -275,7 +277,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
+        with open(email_filename, 'rb') as f:
+            mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(f.read()))
         self.assertGreater(mailing_id, 0)
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'testing': True})
         recipients_list = [{'email': "cedric.ricard@orange.fr"},
@@ -314,7 +317,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'medium_sized.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
+        with open(email_filename, 'rb') as f:
+            mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(f.read()))
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
         self.assertEqual(len(mailings), mailing_count + 1)
@@ -405,11 +409,13 @@ class CloudMailingsTestCase(unittest.TestCase):
         mailing_count = len(self.cloudMailingsRpc.list_mailings(self.domain_name))
         email_filename = os.path.join('data', 'mailing-content')
         mail_from = "my-mailing@%s" % self.domain_name
-        # mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
-        mailing_id = self.cloudMailingsRpc.create_mailing(mail_from, "Mailing Corp",  "Test mailing {{firstname}}",
-                                                          open(email_filename + '.html', 'rt').read().decode('utf-8'),
-                                                          open(email_filename + '.txt', 'rt').read().decode('utf-8'),
-                                                          'utf-8')
+        with open(email_filename + '.html', 'rb') as html_file, \
+             open(email_filename + '.txt', 'rb') as text_file:
+            # mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
+            mailing_id = self.cloudMailingsRpc.create_mailing(mail_from, "Mailing Corp",  "Test mailing {{firstname}}",
+                                                              html_file.read().decode('utf-8'),
+                                                              text_file.read().decode('utf-8'),
+                                                              'utf-8')
         self.assertGreater(mailing_id, 0)
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
         self.assertEqual(len(mailings), mailing_count + 1)
@@ -449,7 +455,8 @@ class CloudMailingsTestCase(unittest.TestCase):
         email_filename = os.path.join('data', 'email.rfc822')
         self._check_domain_sender(email_filename)
         mail_from = "my-mailing@%s" % self.domain_name
-        mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(open(email_filename, 'rt').read()))
+        with open(email_filename, 'rb') as f:
+            mailing_id = self.cloudMailingsRpc.create_mailing_ext(base64.b64encode(f.read()))
         self.assertGreater(mailing_id, 0)
         self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'testing': True, 'backup_customized_emails': True})
         recipients_list = [{'email': "cedric.ricard@orange.fr", 'firstname': 'Cedric', 'lastname': 'RICARD'},
