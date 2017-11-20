@@ -243,7 +243,7 @@ def main(application=None):
     log.info("Twisted version %s", twisted.version.short())
     log.info("****************************************************************")
 
-    Db.getInstance(settings.MASTER_DATABASE)
+    Db.getInstance(settings.MASTER_DATABASE, uri=settings.MASTER_DATABASE_URI)
 
     log.info("CM SMTPD started on port %d", args.port)
 

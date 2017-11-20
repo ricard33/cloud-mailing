@@ -170,7 +170,7 @@ def main(application=None):
     db_conn = None
     while not db_conn:
         try:
-            db_conn = connect(settings.MASTER_DATABASE)
+            db_conn = connect(settings.MASTER_DATABASE, uri=settings.MASTER_DATABASE_URI)
             init_master_db(db_conn[settings.MASTER_DATABASE])
             log.info("Connected to database '%s'", settings.MASTER_DATABASE)
         except (pymongo.errors.ConnectionFailure, pymongo.errors.ServerSelectionTimeoutError):
@@ -183,7 +183,7 @@ def main(application=None):
             else:
                 log.info("   Trying again in 5 seconds...")
                 time.sleep(5)
-    Db.getInstance(settings.MASTER_DATABASE, pool_size=10, watchdog_timeout=60)
+    Db.getInstance(settings.MASTER_DATABASE, pool_size=10, watchdog_timeout=60, uri=settings.MASTER_DATABASE_URI)
 
     # attach the service to its parent application
     apiService = get_api_service(application, port=args.api_port,

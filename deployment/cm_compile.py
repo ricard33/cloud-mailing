@@ -19,7 +19,7 @@ import os, sys, re
 from os.path import getsize, join
 import py_compile
 
-base_dirs = map(lambda x: join(".", x), ('bin', 'cloud_mailing', ))
+base_dirs = [join(".", x) for x in ('bin', 'cloud_mailing', )]
 verbose = '-v' in sys.argv
 delete_py = '--delete-py' in sys.argv
 excludes = []  # don't visit .svn directories
@@ -31,9 +31,9 @@ def clean_pyc_files(base_dir):
         for name in files:
             if name.endswith(".pyc") or name.endswith(".pyo"):
                 fullpath = join(root, name)
-                print "Deleting '%s'... " % fullpath,
+                print("Deleting '%s'... " % fullpath, end=' ')
                 os.remove(fullpath)
-                print "Ok"
+                print("Ok")
         for name in ('.svn', '.git', '.hg', '.env'):
             if name in dirs:
                 dirs.remove(name)  # don't visit .svn, .git and .hg directories
@@ -48,17 +48,17 @@ def compile_python(base_dir):
                 if exclude.search(fullpath):
                     continue
                 if verbose:
-                    print "Compiling '%s'... " % fullpath,
+                    print("Compiling '%s'... " % fullpath, end=' ')
                 try:
                     py_compile.compile(fullpath)
                     if delete_py:
                         os.remove(fullpath)
                     if verbose:
-                        print "Ok"
-                except Exception, ex:
+                        print("Ok")
+                except Exception as ex:
                     if verbose:
-                        print "ERROR: %s" % str(ex)
-                    print >> sys.stderr, "ERROR compiling '%s': %s" % (fullpath, str(ex))
+                        print("ERROR: %s" % str(ex))
+                    print("ERROR compiling '%s': %s" % (fullpath, str(ex)), file=sys.stderr)
                     errors.append((fullpath, ex))
         for d in excludes:
             if d in dirs:
@@ -67,21 +67,21 @@ def compile_python(base_dir):
 
 if __name__ == "__main__":
     if '-c' in sys.argv:
-        print "Removing all .pyc files..."
+        print("Removing all .pyc files...")
         for dir in base_dirs:
             clean_pyc_files(dir)
     else:
         errors = []
         for dir in base_dirs:
             errors.append(compile_python(dir))
-        print
+        print()
         if len(errors):
-            print >> sys.stderr, "%d error(s) found!" % len(errors)
+            print("%d error(s) found!" % len(errors), file=sys.stderr)
         else:
-            print "CloudMailing's files successfully compiled!"
+            print("CloudMailing's files successfully compiled!")
 
         import compileall
 
-        print "Compiling Python Libraries..."
+        print("Compiling Python Libraries...")
         compileall.compile_path(True, 10)
-        print "Finished!"
+        print("Finished!")

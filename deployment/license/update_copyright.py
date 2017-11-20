@@ -69,7 +69,7 @@ def writeheader(filename, header, skip=None):
         i += 1
         if end_of_licence_token in line:
             if header == input_lines[:i]:
-                print "Header up-to-date on %s" % filename
+                print("Header up-to-date on %s" % filename)
                 return
             input_lines = input_lines[i:]
             if input_lines and not input_lines[0].strip():
@@ -84,9 +84,9 @@ def writeheader(filename, header, skip=None):
         f = open(filename, 'w')
         f.writelines(output)
         f.close()
-        print "added header to %s" % filename
-    except IOError, err:
-        print "something went wrong trying to add header to %s: %s" % (filename, err)
+        print("added header to %s" % filename)
+    except IOError as err:
+        print("something went wrong trying to add header to %s: %s" % (filename, err))
 
 
 def addheader(directory, header, skip_reg, filename_reg, dir_regex):
@@ -102,7 +102,7 @@ def addheader(directory, header, skip_reg, filename_reg, dir_regex):
         fullname = os.path.join(directory, i)
         if os.path.isdir(fullname):  # if dir, recursively go in
             if dir_regex.match(fullname):
-                print "going into %s" % fullname
+                print("going into %s" % fullname)
                 addheader(fullname, header, skip_reg, filename_reg, dir_regex)
         else:
             if filename_reg.match(fullname):  # if file matches file regex, write the header

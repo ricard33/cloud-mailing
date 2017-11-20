@@ -33,6 +33,9 @@ CONFIG_PATH = os.path.join(PROJECT_ROOT, "config")
 CONFIG_FILE = os.path.join(CONFIG_PATH, "cloud-mailing.ini")
 LOG_PATH = os.path.join(PROJECT_ROOT, "log")
 
+os.makedirs(CONFIG_PATH, exist_ok=True)
+os.makedirs(LOG_PATH, exist_ok=True)
+
 config = ConfigFile()
 if os.path.exists(CONFIG_FILE):
     config.read(CONFIG_FILE)
@@ -44,7 +47,9 @@ SSL_CERTIFICATE_PATH = os.path.join(PROJECT_ROOT, 'ssl')
 SSL_CERTIFICATE_NAME = 'cm'
 
 MASTER_DATABASE = config.get('MASTER_DATABASE', 'NAME', "cm_master")
+MASTER_DATABASE_URI = config.get('MASTER_DATABASE', 'URI', "mongodb://localhost:27017")
 SATELLITE_DATABASE = config.get('SATELLITE_DATABASE', 'NAME', "cm_satellite")
+SATELLITE_DATABASE_URI = config.get('SATELLITE_DATABASE', 'URI', "mongodb://localhost:27017")
 TEST_DATABASE = "cm_test"
 
 SERIAL = config.get('ID', 'SERIAL', '<NO_SERIAL_NUMBER>')

@@ -1,6 +1,6 @@
 -r common.txt
 factory_boy
-fabric
+fabric3
 pytest
 pytest_twisted
 # doc only

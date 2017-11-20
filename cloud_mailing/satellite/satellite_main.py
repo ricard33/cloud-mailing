@@ -106,8 +106,8 @@ def main(application=None):
     log.info("****************************************************************")
 
     ssl_context_factory = ssl.ClientContextFactory()
-    db_conn = connect(settings.SATELLITE_DATABASE)
-    Db.getInstance(settings.SATELLITE_DATABASE)
+    db_conn = connect(settings.SATELLITE_DATABASE, uri=settings.SATELLITE_DATABASE_URI)
+    Db.getInstance(settings.SATELLITE_DATABASE, uri=settings.SATELLITE_DATABASE_URI)
 
     init_db(db_conn[settings.SATELLITE_DATABASE])
 
