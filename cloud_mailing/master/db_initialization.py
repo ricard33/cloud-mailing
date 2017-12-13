@@ -33,6 +33,7 @@ __author__ = 'Cedric RICARD'
 
 def init_master_db(db):
     create_index(db.mailingrecipient, [('next_try', pymongo.ASCENDING)])
+    create_index(db.mailinghourlystats, [('epoch_hour', pymongo.ASCENDING)])
     do_migrations(db)
 
 

@@ -266,10 +266,10 @@ class SendRecipientsTask(Singleton):
         cloud_client = yield db.cloudclient.find_one({'serial': serial})
 
         if not cloud_client:
-            self.log.warn("_send_recipients_to_satellite() Unknown client [%s]", serial)
+            self.log.warning("_send_recipients_to_satellite() Unknown client [%s]", serial)
             return
         if not cloud_client['enabled']:
-            self.log.warn("_send_recipients_to_satellite() refused for disabled client [%s]", serial)
+            self.log.warning("_send_recipients_to_satellite() refused for disabled client [%s]", serial)
             return
         domain_affinity = cloud_client.get('domain_affinity')
         satellite_group = cloud_client.get('group')
