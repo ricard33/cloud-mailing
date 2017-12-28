@@ -30,9 +30,12 @@ def prompt(prompt):
     return input(prompt).strip()
 
 
-def send_mail(serverIp, port, mailfrom, to, content):
+def send_mail(serverIp, port, mailfrom, to, content, user=None, password=None):
     server = smtplib.SMTP(serverIp, port)
     server.set_debuglevel(1)
+    if user:
+        server.starttls()
+        server.login(user, password)
     server.sendmail(mailfrom, [to], content)
     server.quit()
 
@@ -41,6 +44,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Send email from RFC822 file.')
     parser.add_argument('-s', '--server', default=None, help='Target SMTP server. If none provided, will resolve real target using DNS.')
     parser.add_argument('-p', '--port', type=int, default=25, help='port number for SMTP (default: 25)')
+    parser.add_argument('-u', '--user', default=None, help='Username for authentication (unauthenticated session will be used if not provided)')
+    parser.add_argument('-w', '--password', default=None, help='Password for authentication')
     parser.add_argument('recipient', help="email recipient")
     parser.add_argument('filename', help="email content (should be rfc822 compliant)")
 
@@ -48,7 +53,8 @@ if __name__ == '__main__':
 
     to = args.recipient
     filename = args.filename
-    msg_bytes = open(filename, 'rb').read()
+    msg_bytes = b'\r\n'.join(open(filename, 'rb').read().splitlines())  # ensure to have CR/LF end line
+    print(msg_bytes)
 
     parser = email.parser.BytesHeaderParser()
     header = parser.parsebytes(msg_bytes)
@@ -64,4 +70,5 @@ if __name__ == '__main__':
         serverIp = str(answers[0].exchange)
     print("Message length is " + repr(len(msg_bytes)))
 
-    send_mail(serverIp=serverIp, port= args.port, mailfrom=fromaddr, to=to, content=msg_bytes)
+    send_mail(serverIp=serverIp, port= args.port, mailfrom=fromaddr, to=to, content=msg_bytes,
+              user=args.user, password=args.password)

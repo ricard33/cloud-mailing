@@ -134,7 +134,7 @@ class AuthenticateApi(ApiResource):
         assert(isinstance(request, server.Request))
         content = request.content.read()
         self.log_call(request, content=content)
-        data = json.loads(content)
+        data = json.loads(content.decode('utf-8'))
         username = data.get('username')
         creds = credentials.UsernamePassword(username, data.get('password'))
         user = request.site.check_authentication(request, credentials=creds)
