@@ -416,7 +416,7 @@ class SMTPRelayerFactory(protocol.ClientFactory):
 
         @type reason: L{twisted.python.failure.Failure}
         """
-        self.log.warn("[%s] SMTP Connection failed for '%s': %s", self.targetDomain, connector.getDestination(), str(err.value).decode(encoding='utf-8', errors='replace'))
+        self.log.warn("[%s] SMTP Connection failed for '%s': %s", self.targetDomain, connector.getDestination(), str(err.value))
         self._processConnectionError(connector, err)
 
     def clientConnectionLost(self, connector, err):
