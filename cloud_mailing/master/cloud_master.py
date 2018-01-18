@@ -642,7 +642,7 @@ class CmCloudCredentialsChecker:
 
             return defer.maybeDeferred(
                 credentials.checkPassword,
-                hmac.HMAC(force_bytes(client.shared_key)).hexdigest()
+                hmac.HMAC(str(client.shared_key)).hexdigest()
                 ).addCallback(
                     self._cbPasswordMatch, client
                 )
