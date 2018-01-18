@@ -89,7 +89,7 @@ class MailingApi(RetrieveModelMixin, ApiResource):
         return self.render_POST(request)
 
     def render_POST(self, request):
-        content = request.content.read()
+        content = request.content.read().decode('utf-8')
         self.log_call(request, content=content)
         data = json.loads(content)
         if 'status' in data:
