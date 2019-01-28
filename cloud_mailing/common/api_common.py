@@ -58,8 +58,8 @@ class HomePage(resource.Resource):
             s.write('<style>.red { color: #FF0000; }</style>')
             s.write('<h2 class="red">Invalid License.</h2>')
         s.write("</div></body></html>")
-        home = static.Data(s.getvalue(), "text/html")
-        self.putChild("", home)
+        home = static.Data(s.getvalue().encode('utf-8'), "text/html")
+        self.putChild(b"", home)
 
 
 class ICurrentUser(Interface):
