@@ -112,8 +112,8 @@ def add_coloring_to_emit_ansi(fn):
         else:
             color = '\x1b[0m' # normal
         msg = args[1].msg
-        if isinstance(msg, str):
-            msg = msg.encode(encoding='utf-8', errors='replace')
+        if isinstance(msg, bytes):
+            msg = msg.decode(encoding='utf-8', errors='replace')
         args[1].msg = "%s%s\x1b[0m" % (color, msg)  # normal
         #print "after"
         return fn(*args)
