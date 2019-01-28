@@ -204,7 +204,7 @@ class MailingSerializer(Serializer):
                                   status, ', '.join(available_status))
                         raise ValueError("Bad status '%s'. Available status are: %s"
                                          % (status, ', '.join(available_status)))
-                mailings_filter['status'] = {'$in': status_list}
+                mailings_filter['status'] = {'$in': list(map(force_text, status_list))}
             if 'owner_guid' in args:
                 owners = args['owner_guid']
                 if isinstance(owners, str):

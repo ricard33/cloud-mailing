@@ -9,3 +9,4 @@ watchdog
 psutil
 python-dateutil
 dkimpy
+requests

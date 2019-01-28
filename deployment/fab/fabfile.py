@@ -184,7 +184,7 @@ def create_user():
         return
     remote_system = get_system_name()
     if remote_system == "Linux":
-        run("adduser --home %(TARGET_PATH)s --shell /bin/tcsh --disabled-password --disabled-login %(username)s" % {
+        run("adduser --home %(TARGET_PATH)s --shell /bin/tcsh --disabled-password --disabled-login --gecos '' %(username)s" % {
             'TARGET_PATH': TARGET_PATH(), 'username': username})
     elif remote_system == "FreeBSD":
         run("pw useradd %(username)s -d %(TARGET_PATH)s -m -s /bin/tcsh -w no" % {'TARGET_PATH': TARGET_PATH(), 'username': username})
