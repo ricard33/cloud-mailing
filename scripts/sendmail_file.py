@@ -36,7 +36,7 @@ def send_mail(serverIp, port, mailfrom, to, content, user=None, password=None):
     if user:
         server.starttls()
         server.login(user, password)
-    server.sendmail(mailfrom, [to], content)
+    server.sendmail(mailfrom, to.split(','), content)
     server.quit()
 
 
@@ -46,6 +46,7 @@ if __name__ == '__main__':
     parser.add_argument('-p', '--port', type=int, default=25, help='port number for SMTP (default: 25)')
     parser.add_argument('-u', '--user', default=None, help='Username for authentication (unauthenticated session will be used if not provided)')
     parser.add_argument('-w', '--password', default=None, help='Password for authentication')
+    parser.add_argument('-f', '--from', default=None, help='Email sender. If not provided, it is extracted from email headers.', dest='fromaddr')
     parser.add_argument('recipient', help="email recipient")
     parser.add_argument('filename', help="email content (should be rfc822 compliant)")
 
@@ -54,12 +55,16 @@ if __name__ == '__main__':
     to = args.recipient
     filename = args.filename
     msg_bytes = b'\r\n'.join(open(filename, 'rb').read().splitlines())  # ensure to have CR/LF end line
-    print(msg_bytes)
+    # print(msg_bytes)
 
-    parser = email.parser.BytesHeaderParser()
-    header = parser.parsebytes(msg_bytes)
-    fromaddr = header["From"]
-    # to = email.utils.parseaddr(header["To"])
+    fromaddr = args.fromaddr
+    if not fromaddr:
+        parser = email.parser.BytesHeaderParser()
+        header = parser.parsebytes(msg_bytes)
+        fromaddr = header["From"]
+        # to = email.utils.parseaddr(header["To"])
+
+    print(fromaddr)
     serverIp = args.server
     if not args.server:
         domain = to.split('@', 1)[1]

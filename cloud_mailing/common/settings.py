@@ -94,3 +94,16 @@ warnings.simplefilter('ignore', UserWarning)
 
 # API settings
 PAGE_SIZE = 100
+
+# SMTPD
+
+SMTPD_AUTH_URL = config.get('SMTPD', 'user_authentication_url', 'https://localhost/api/auth/')
+SMTPD_AUTH_USERNAME_FIELD = config.get('SMTPD', 'user_authentication_username_field', 'username')
+SMTPD_AUTH_PASSWORD_FIELD = config.get('SMTPD', 'user_authentication_password_field', 'password')
+SMTPD_VALIDATE_FROM_URL = config.get('SMTPD', 'validate_from_url', 'https://localhost/api/validate_from/')
+SMTPD_VALIDATE_FROM_FIELD = config.get('SMTPD', 'validate_from_field', 'mail_from')
+SMTPD_VALIDATE_TO_URL = config.get('SMTPD', 'validate_to_url', 'https://localhost/api/validate_to/')
+SMTPD_VALIDATE_TO_FIELD = config.get('SMTPD', 'validate_to_field', 'rcpt_to')
+SMTPD_MESSAGE_URL = config.get('SMTPD', 'message_url', 'https://localhost/api/send_mailing/')
+SMTPD_RECIPIENTS_FIELD = config.get('SMTPD', 'recipients_field', 'recipients')
+SMTPD_MESSAGE_FIELD = config.get('SMTPD', 'message_field', 'message')
