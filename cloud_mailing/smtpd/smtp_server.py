@@ -33,8 +33,10 @@ from datetime import datetime
 
 from twisted.cred import credentials
 from twisted.mail._except import SMTPBadSender
+from twisted.mail.interfaces import IChallengeResponse
 from twisted.mail.protocols import ESMTPDomainDelivery
 from twisted.python import failure
+from twisted.python.compat import nativeString
 from twisted.python.log import PythonLoggingObserver
 from twisted.python.util import switchUID
 from zope.interface import implementer
@@ -275,6 +277,14 @@ class ExternalMessage:
         return defer.succeed(None)
 
 
+@implementer(IChallengeResponse)
+class LOGINCredentialsCustom(LOGINCredentials):
+    def __init__(self):
+        super().__init__()
+        # challenges changed from Twisted default to be compatible with Outlook
+        self.challenges = [b'Password:', b'Username:']
+
+
 @implementer(smtp.IMessage)
 class NullMessage:
 
@@ -293,9 +303,18 @@ class NullMessage:
 
 class SecureESMTP(smtp.ESMTP):
     def ext_STARTTLS(self, rest):
+        log.debug("STARTTLS")
         super().ext_STARTTLS(rest)
         if self.startedTLS:
-            self.challengers = {b"LOGIN": LOGINCredentials, b"PLAIN": PLAINCredentials}
+            self.challengers = {b"LOGIN": LOGINCredentialsCustom, b"PLAIN": PLAINCredentials}
+
+    def sendLine(self, line):
+        log.debug(">>> %s", line)
+        return super().sendLine(line)
+
+    def lineReceived(self, line):
+        log.debug("<<< %s", line)
+        return super().lineReceived(line)
 
 
 class ReturnPathSMTPFactory(smtp.SMTPFactory):
