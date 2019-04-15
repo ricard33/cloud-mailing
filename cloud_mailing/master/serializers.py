@@ -31,7 +31,6 @@ from .api_common import compute_hourly_stats
 from ..common.db_common import get_db
 from . import models
 from ..common import settings
-from ..common.email_tools import header_to_unicode
 from ..common.rest_api_common import NotFound
 
 __author__ = 'Cedric RICARD'

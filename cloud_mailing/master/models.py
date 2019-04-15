@@ -222,7 +222,7 @@ class Mailing(Model):
         header = text[:p+2]
         body = text[p+2:]
         if not mail_from:
-            name, mail_from = email.utils.parseaddr(header_to_unicode(msg.get("From")))
+            name, mail_from = email.utils.parseaddr(header_to_unicode('from', msg.get("From")))
             if not sender_name:
                 sender_name = name
         if not mail_from:
@@ -230,7 +230,7 @@ class Mailing(Model):
 
         sender_name = sender_name or ""
         mailing = Mailing(mail_from=mail_from, sender_name=sender_name,
-                          subject=header_to_unicode(msg.get("Subject")),
+                          subject=header_to_unicode('subject', msg.get("Subject")),
                           header=header, body=body,
                           scheduled_start=scheduled_start, scheduled_duration=scheduled_duration)
         mailing.save()

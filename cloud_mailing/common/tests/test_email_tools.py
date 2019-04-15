@@ -25,9 +25,17 @@ class RegroupArgsTestCase(TestCase):
 
     def test_header_to_unicode(self):
         # Example from RFC2047 page 12
-        self.assertEqual("a", header_to_unicode("=?ISO-8859-1?Q?a?="))
-        self.assertEqual("ab", header_to_unicode("=?ISO-8859-1?Q?a?= =?ISO-8859-1?Q?b?="))
-        self.assertEqual("ab", header_to_unicode("=?ISO-8859-1?Q?a?= =?UTF-8?Q?b?="))
-        self.assertEqual("a b", header_to_unicode("=?ISO-8859-1?Q?a?= b"))
+        self.assertEqual("a", header_to_unicode("subject", "=?ISO-8859-1?Q?a?="))
+        self.assertEqual("ab", header_to_unicode("subject", "=?ISO-8859-1?Q?a?= =?ISO-8859-1?Q?b?="))
+        self.assertEqual("ab", header_to_unicode("subject", "=?ISO-8859-1?Q?a?= =?UTF-8?Q?b?="))
+        self.assertEqual("a b", header_to_unicode("subject", "=?ISO-8859-1?Q?a?= b"))
         self.assertEqual('C\xe9dric RICARD <my-mailing@unittest.cloud-mailing.net>',
-                         header_to_unicode("=?UTF-8?B?Q8OpZHJpYyBSSUNBUkQ=?= <my-mailing@unittest.cloud-mailing.net>"))
+                         header_to_unicode("from", "=?UTF-8?B?Q8OpZHJpYyBSSUNBUkQ=?= <my-mailing@unittest.cloud-mailing.net>"))
+
+    # def test_buggy_header_folding(self):
+    #     import email.headerregistry
+    #     import email.policy
+    #     # header = email.headerregistry.HeaderRegistry()('subject', "The 2000 vintage by the Delon Family (Roland Coiffe & Associés)")
+    #     header = email.headerregistry.HeaderRegistry()('subject', "=?iso-8859-1?Q?The_2000_vintage_by_the_Delon_Family_=28Roland_Coiffe_&_As?= =?iso-8859-1?Q?soci=E9s=29?=")
+    #     self.assertEqual("", str(header.fold(policy=email.policy.default)))
+    #     print()

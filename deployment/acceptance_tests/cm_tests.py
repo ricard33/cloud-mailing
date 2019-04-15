@@ -110,7 +110,7 @@ class CloudMailingsTestCase(unittest.TestCase):
     def _check_domain_sender(self, email_filename):
         import email.parser
 
-        m_parser = email.parser.BytesParser()
+        m_parser = email.parser.BytesParser(policy=email.policy.default)
         with open(email_filename, 'rb') as fp:
             message = m_parser.parse(fp)
         import email.utils

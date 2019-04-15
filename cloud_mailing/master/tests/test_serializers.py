@@ -63,7 +63,7 @@ class MailingSerializerTestCase(CommonTestMixin, DatabaseMixin, RestApiTestMixin
         self.assertDictEqual({'_id': {'$in': (1, 2)}}, MailingSerializer().make_filter({'id': (1, 2)}))
         self.assertDictEqual({'status': {'$in': [MAILING_STATUS.FINISHED]}},
                              MailingSerializer().make_filter({'status': MAILING_STATUS.FINISHED}))
-        self.assertDictEqual({'status': {'$in': (MAILING_STATUS.READY, MAILING_STATUS.FINISHED)}},
+        self.assertDictEqual({'status': {'$in': [MAILING_STATUS.READY, MAILING_STATUS.FINISHED]}},
                              MailingSerializer().make_filter({'status': (MAILING_STATUS.READY, MAILING_STATUS.FINISHED)}))
         self.assertDictEqual({'owner_guid': 'value'}, MailingSerializer().make_filter({'owner_guid': 'value'}))
         self.assertDictEqual({'owner_guid': {'$in': ('value1', 'value2')}}, MailingSerializer().make_filter({'owner_guid': ('value1', 'value2')}))

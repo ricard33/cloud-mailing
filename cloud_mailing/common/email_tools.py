@@ -17,22 +17,24 @@
 
 import email
 import email.header
+import email.headerregistry
 
 from .encoding import force_text
 
 __author__ = 'Cedric RICARD'
 
 
-def header_to_unicode(header_str):
+def header_to_unicode(name, header_str):
     """
     Decodes an encoded header string and returns it into unicode string
     :param header_str: raw header string
     :return: An unicode string
     """
+    return email.headerregistry.HeaderRegistry()(name, header_str)
     l = []
     for txt, encoding in email.header.decode_header(header_str):
         if encoding is not None:
             l.append(txt.decode(encoding, errors='replace'))
         else:
-            l.append(force_text(txt))
+            l.append(force_text(txt, errors='ignore'))
     return ''.join(l)

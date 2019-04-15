@@ -25,7 +25,6 @@ import pymongo
 
 from ..common.db_common import create_index
 from ..common.encoding import force_bytes
-from ..common.email_tools import header_to_unicode
 
 __author__ = 'Cedric RICARD'
 

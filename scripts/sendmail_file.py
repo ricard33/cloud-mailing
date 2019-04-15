@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     fromaddr = args.fromaddr
     if not fromaddr:
-        parser = email.parser.BytesHeaderParser()
+        parser = email.parser.BytesHeaderParser(policy=email.policy.default)
         header = parser.parsebytes(msg_bytes)
         fromaddr = header["From"]
         # to = email.utils.parseaddr(header["To"])

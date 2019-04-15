@@ -201,7 +201,7 @@ class MailCustomizer:
             fullpath = os.path.join(self.temp_path, MailCustomizer.make_file_name(self.recipient.mailing.id, self.recipient.id))
             if os.path.exists(fullpath):
                 self.log.debug("Customized email found here: %s", fullpath)
-                parser = email.parser.Parser()
+                parser = email.parser.Parser(policy=email.policy.default)
                 with open(fullpath, 'rt') as fd:
                     header = parser.parse(fd, headersonly=True)
                     return header['Message-ID'], fullpath
@@ -286,7 +286,7 @@ class MailCustomizer:
             personalise_bodies(message, mixed_attachments, related_attachments)
 
             # Customize the subject
-            subject = self._do_customization(header_to_unicode(message.get("Subject", "")), contact_data)
+            subject = self._do_customization(header_to_unicode('subject', message.get("Subject", "")), contact_data)
             # Remove some headers
             for header in ('Subject', 'Received', 'To', 'From', 'User-Agent', 'Date', 'Message-ID', 'List-Unsubscribe',
                            'DKIM-Signature', 'Authentication-Results', 'Received-SPF', 'Received-SPF', 'X-Received',

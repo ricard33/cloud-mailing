@@ -23,6 +23,9 @@ import os
 import dkim
 from twisted.trial.unittest import TestCase
 
+from ...common.email_tools import header_to_unicode
+from ...common.encoding import force_bytes
+from ..models import Mailing
 from . import factories
 from ..mail_customizer import MailCustomizer
 from ...common.unittest_mixins import DatabaseMixin
@@ -61,7 +64,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
 
         self.assertTrue(os.path.exists(fullpath))
         # print open(fullpath, 'rt').read()
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertFalse(message.is_multipart())
@@ -96,7 +99,7 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
@@ -158,7 +161,7 @@ Nothing else to say...
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
@@ -223,7 +226,7 @@ Nothing else to say...
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
@@ -298,7 +301,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
@@ -385,7 +388,7 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
@@ -489,7 +492,7 @@ Nothing else to say...
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
@@ -588,7 +591,7 @@ I'm happy! Nothing else to say...
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
@@ -651,7 +654,7 @@ I=92m happy! Nothing else to say...
         customizer._run_customizer()
 
         self.assertTrue(os.path.exists(fullpath))
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parse(open(fullpath, 'rt'), headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
@@ -670,7 +673,7 @@ I=92m happy! Nothing else to say...
 
         self.assertNotIn("\r\n", message_str)
 
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parsestr(message_str, headersonly=False)
         assert (isinstance(message, email.message.Message))
         self.assertTrue('DKIM-Signature' in message)
@@ -689,7 +692,7 @@ I=92m happy! Nothing else to say...
 
         self.assertNotIn("\r\n", message_str)
 
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parsestr(message_str, headersonly=False)
         assert (isinstance(message, email.message.Message))
         self.assertTrue('Feedback-ID' in message)
@@ -710,7 +713,7 @@ I=92m happy! Nothing else to say...
 
         self.assertNotIn("\r\n", message_str)
 
-        parser = email.parser.Parser()
+        parser = email.parser.Parser(policy=email.policy.default)
         message = parser.parsestr(message_str, headersonly=False)
         assert (isinstance(message, email.message.Message))
         self.assertTrue('Feedback-ID' in message)
