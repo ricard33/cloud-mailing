@@ -299,7 +299,7 @@ class MailCustomizer:
             # Adding missing headers
             # message['Precedence'] = "bulk"
             message['From'] = Address(self.recipient.sender_name, *self.recipient.mail_from.split('@'))
-            message['To'] = Address(('%s %s' % (contact_data.get('firstname'), contact_data.get('lastname'))).strip(),
+            message['To'] = Address(('%s %s' % (contact_data.get('firstname', ''), contact_data.get('lastname', ''))).strip(),
                                     *contact_data['email'].split('@'))
             message['Date'] = email.utils.formatdate()
             # message['Message-ID'] = email.utils.make_msgid()  # very very slow on certain circumstance

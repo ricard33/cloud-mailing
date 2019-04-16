@@ -61,7 +61,7 @@ class MonitorSatellitesTask(Singleton):
                 if not avatar:
                     self.log.error("Can't get avatar for '%s'. Client seems to be disconnected.", satellite['serial'])
                     continue
-                yield avatar.set_settings(satellite['settings'])
+                yield avatar.set_settings(satellite.get('settings', {}))
 
         except:
             self.log.exception("Exception in MonitorSatellitesTask.run() function.")
