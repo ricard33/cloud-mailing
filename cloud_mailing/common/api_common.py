@@ -24,6 +24,8 @@ from twisted.web import xmlrpc, resource, static
 from twisted.web.server import Site
 from zope.interface import Interface, Attribute
 
+from .encoding import force_str
+
 __author__ = 'Cedric RICARD'
 
 
@@ -53,10 +55,10 @@ class HomePage(resource.Resource):
                     <div class="col-md-2 col-md-offset-1"><h2><a href="%(name)s">%(name)s</a></h2></div>
                     <div class="col-md-8"><div class="well">%(description)s</div></div>
                 </div>
-                ''' % {'name': name, 'description': inspect.getdoc(rpc)})
+                ''' % {'name': force_str(name), 'description': inspect.getdoc(rpc)})
         else:
             s.write('<style>.red { color: #FF0000; }</style>')
-            s.write('<h2 class="red">Invalid License.</h2>')
+            s.write('<h2 class="red">No module loaded.</h2>')
         s.write("</div></body></html>")
         home = static.Data(s.getvalue().encode('utf-8'), "text/html")
         self.putChild(b"", home)

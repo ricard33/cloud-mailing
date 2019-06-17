@@ -75,9 +75,9 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
             config.write(f)
 
     home_page = HomePage()
-    home_page.make_home_page()
     home_page.put_child(b'CloudMailing',  CloudMailingRpc(useDateTime=True), True)
     home_page.put_child(b'api',  make_rest_api(xmlrpc_port=port, xmlrpc_use_ssl=ssl_context_factory is not None, api_key=key))
+    home_page.make_home_page()  # need to be AFTER adding children
 
     webServer = AuthenticatedSite( home_page )
     webServer.credentialFactories = [BasicCredentialFactory(b"CloudMailing API"), DigestCredentialFactory(b"md5", b"CloudMailing API")]
