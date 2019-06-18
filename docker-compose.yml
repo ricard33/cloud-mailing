@@ -1,0 +1,59 @@
+version: "3.3"
+services:
+  db:
+    image: mongo:latest
+    environment:
+      - MONGO_DATA_DIR=/data/db
+      - MONGO_LOG_DIR=/dev/null
+    volumes:
+      - cm-db-data:/data/db
+    ports:
+        - 27017:27017
+    command: mongod --smallfiles --logpath=/dev/null # --quiet
+
+  cm-master:
+    build:
+      context: .
+    command: ["python", '-O', "bin/cm_master.py"]
+    expose:
+      - "33610"
+      - "33620"
+    configs:
+      - source: cm-config
+        target: /app/config/cloud-mailing.ini
+    depends_on:
+      - db
+
+  cm-satellite:
+    build:
+      context: .
+    command: ["python", '-O', "bin/cm_satellite.py"]
+    depends_on:
+      - db
+      - cm-master
+    configs:
+      - source: cm-config
+        target: /app/config/cloud-mailing.ini
+    deploy:
+      mode: replicated
+      replicas: 3
+
+  cm-smtpd:
+    build:
+      context: .
+    command: ["python", '-O', "bin/cm_smtpd.py"]
+    ports:
+      - "25:25"
+    configs:
+      - source: cm-config
+        target: /app/config/cloud-mailing.ini
+    depends_on:
+      - db
+
+configs:
+  cm-config:
+    file: deployment/docker/config/cloud-mailing.ini
+
+volumes:
+  cm-db-data:
+

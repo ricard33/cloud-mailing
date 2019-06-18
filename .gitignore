@@ -74,3 +74,4 @@ scripts/collect_reports.ini
 web/.tmp
 web/node_modules/
 static/
+deployment/docker/config/
