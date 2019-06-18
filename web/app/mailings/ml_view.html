@@ -1,0 +1,253 @@
+<div class="row mailing-details">
+    <div class="col-sm-10">
+        <h2>
+            <small translate>Mailing:</small>
+            {{ vm.mailing.subject }}
+        </h2>
+        <h4>
+            <small translate>From:</small>
+            {{ vm.mailing.sender_name }} &lt;{{ vm.mailing.mail_from }}&gt;</h4>
+    </div>
+    <div class="col-sm-2 btn-toolbar align-right" role="toolbar">
+        <div class="btn-group">
+            <button type="button" class="btn btn-success"
+                    ng-if="vm.mailing.status=='FILLING_RECIPIENTS' || vm.mailing.status=='PAUSED'"
+                    uib-tooltip="{{ '(Re-)start the mailing (if paused or just ready to go)'|translate }}"
+                    ng-click="vm.startMailing()">
+                <span class="glyphicon glyphicon-play"></span>
+            </button>
+            <button type="button" class="btn btn-warning"
+                    ng-if="vm.mailing.status=='RUNNING' || vm.mailing.status=='READY'"
+                    uib-tooltip="{{ 'Stop temporarily the mailing'|translate }}"
+                    ng-click="vm.pauseMailing()">
+                <span class="glyphicon glyphicon-pause"></span>
+            </button>
+            <button type="button" class="btn btn-danger"
+                    ng-if="vm.mailing.status!='FINISHED'"
+                    uib-tooltip="{{ 'Terminate the mailing without destroying all its data'|translate }}"
+                    ng-click="vm.stopMailing()">
+                <span class="glyphicon glyphicon-stop"></span>
+            </button>
+            <button type="button" class="btn btn-danger"
+                    uib-tooltip="{{ 'Remove the mailing and destroy all its data'|translate }}"
+                    ng-click="vm.deleteMailing()">
+                <span class="glyphicon glyphicon-remove-sign"></span>
+            </button>
+        </div>
+        <div class="btn-group">
+            <button id="csv_export_button" type="button" class="btn btn-primary" disabled>
+                <span class="glyphicon glyphicon-file"></span>
+                <translate>CSV Export</translate>
+            </button>
+        </div>
+    </div>
+</div>
+<div class="row">
+    <div class="col-lg-12">
+        <uib-tabset class="mailing-tabs">
+            <uib-tab heading="{{ 'Summary' | translate }}" active="vm.tabs.summary" select="vm.selectTab('summary')">
+                <table class="table table-bordered table-condensed">
+                    <thead>
+                    <tr>
+                        <th uib-tooltip="{{ 'Mailing ID' | translate }}">id</th>
+                        <th uib-tooltip="{{ 'Mailing status' | translate }}">tatus</th>
+                        <th uib-tooltip="{{ 'Date and time when mailing was submitted' | translate }}">ubmit
+                            time
+                        </th>
+                        <th
+                            uib-tooltip="{{ 'Date and time when mailing should start, stop and original mailing duration (in minutes)' | translate }}">
+                            scheduling
+                        </th>
+                        <th class="text-nowrap"
+                            uib-tooltip="{{ 'Date and time when mailing really started' | translate }}">
+                            <span class="glyphicon glyphicon-time"></span> start
+                        </th>
+                        <th class="text-nowrap"
+                            uib-tooltip="{{ 'Date and time when mailing has stopped' | translate }}">
+                            <span class="glyphicon glyphicon-time"></span> end
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>{{ vm.mailing.id }}</td>
+                        <td><span>{{ vm.mailing.status }}</span></td>
+                        <td class="small">
+                            <datetime value="vm.mailing.submit_time"></datetime>
+                        </td>
+                        <td class="small">
+                            <div class="text-nowrap" ng-if="vm.mailing.scheduled_start">{{ 'start:'|translate }}
+                                <datetime value="vm.mailing.scheduled_start"></datetime>
+                            </div>
+                            <div class="text-nowrap" ng-if="vm.mailing.scheduled_end">{{ 'end:'|translate }}
+                                <datetime value="vm.mailing.scheduled_end"></datetime>
+                            </div>
+                            <div class="text-nowrap"
+                                 ng-if="vm.mailing.scheduled_duration">{{ 'duration:'|translate }} {{
+                                vm.mailing.scheduled_duration | number }} {{ 'min'|translate }}
+                            </div>
+                        </td>
+                        <td class="">
+                            <datetime value="vm.mailing.start_time"></datetime>
+                        </td>
+                        <td class="">
+                            <datetime value="vm.mailing.end_time"></datetime>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+                <table id="tableMailing" class="table table-bordered table-condensed text-center">
+                    <thead>
+                    <tr>
+                        <th translate>recipients</th>
+                        <th class="in-progress" translate>in progress</th>
+                        <th class="delivered" translate>delivered</th>
+                        <th class="softbounce" translate>soft bounces</th>
+                        <th class="hardbounce" translate>error</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr>
+                        <td>{{ vm.mailing.total_recipient }}</td>
+                        <td class="in-progress">{{ vm.mailing.total_pending }}
+                            </br>
+                            <div ng-switch on="vm.mailing.total_recipient">
+                                <div ng-switch-when="0"></div>
+                                <div ng-switch-default>
+                                    {{ ( (vm.mailing.total_pending) / vm.mailing.total_recipient * 100)| number:2 }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td class="delivered">{{ vm.mailing.total_sent }}
+                            </br>
+                            <div ng-switch on="vm.mailing.total_recipient">
+                                <div ng-switch-when="0"></div>
+                                <div ng-switch-default>
+                                    {{ (vm.mailing.total_sent / vm.mailing.total_recipient * 100)| number:2 }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td class="softbounce">{{ vm.mailing.total_softbounce }}
+                            </br>
+                            <div ng-switch on="vm.mailing.total_recipient">
+                                <div ng-switch-when="0"></div>
+                                <div ng-switch-default>
+                                    {{ ( (vm.mailing.total_softbounce) / vm.mailing.total_recipient *100)| number:2 }}%
+                                </div>
+                            </div>
+                        </td>
+                        <td class="hardbounce">{{ vm.mailing.total_error }}
+                            </br>
+                            <div ng-switch on="vm.mailing.total_recipient">
+                                <div ng-switch-when="0"></div>
+                                <div ng-switch-default>
+                                    {{ ( (vm.mailing.total_error) / vm.mailing.total_recipient *100)| number:2 }}%
+                                </div>
+                            </div>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </uib-tab>
+            <uib-tab active="vm.tabs.recipients" select="vm.selectTab('recipients')">
+                <uib-tab-heading>
+                    <i class="fa fa-users"></i>
+                    <translate>Recipients</translate>
+                    ({{ vm.recipients.total }})
+                </uib-tab-heading>
+                <table class="table table-bordered table-condensed"
+                       st-table="vm.recipients.items" st-pipe="vm.getRecipients">
+                    <thead>
+                    <tr>
+                        <th st-sort="send_status" uib-tooltip="{{ 'sending status' | translate }}">status</th>
+                        <th st-sort="email" uib-tooltip="{{ 'e-mail address' | translate }}">e-mail</th>
+                        <th st-sort="next_try"
+                            uib-tooltip="{{ 'date and time when the recipient was submitted' | translate }}">submit
+                            time
+                        </th>
+                        <th st-sort="try_count" uib-tooltip="{{ 'sending tries count' | translate }}">Tries</th>
+                        <th st-sort="reply_code" uib-tooltip="{{ 'response from remote SMTP server' | translate }}">SMTP
+                            response
+                        </th>
+                        <th st-sort="satellite" uib-tooltip="{{ 'last sattelite used for sending' | translate }}">
+                            satellite
+                        </th>
+                    </tr>
+                    <tr>
+                        <th>
+                            <select st-search="send_status" st-input-event="change" >
+                                <option value="">All</option>
+                                <option ng-repeat="status in vm.recipient_status"
+                                        value="{{ status }}">{{ status }}
+                                </option>
+                            </select>
+                        </th>
+                        <th>
+                            <input st-search="email" placeholder="search for e-mail"
+                                   class="input-sm form-control" type="search"/>
+                        </th>
+                        <th>
+                        </th>
+                        <th>
+                        </th>
+                        <th>
+                            <input st-search="smtp_reply" placeholder="search for SMTP reply"
+                                   class="input-sm form-control"
+                                   type="search"/>
+                        </th>
+                        <th>
+                            <input st-search="cloud_client" placeholder="search for satellite"
+                                   class="input-sm form-control" type="search"/>
+                        </th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr ng-show="!vm.recipients.$resolved">
+                        <td colspan="20" class="text-center" translate>
+                            <rd-loading></rd-loading>
+                        </td>
+                    </tr>
+                    <tr ng-show="vm.recipients.$resolved" ng-repeat="recipient in vm.recipients.items">
+                        <td class="{{ vm.get_css_class(recipient.send_status) }}">{{ recipient.send_status }}</td>
+                        <td>{{ recipient.email }}</td>
+                        <td>
+                            <datetime value="recipient.next_try"></datetime>
+                        </td>
+                        <td>{{ recipient.try_count }}</td>
+                        <td>{{ recipient.reply_code }}
+                            <span ng-if="recipient.reply_enhanced_code"> ({{ recipient.reply_enhanced_code }})</span>
+
+                            <div ng-if="recipient.reply_text">{{ recipient.reply_text }}</div>
+                        </td>
+                        <td>{{ recipient.cloud_client }}</td>
+                    </tr>
+                    </tbody>
+                    <tfoot ng-show="vm.recipients.$resolved">
+                    <tr>
+                        <td class="text-center" st-pagination="" st-items-by-page="10"
+                            st-template="template/smart-table/pagination.custom.html" colspan="20">
+                        </td>
+                    </tr>
+                    </tfoot>
+                </table>
+            </uib-tab>
+            <uib-tab active="vm.tabs.content" select="vm.selectTab('content')">
+                <uib-tab-heading>
+                    <i class="fa fa-html5"></i>
+                    <translate>Content</translate>
+                </uib-tab-heading>
+
+                <!--<div class="mailing-content" ng-bind-html="vm.htmlContent">Error loading content</div>-->
+                <!--<iframe id="mailing-content" class="mailing-content" src="about:blank">Error loading content</iframe>-->
+                <mailing-content mailing-id="vm.mailingId"></mailing-content>
+            </uib-tab>
+            <uib-tab active="vm.tabs.properties" select="vm.selectTab('properties')">
+                <uib-tab-heading>
+                    <i class="fa fa-gear"></i>
+                    <translate>Properties</translate>
+                </uib-tab-heading>
+                <ng-include src="'mailings/mailing-properties.html'"></ng-include>
+            </uib-tab>
+        </uib-tabset>
+    </div>
+</div>

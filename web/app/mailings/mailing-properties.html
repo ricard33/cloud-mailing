@@ -1,0 +1,211 @@
+<!--<rd-widget>
+    <rd-widget-header icon="fa-wifi" title="{{ 'Mailing properties' | translate }}">
+    </rd-widget-header>
+    <rd-widget-body classes="medium no-padding">-->
+<form class="form-horizontal" role="form" name="mailingForm">
+    <!--<legend translate>Properties</legend>-->
+    <div class="row">
+        <div class="form-group col-sm-6">
+            <label class="col-sm-4 control-label" ng-model="vm.mailing.type" translate>Mailing type</label>
+            <div class="col-sm-8">
+                <select class="form-control populate placeholder" name="type">
+                    <option value="REGULAR" translate>Regular</option>
+                    <option value="OPENED" translate>Opened</option>
+                    <option value="RECURRING" translate>Recurring</option>
+                    <option value="ABSPLIT" translate>A-B split</option>
+                </select>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Owner GUID</label>
+            <div class="col-sm-8">
+                <input type="text" name="owner_guid" ng-model="vm.mailing.owner_guid" disabled class="form-control"
+                       tooltip-placement="bottom"
+                       uib-tooltip="{{ 'Free GUID used to identify mailings created by different users'|translate }}">
+                <div ng-messages="mailingForm.owner_guid.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+            </div>
+        </div>
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Group name</label>
+            <div class="col-sm-8">
+                <input type="text" ng-model="vm.mailing.satellite_group" class="form-control" name="satellite_group"
+                       placeholder="{{ 'satellite group name'|translate }}" tooltip-placement="bottom"
+                       uib-tooltip="{{ 'Name of the group into which the mailing is included'|translate }}">
+
+                <div ng-messages="mailingForm.satellite_group.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Sender name</label>
+            <div class="col-sm-8">
+                <input type="text" name="sender_name" ng-model="vm.mailing.sender_name" class="form-control"
+                       placeholder="{{ 'sender name'|translate }}" tooltip-placement="bottom"
+                       uib-tooltip="{{ 'Mailing sender full name'|translate }}">
+
+                <div ng-messages="mailingForm.sender_name.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+            </div>
+        </div>
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Sender email</label>
+            <div class="col-sm-8">
+                <input type="text" ng-model="vm.mailing.mail_from" class="form-control" name="mail_from"
+                       placeholder="{{ 'sender e-mail'|translate }}" tooltip-placement="bottom" required
+                       uib-tooltip="{{ 'E-mail address that appear as the mailing sender'|translate }}">
+                <div ng-messages="mailingForm.mail_from.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="form-group col-sm-12 has-feedback">
+            <label class="col-sm-2 control-label" translate>Subject</label>
+            <div class="col-sm-10">
+                <input type="text" ng-model="vm.mailing.subject" class="form-control" name="subject" required
+                       placeholder="{{ 'mailing subject'|translate }}" tooltip-placement="bottom"
+                       uib-tooltip="{{ 'Subject of this mailing'|translate }}">
+                <div ng-messages="mailingForm.subject.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row form-group has-feedback">
+        <div class="col-sm-offset-2 col-sm-4">
+            <div class="checkbox">
+                <label class=""
+                       uib-tooltip="{{ 'If set, e-mails are sent to a testing SMTP server instead of the real one'|translate }}">
+                    <input type="checkbox" name="testing" ng-model="vm.mailing.testing" translate>Testing
+                </label>
+            </div>
+            <div class="checkbox">
+                <label class=""
+                       uib-tooltip="{{ 'If set, customized e-mails will be included in recipients reports'|translate }}">
+                    <input type="checkbox" name="backup_customized_emails" ng-model="vm.mailing.backup_customized_emails" translate>Backup customized emails
+                </label>
+            </div>
+            </div>
+        <div class="col-sm-offset-0 col-sm-4">
+            <div class="checkbox">
+                <label class=""
+                       uib-tooltip="{{ 'If set, read tracking image are added to html bodies'|translate }}">
+                    <input type="checkbox" name="read_tracking" ng-model="vm.mailing.read_tracking" translate>Reads tracking
+                </label>
+            </div>
+            <div class="checkbox">
+                <label class=""
+                       uib-tooltip="{{ 'If set, links found into html bodies are converted to allow clicks tracking'|translate }}">
+                    <input type="checkbox" name="click_tracking" ng-model="vm.mailing.click_tracking" translate>Clicks tracking
+                </label>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Tracking base URL</label>
+            <div class="col-sm-6">
+                <input type="text" ng-model="vm.mailing.tracking_url" class="form-control" name="tracking_url"
+                       placeholder="{{ 'http://my-server.com/tracking/'|translate }}" tooltip-placement="bottom"
+                       uib-tooltip="{{ 'Base url for all tracking links'|translate }}">
+                <div ng-messages="mailingForm.tracking_url.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+            </div>
+        </div>
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>URL encoding</label>
+            <div class="col-sm-8">
+                <input type="text" ng-model="vm.mailing.url_encoding" class="form-control" name="url_encoding"
+                       placeholder="{{ 'encoding name'|translate }}" tooltip-placement="bottom"
+                       uib-tooltip="{{ 'Encoding used to crypt urls in mailing content (ex: base64)'|translate }}">
+                <div ng-messages="mailingForm.url_encoding.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Scheduled start</label>
+            <div class="col-sm-8">
+                <p class="input-group" uib-tooltip="{{ 'Mailing wont start before this date'|translate }}">
+                    <input type="text" class="form-control" datetime-picker="short"
+                           ng-model="vm.mailing.scheduled_start"
+                           is-open="vm.date_pickers_opened.scheduled_start"
+                           datepicker-options="dateOptions"
+                           close-text="{{ 'Close'|translate }}"/>
+                    <span class="input-group-btn">
+                    <button type="button" class="btn btn-default" ng-click="vm.openDatePicker('scheduled_start')"><i
+                        class="glyphicon glyphicon-calendar"></i></button>
+                </span>
+                <div ng-messages="mailingForm.scheduled_start.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+                </p>
+            </div>
+        </div>
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Scheduled duration</label>
+            <div class="col-sm-8">
+                <p class="input-group" uib-tooltip="{{ 'Scheduled duration in minutes'|translate }}">
+                    <input type="number" ng-model="vm.mailing.scheduled_duration" class="form-control"
+                           name="scheduled_duration"
+                           placeholder="{{ 'duration in minutes'|translate }}">
+                    <span class="input-group-addon" translate>min.</span>
+                <div ng-messages="mailingForm.scheduled_duration.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="row">
+        <div class="form-group col-sm-6 has-feedback">
+            <label class="col-sm-4 control-label" translate>Scheduled end</label>
+            <div class="col-sm-8">
+                <p class="input-group"
+                   uib-tooltip="{{ 'Can be set to specify an imperative ending date. Else, mailing will end when its recipients queue is empty.'|translate }}">
+                    <input type="text" class="form-control" datetime-picker="short"
+                           ng-model="vm.mailing.scheduled_end"
+                           is-open="vm.date_pickers_opened.scheduled_end"
+                           datepicker-options="dateOptions"
+                           close-text="{{ 'Close'|translate }}"/>
+                    <span class="input-group-btn">
+                    <button type="button" class="btn btn-default" ng-click="vm.openDatePicker('scheduled_end')"><i
+                        class="glyphicon glyphicon-calendar"></i></button>
+                </span>
+                <div ng-messages="mailingForm.scheduled_end.$error"
+                     ng-messages-include="template/form-error-messages.html" class="form-errors">
+                </div>
+                </p>
+            </div>
+        </div>
+    </div>
+    <div class="clearfix"></div>
+    <div class="form-group">
+        <div class="col-sm-offset-4 col-sm-2">
+            <button type="cancel" class="btn btn-default btn-label-left" ng-click="vm.resetMailing(mailingForm)">
+                <span><i class="fa fa-undo txt-danger"></i></span>
+                <translate>Cancel</translate>
+            </button>
+        </div>
+        <div class="col-sm-2">
+            <button type="submit" class="btn btn-primary btn-label-left" ng-click="vm.saveMailing(mailingForm)">
+                <span><i class="fa fa-check"></i></span>
+                <translate>Submit</translate>
+            </button>
+        </div>
+    </div>
+</form>
+<!--   </rd-widget-body>
+</rd-widget>-->

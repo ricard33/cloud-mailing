@@ -1,0 +1,20 @@
+.dashboard {
+
+  //#memory-donut .nv-pie-title {
+  //    font-size: smaller;
+  //}
+  text.nv-pie-title {
+    fill: $front-color;
+  }
+
+  .loading {
+    margin: auto;
+  }
+}
+
+.m-progress {
+  .progress {
+    background-color: #a9a9a9;
+    white-space: nowrap;
+  }
+}

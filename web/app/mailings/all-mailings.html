@@ -1,0 +1,266 @@
+<uib-tabset>
+    <uib-tab class="">
+        <uib-tab-heading>
+            <i class="fa fa-play"></i>
+            <translate>Active Mailings</translate> ({{ $ctrl.active_mailings.total }})
+        </uib-tab-heading>
+        <div class="mailings active-mailings table-responsive">
+            <table class="table m-table table-bordered table-hover table-heading"
+                   st-table="$ctrl.active_mailings.items" st-pipe="$ctrl.getActiveMailings">
+                <thead>
+                <tr>
+                    <th st-sort="id" uib-tooltip="{{ 'internal id of this mailing' | translate }}">ID</th>
+                    <th st-sort="domain_name" translate
+                        uib-tooltip="{{ 'Related domain name = mailing sender identity' | translate }}">Sender</th>
+                    <th st-sort="subject" translate
+                        uib-tooltip="{{ 'Subject' | translate }}">Subject</th>
+                    <th st-sort="status" uib-tooltip="{{ 'Mailing status' | translate }}">Status</th>
+                    <th uib-tooltip="{{ 'Actions to perform on this mailing' | translate }}">Action</th>
+                    <th st-sort="submit_time" st-sort-default="reverse"
+                        uib-tooltip="{{ 'Date and time when mailing was submitted' | translate }}">Submit time
+                    </th>
+                    <th st-sort="scheduled_start"
+                        uib-tooltip="{{ 'Date and time when mailing should start, stop and original mailing duration (in minutes)' | translate }}">
+                        Scheduling
+                    </th>
+                    <th class="text-nowrap" st-sort="start_time"
+                        uib-tooltip="{{ 'Date and time when mailing really started' | translate }}">
+                        <span class="glyphicon glyphicon-time"></span> Start
+                    </th>
+                    <th class="text-nowrap" st-sort="end_time"
+                        uib-tooltip="{{ 'Date and time when mailing has stopped' | translate }}">
+                        <span class="glyphicon glyphicon-time"></span> End
+                    </th>
+                    <th class="text-center" st-sort="total_recipient"
+                        uib-tooltip="{{ 'Total recipients count' | translate }}">
+                        <span class="glyphicon glyphicon-user"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_sent"
+                        uib-tooltip="{{ 'Number of recipients that were successfully handled' | translate }}">
+                        <span class="glyphicon glyphicon-ok delivered"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_pending"
+                        uib-tooltip="{{ 'Number of recipients not yet handled (including soft bounces)' | translate }}">
+                        <span class="glyphicon glyphicon-transfer in-progress"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_error"
+                        uib-tooltip="{{ 'Number of hard bounces' | translate }}">
+                        <span class="glyphicon glyphicon-remove hardbounce"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_softbounce"
+                        uib-tooltip="{{ 'Number of soft bounces' | translate }}">
+                        <span class="glyphicon glyphicon-ban-circle warning"></span>
+                    </th>
+                    <th class="text-center" st-sort="read_tracking"
+                        uib-tooltip="{{ 'True if tracking for reads is activated' | translate }}">
+                        <span class="glyphicon glyphicon-eye-open"></span>
+                    </th>
+                    <th class="text-center" st-sort="click_tracking"
+                        uib-tooltip="{{ 'True if tracking for clicks is activated' | translate }}">
+                        <span class="glyphicon glyphicon-hand-up"></span>
+                    </th>
+                </tr>
+                </thead>
+                <tbody ng-class="{loading: $ctrl.loading}">
+                <tr ng-show="!$ctrl.active_mailings.$resolved">
+                    <td colspan="20" class="text-center" translate>
+                        <rd-loading></rd-loading>
+                    </td>
+                </tr>
+                <tr ng-repeat="ml in $ctrl.active_mailings.items" ng-show="$ctrl.active_mailings.$resolved">
+                    <!--<td> <a class="" ng-href="#/mailings/{{ ml.id }}"-->
+                    <td><a class="" ui-sref="mailing-view({ mailingId: ml.id })">{{ ml.id }}</a></td>
+                    <td class="m-ticker"><b>{{ ml.domain_name }}</b><span>{{ ml.sender_name }} &lt;{{ ml.mail_from }}&gt;</span></td>
+                    <td>{{ ml.subject }}</td>
+                    <td>{{ ml.status }}</td>
+                    <td class="actions">
+                        <a class="btn btn-xs btn-primary" ui-sref="mailing-view({ mailingId: ml.id })""
+                           uib-tooltip="{{ 'View mailing details'|translate }}">
+                            <span class="glyphicon glyphicon-eye-open"></span>
+                        </a>
+                        <a class="btn btn-xs btn-success" href ng-click="$ctrl.startMailing(ml)"
+                           ng-disabled="ml.status!='PAUSED' && ml.status!='FILLING_RECIPIENTS'"
+                           uib-tooltip="{{ '(Re-)start the mailing (if paused or just ready to go)'|translate }}">
+                            <span class="glyphicon glyphicon-play"></span>
+                        </a>
+                        <a class="btn btn-xs btn-warning" href ng-click="$ctrl.pauseMailing(ml)"
+                           ng-disabled="ml.status=='PAUSED' || ml.status=='FILLING_RECIPIENTS'"
+                           uib-tooltip="{{ 'Stop temporarily the mailing'|translate }}">
+                            <span class="glyphicon glyphicon-pause"></span>
+                        </a>
+                        <a class="btn btn-xs btn-danger" href ng-click="$ctrl.stopMailing(ml)"
+                           uib-tooltip="{{ 'Terminate the mailing without destroying all its data'|translate }}">
+                            <span class="glyphicon glyphicon-stop"></span>
+                        </a>
+                        <a class="btn btn-xs btn-danger" href ng-click="$ctrl.deleteMailing(ml)"
+                           uib-tooltip="{{ 'Remove the mailing and destroy all its data'|translate }}">
+                            <span class="glyphicon glyphicon-remove-sign"></span>
+                        </a>
+                    </td>
+                    <td class="small">
+                        <datetime value="ml.submit_time"></datetime>
+                    </td>
+                    <td class="small">
+                        <div class="text-nowrap" ng-if="ml.scheduled_start">{{ 'start:'|translate }}
+                            <datetime value="ml.scheduled_start"></datetime>
+                        </div>
+                        <div class="text-nowrap" ng-if="ml.scheduled_end">{{ 'end:'|translate }}
+                            <datetime value="ml.scheduled_end"></datetime>
+                        </div>
+                        <div class="text-nowrap"
+                             ng-if="ml.scheduled_duration">{{ 'duration:'|translate }} {{ ml.scheduled_duration | number }}</div>
+                    </td>
+                    <td class="small">
+                        <datetime value="ml.start_time"></datetime>
+                    </td>
+                    <td class="small">
+                        <datetime value="ml.end_time"></datetime>
+                    </td>
+                    <td class="m-ticker text-right"><span>{{ ml.total_recipient | number }}</span></td>
+                    <td class="m-ticker text-right text-success"><span>{{ ml.total_sent | number }}</span></td>
+                    <td class="m-ticker text-right text-info"><span>{{ ml.total_pending | number }}</span></td>
+                    <td class="m-ticker text-right text-danger"><span>{{ ml.total_error | number }}</span></td>
+                    <td class="m-ticker text-right text-warning"><span>{{ ml.total_softbounce | number }}</span></td>
+                    <td>
+                        <boolean-check value="{{ ml.read_tracking }}"></boolean-check>
+                    </td>
+                    <td>
+                        <boolean-check value="{{ ml.click_tracking }}"></boolean-check>
+                    </td>
+                </tr>
+                </tbody>
+                <tfoot ng-show="$ctrl.active_mailings.$resolved">
+                <tr>
+                    <td class="text-center" st-pagination="" st-items-by-page="10"
+                        st-template="template/smart-table/pagination.custom.html" colspan="20">
+                    </td>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </uib-tab>
+    <uib-tab class="">
+        <uib-tab-heading>
+            <i class="fa fa-stop"></i>
+            <translate>Finished Mailings</translate> ({{ $ctrl.finished_mailings.total }})
+        </uib-tab-heading>
+        <div class="mailings finished-mailings table-responsive">
+            <table class="table m-table table-bordered table-hover table-heading"
+                   st-table="$ctrl.finished_mailings.items" st-pipe="$ctrl.getFinishedMailings">
+                <thead>
+                <tr>
+                    <th st-sort="id" uib-tooltip="{{ 'internal id of this mailing' | translate }}">ID</th>
+                    <th st-sort="domain_name"
+                        uib-tooltip="{{ 'Related domain name = mailing sender identity' | translate }}">Domain
+                    </th>
+                    <th st-sort="status" uib-tooltip="{{ 'Mailing status' | translate }}">Status</th>
+                    <th uib-tooltip="{{ 'Actions to perform on this mailing' | translate }}">Action</th>
+                    <th st-sort="submit_time" st-sort-default="reverse"
+                        uib-tooltip="{{ 'Date and time when mailing was submitted' | translate }}">Submit time
+                    </th>
+                    <th st-sort="scheduled_start"
+                        uib-tooltip="{{ 'Date and time when mailing should start, stop and original mailing duration (in minutes)' | translate }}">
+                        Scheduling
+                    </th>
+                    <th class="text-nowrap" st-sort="start_time"
+                        uib-tooltip="{{ 'Date and time when mailing really started' | translate }}">
+                        <span class="glyphicon glyphicon-time"></span> Start
+                    </th>
+                    <th class="text-nowrap" st-sort="end_time"
+                        uib-tooltip="{{ 'Date and time when mailing has stopped' | translate }}">
+                        <span class="glyphicon glyphicon-time"></span> End
+                    </th>
+                    <th class="text-center" st-sort="total_recipient"
+                        uib-tooltip="{{ 'Total recipients count' | translate }}">
+                        <span class="glyphicon glyphicon-user"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_sent"
+                        uib-tooltip="{{ 'Number of recipients that were successfully handled' | translate }}">
+                        <span class="glyphicon glyphicon-ok delivered"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_pending"
+                        uib-tooltip="{{ 'Number of recipients not yet handled (including soft bounces)' | translate }}">
+                        <span class="glyphicon glyphicon-transfer in-progress"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_error"
+                        uib-tooltip="{{ 'Number of hard bounces' | translate }}">
+                        <span class="glyphicon glyphicon-remove hardbounce"></span>
+                    </th>
+                    <th class="text-center" st-sort="total_softbounce"
+                        uib-tooltip="{{ 'Number of soft bounces' | translate }}">
+                        <span class="glyphicon glyphicon-ban-circle warning"></span>
+                    </th>
+                    <th class="text-center" st-sort="read_tracking"
+                        uib-tooltip="{{ 'True if tracking for reads is activated' | translate }}">
+                        <span class="glyphicon glyphicon-eye-open"></span>
+                    </th>
+                    <th class="text-center" st-sort="click_tracking"
+                        uib-tooltip="{{ 'True if tracking for clicks is activated' | translate }}">
+                        <span class="glyphicon glyphicon-hand-up"></span>
+                    </th>
+                </tr>
+                </thead>
+                <tbody ng-class="{loading: $ctrl.loading}">
+                <tr ng-show="!$ctrl.finished_mailings.$resolved">
+                    <td colspan="20" class="text-center" translate>
+                        <rd-loading></rd-loading>
+                    </td>
+                </tr>
+                <tr ng-repeat="ml in $ctrl.finished_mailings.items" ng-show="$ctrl.finished_mailings.$resolved">
+                    <td><a class="" ui-sref="mailing-view({ mailingId: ml.id })">{{ ml.id }}</a></td>
+                    <td class="m-ticker"><b>{{ ml.domain_name }}</b><span><translate>FROM:
+                    </translate> {{ ml.sender_name }} &lt;{{ ml.mail_from }}&gt;</span></td>
+                    <td>{{ ml.status }}</td>
+                    <td class="actions">
+                        <a class="btn btn-xs btn-primary" ng-href="#/mailings/{{ ml.id }}"
+                           uib-tooltip="{{ 'View mailing details'|translate }}">
+                            <span class="glyphicon glyphicon-eye-open"></span>
+                        </a>
+                        <a class="btn btn-xs btn-danger" href ng-click="$ctrl.deleteMailing(ml)"
+                           uib-tooltip="Remove the mailing and destroy all its data">
+                            <span class="glyphicon glyphicon-remove-sign"></span>
+                        </a>
+                    </td>
+                    <td class="small">
+                        <datetime value="ml.submit_time"></datetime>
+                    </td>
+                    <td class="small">
+                        <div class="text-nowrap" ng-if="ml.scheduled_start">{{ 'start:'|translate }}
+                            <datetime value="ml.scheduled_start"></datetime>
+                        </div>
+                        <div class="text-nowrap" ng-if="ml.scheduled_end">{{ 'end:'|translate }}
+                            <datetime value="ml.scheduled_end"></datetime>
+                        </div>
+                        <div class="text-nowrap"
+                             ng-if="ml.scheduled_duration">{{ 'duration:'|translate }} {{ ml.scheduled_duration | number }}</div>
+                    </td>
+                    <td class="small">
+                        <datetime value="ml.start_time"></datetime>
+                    </td>
+                    <td class="small">
+                        <datetime value="ml.end_time"></datetime>
+                    </td>
+                    <td class="m-ticker text-right"><span>{{ ml.total_recipient | number }}</span></td>
+                    <td class="m-ticker text-right text-success"><span>{{ ml.total_sent | number }}</span></td>
+                    <td class="m-ticker text-right text-info"><span>{{ ml.total_pending | number }}</span></td>
+                    <td class="m-ticker text-right text-danger"><span>{{ ml.total_error | number }}</span></td>
+                    <td class="m-ticker text-right text-warning"><span>{{ ml.total_softbounce | number }}</span></td>
+                    <td>
+                        <boolean-check value="{{ ml.read_tracking }}"></boolean-check>
+                    </td>
+                    <td>
+                        <boolean-check value="{{ ml.click_tracking }}"></boolean-check>
+                    </td>
+                </tr>
+                </tbody>
+                <tfoot ng-show="$ctrl.finished_mailings.$resolved">
+                <tr>
+                    <td class="text-center" st-pagination="" st-items-by-page="10"
+                        st-template="template/smart-table/pagination.custom.html" colspan="20">
+                    </td>
+                </tr>
+                </tfoot>
+            </table>
+        </div>
+    </uib-tab>
+</uib-tabset>

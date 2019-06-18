@@ -46,7 +46,6 @@ class MailingContentApi(ApiResource):
             return MailingContentIDsApi(self.mailing_id)
         return ApiResource.getChild(self, name, request)
 
-
     def render_GET(self, request):
         self.log_call(request)
         db = get_db()

@@ -1,0 +1,64 @@
+@import 'variables';
+
+$color-delivered: #5cb85c;
+$color-softbounce: #f0ad4e;
+$color-hardbounce: #d9534f;
+$color-in-progress: #428bca;
+
+.green,
+.delivered {
+  color: $color-delivered;
+}
+
+.orange,
+.warning,
+.softbounce {
+  color: $color-softbounce;
+}
+
+.blue,
+.in-progress {
+  color: $color-in-progress;
+}
+
+.red,
+.error,
+.hardbounce {
+  color: $color-hardbounce;
+}
+
+.mailings {
+  .loading {
+    opacity: .30;
+  }
+
+  .actions {
+    text-align: center;
+    width: 76px;
+
+    .btn {
+      margin-bottom: 3px;
+    }
+
+    .btn[disabled] {
+      opacity: .40;
+    }
+  }
+}
+
+.mailing-tabs{
+  .tab-content {
+    background: white;
+  }
+}
+
+//.mailing-details {
+.mailing-content {
+  position: relative;
+  //height: 600px;
+  width: 100%;
+  height: calc(100%);
+
+}
+
+//}

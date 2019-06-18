@@ -1,0 +1,33 @@
+<div class="table-responsive">
+    <table id="ticker-table" class="table m-table table-bordered table-hover table-heading"
+           st-table="$ctrl.mailings.items">
+        <thead>
+        <tr>
+            <!--<th>ID</th>-->
+            <th translate>Description</th>
+            <th translate>Status</th>
+            <th translate>Progression</th>
+            <!--<th>Weekly Chart</th>-->
+        </tr>
+        </thead>
+        <tbody>
+        <tr ng-repeat="ml in $ctrl.mailings.items" uib-tooltip="[{{ml.id}}] {{ ml.subject }}">
+            <td class="m-ticker"><a ui-sref="mailing-view({ mailingId: ml.id })"><b>{{ ml.subject }}</b></a>
+                <span><b>FROM:</b> {{ ml.mail_from }}</span>
+                <span><b>Started:</b> <datetime class="inline" value="ml.start_time"></datetime></span>
+            </td>
+            <td class="m-status">{{ ml.status }}</td>
+            <td class="m-progress">
+                {{ ml.total_sent + ml.total_error }} /
+                <span ng-if="ml.type=='REGULAR'">{{ ml.total_recipient }}</span>
+                <span ng-if="ml.type=='OPENED'">&infin;</span>
+                <uib-progressbar class="progress-striped" value="ml.total_sent + ml.total_error"
+                                 max="ml.total_recipient">
+                </uib-progressbar>
+
+            </td>
+            <!--<td class="td-graph"></td>-->
+        </tr>
+        </tbody>
+    </table>
+</div>

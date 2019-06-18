@@ -1,0 +1,60 @@
+<div class="row">
+    <div class="col-xs-12 col-sm-12">
+
+        <p translate>You have to define the timezone where your company lives. This will allow CloudMailing to
+                    set the correct date and time into received and sent emails.
+                </p>
+        <form class="form-horizontal" role="form" ng-submit="$ctrl.onSubmit()" name="$ctrl.form" novalidate>
+        <formly-form model="$ctrl.model" fields="$ctrl.fields" class="tz-form" options="$ctrl.options" form="$ctrl.form">
+            <div class="row">
+                <div class="form-group">
+                    <div class="col-sm-offset-4 col-xs-6 col-sm-2">
+                        <button type="cancel" class="btn btn-default btn-label-left" ng-click="$ctrl.options.resetModel()">
+                            <span><i class="fa fa-close"></i></span>
+                            <translate>Cancel</translate>
+                        </button>
+                    </div>
+                    <div class="col-xs-6 col-sm-2">
+                        <button type="submit" class="btn btn-primary btn-label-left"
+                                ng-disabled="$ctrl.form.$invalid">
+                            <span><i class="fa fa-check"></i></span>
+                            <translate>Submit</translate>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </formly-form>
+        </form>
+<!--
+        <div class="clearfix"></div>
+
+                <form class="form-horizontal" role="form" name="tzForm">
+                    <legend translate>Timezone</legend>
+                    <div class="form-group">
+                        <label class="col-sm-2 control-label" translate>Select your timezone</label>
+
+                        <div class="col-sm-4">
+                            <select class="" name="timezone" ng-model="timezone">
+                                <option ng-repeat="tz in $ctrl.timezones" value="tz.value">{{ tz.name }}</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-4 col-sm-2">
+                            <button type="cancel" class="btn btn-default btn-label-left">
+                                <span><i class="fa fa-clock-o txt-danger"></i></span>
+                                <translate>Cancel</translate>
+                            </button>
+                        </div>
+                        <div class="col-sm-2">
+                            <button type="submit" class="btn btn-primary btn-label-left">
+                                <span><i class="fa fa-clock-o"></i></span>
+                                <translate>Submit</translate>
+                            </button>
+                        </div>
+                    </div>
+                </form>
+-->
+    </div>
+</div>

@@ -1,0 +1,39 @@
+{
+  "parserOptions": {
+    "ecmaVersion": 5,
+    "sourceType": "script",
+    "ecmaFeatures": {
+    }
+  },
+  "env": {
+    "amd": true,
+    "browser": true,
+    "jquery": true
+  },
+  "globals": {
+  },
+  "plugins":  ["angular", "jasmine"],
+  "extends": [
+    "eslint:recommended",
+    "angular",
+    "plugin:jasmine/recommended"
+  ],
+  "rules": {
+    "no-extra-parens": "warn",
+    "eqeqeq": "warn",
+    "no-implicit-globals": "warn",
+    "no-unused-expressions": "warn",
+    "no-useless-concat": "warn",
+    "no-unreachable": "warn",
+    "no-unneeded-ternary": "warn",
+    "no-multiple-empty-lines": ["error", { "max": 2, "maxBOF": 1, "maxEOF": 1 }],
+    "strict": "warn",
+    "space-infix-ops": "warn",
+    "indent": ["error", 4],
+    "key-spacing": "warn",
+    "computed-property-spacing": ["error", "never"],
+    "semi-spacing": "warn",
+    "semi": "error",
+    "angular/definedundefined": "off"
+  }
+}

@@ -3,7 +3,7 @@ Get started with Cloud Mailing API
 
 Overview
 --------
-The CloudMailing XML-RPC server allows to directly manage MailFountain CloudMailing Engine.
+The CloudMailing XML-RPC server allows to directly manage CloudMailing Engine.
 
 Authentication
 --------------

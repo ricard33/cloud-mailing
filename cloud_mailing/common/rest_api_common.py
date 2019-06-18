@@ -144,7 +144,7 @@ class ApiResource(Resource):
 
     def write_headers(self, request):
         request.setHeader('Content-Type', 'application/json')
-        request.setHeader('Access-Control-Allow-Origin', '*')
+        request.setHeader('Access-Control-Allow-Origin', request.getHeader('origin') or '*')
         request.setHeader('Access-Control-Allow-Credentials', 'true')
         request.setHeader('Access-Control-Allow-Headers', 'accept, content-type')
         request.setHeader('Access-Control-Allow-Methods', 'DELETE,GET,HEAD,PATCH,POST,PUT')
@@ -199,7 +199,6 @@ class ApiResource(Resource):
             self.write_headers(request)
             return json.dumps({'error': "Internal Server Error"}).encode()
 
-
     def access_forbidden(self, request):
         request.setResponseCode(http_status.HTTP_403_FORBIDDEN)
         self.write_headers(request)
@@ -211,7 +210,7 @@ class ApiResource(Resource):
         self.log_call(request)
         self.write_headers(request)
         # request.setHeader('Access-Control-Allow-Origin', '*')
-        return ''
+        return b''
 
     def get_user(self, request):
         """

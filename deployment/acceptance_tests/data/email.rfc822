@@ -1,5 +1,5 @@
 Received: from  ([192.168.5.20] helo=[192.168.5.20])
-	by mail.unittest.cloud-mailing.net with SMTP (MailFountain 2.0.5.74)
+	by mail.unittest.cloud-mailing.net with SMTP (mailer)
 	(enveloppe-from <my-mailing@unittest.cloud-mailing.net> rDNS=ok)
 	for mailing; Sat, 12 Feb 2011 02:27:26 +0100
 Message-ID: <4D55E201.8040408@unittest.cloud-mailing.net>

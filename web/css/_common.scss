@@ -1,0 +1,54 @@
+@import 'variables';
+
+.m-ticker span {
+  display: block;
+  font-size: .8em;
+  line-height: 1em;
+}
+
+.inline span {
+  display: inline;
+}
+
+.st-sort-ascent:before {
+  content: '\25B2';
+}
+
+.st-sort-descent:before {
+  content: '\25BC';
+}
+
+th[st-sort] {
+  cursor: pointer;
+}
+
+.select-page {
+  text-align: center;
+  width: 50px;
+}
+
+.pagination li {
+  a.button {
+    cursor: pointer;
+  }
+  a input {
+    padding: 0;
+    margin: -5px 0;
+  }
+}
+
+.time-picker-menu {
+  input.form-control {
+    padding: 0;
+  }
+}
+
+.table-form{
+  .form-group{
+    margin-bottom: 0;
+  }
+}
+
+.table-no-margin-bottom {
+  margin-bottom: 0;
+}

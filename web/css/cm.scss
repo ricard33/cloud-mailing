@@ -1,0 +1,45 @@
+@import 'bootstrap';
+@import '../node_modules/bootstrap-material-design/sass/bootstrap-material-design';
+@import '../node_modules/bootstrap-material-design/sass/ripples';
+@import 'variables';
+@import 'common';
+@import 'rdash';
+@import 'datetimepicker';
+@import 'topmenu';
+@import 'mailings';
+@import 'dashboard';
+@import 'sidebar';
+@import 'network-settings';
+
+.navbar.navbar-default {
+  //background-color: $sidebar-bg-color;
+  background-color: white;
+  color: inherit;
+}
+
+
+.form-group {
+  margin: 0px 0 0 0;
+}
+
+//.nav-tabs > li.active > a{
+//  border-bottom: 2px solid #c60f0f  !important;
+//}
+
+/* highlight active nav-tabs item */
+ul.nav-tabs {
+    background-color: rgba(255, 255, 255, 0.0);
+    border-bottom: .333rem solid transparent;
+}
+ul.nav-tabs li.active {
+    border-bottom: .333rem solid teal;
+    color: grey;
+}
+ul.nav-tabs li a,
+ul.nav-tabs li a:focus
+{
+    color: grey !important;
+}
+ul.nav-tabs li a:hover {
+    color: black !important;
+}

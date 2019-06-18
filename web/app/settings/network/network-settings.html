@@ -1,0 +1,97 @@
+<div class="row network-settings">
+    <div class="col-xs-12 col-sm-12">
+        <formly-form model="$ctrl.model" fields="$ctrl.networkFields" class="network-form">
+            <div class="row">
+                <div class="form-group">
+                    <div class="col-sm-offset-4 col-xs-6 col-sm-2">
+                        <button type="cancel" class="btn btn-default btn-label-left">
+                            <span><i class="fa fa-close"></i></span>
+                            <translate>Cancel</translate>
+                        </button>
+                    </div>
+                    <div class="col-xs-6 col-sm-2">
+                        <button type="submit" class="btn btn-primary btn-label-left" ng-click="$ctrl.submit()">
+                            <span><i class="fa fa-check"></i></span>
+                            <translate>Submit</translate>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </formly-form>
+        <div class="clearfix"></div>
+        <!--<h2>Model</h2>-->
+        <!--<pre>{{$ctrl.model | json}}</pre>-->
+        {{ $ctrl.ethModes }}
+    </div>
+</div>
+
+<!-- Put custom templates here -->
+
+<script type="text/ng-template" id="app/settings/network.interface.html">
+    <h2>{{options.templateOptions.title}}</h2>
+
+    <table st-table="model.interfaces" class="table table-striped table-form">
+        <thead>
+        <tr>
+            <th data-ng-repeat="field in options.templateOptions.fields">{{field.data.colHeader}}</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr ng-repeat="intf in model.interfaces">
+            <td data-ng-repeat="field in options.templateOptions.fields">
+                <formly-field model="intf" options="field"></formly-field>
+            </td>
+
+        </tr>
+        </tbody>
+        <tfoot>
+        <tr>
+            <td colspan="5" class="text-center">
+                <div st-pagination="" st-items-by-page="itemsByPage" st-displayed-pages="5"></div>
+            </td>
+        </tr>
+        </tfoot>
+    </table>
+</script>
+
+<script type="text/ng-template" id="app/settings/network.interface2.html">
+    <h2>{{options.templateOptions.title}}</h2>
+    <!--
+        <table ng-table-dynamic="options.templateOptions.tableParams with options.templateOptions.cols"
+               class="table table-striped table-condensed table-hover editable-table"
+               ng-form="tableForm" tracked-table="options.data.tableTracker">
+    -->
+    <table ng-table-dynamic="options.templateOptions.tableParams with options.templateOptions.cols"
+           class="table table-striped table-condensed table-hover editable-table"
+           ng-form="tableForm" tracked-table="options.data.tableTracker">
+        <tr ng-repeat="row in $data" ng-form="rowForm" tracked-table-row="row">
+            <td data-ng-repeat="field in options.templateOptions.fields"
+                ng-class="rowForm[field.key].$dirty ? 'bg-warning' : ''" tracked-table-cell>
+                <span ng-if="!row.isEditing && field.key === 'mode'" class="editable-text">
+                    {{ field.templateOptions.ethModes[row[field.key]] }}
+                </span>
+                <span ng-if="!row.isEditing && field.key !== 'mode'" class="editable-text">
+                    {{ row[field.key] }}
+                </span>
+                <div ng-if="row.isEditing" class="controls"
+                     ng-class="rowForm[field.key].$invalid && rowForm[field.key].$dirty ? 'has-error' : ''">
+                    <formly-field model="row" options="field"></formly-field>
+                </div>
+            </td>
+
+            <td>
+                <button class="btn btn-primary btn-sm" ng-click="options.data.save(row, rowForm)" ng-if="row.isEditing"
+                        ng-disabled="rowForm.$pristine || rowForm.$invalid"><span class="glyphicon glyphicon-ok"></span>
+                </button>
+                <button class="btn btn-default btn-sm" ng-click="options.data.cancel(row, rowForm)"
+                        ng-if="row.isEditing"><span
+                    class="glyphicon glyphicon-remove"></span></button>
+                <button class="btn btn-default btn-sm" ng-click="row.isEditing = true" ng-if="!row.isEditing"><span
+                    class="glyphicon glyphicon-pencil"></span></button>
+                <!--<button class="btn btn-danger btn-sm" ng-click="options.data.del(row)" ng-if="!row.isEditing"><span-->
+                <!--class="glyphicon glyphicon-trash"></span></button>-->
+            </td>
+        </tr>
+    </table>
+    <div class="clearfix"></div>
+</script>

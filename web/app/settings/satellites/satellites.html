@@ -1,0 +1,127 @@
+<div class="row">
+    <div class="col-xs-12 col-sm-12">
+        <rd-widget>
+            <rd-widget-header icon="fa-cog" title="{{ 'CloudMailing satellites' | translate }}">
+            </rd-widget-header>
+            <rd-widget-body classes="medium no-padding">
+                <div translate>This page allows you to make satellites associations.</div>
+                <table class="table m-table table-bordered table-hover table-heading"
+                       st-table="displayedSatellites" st-safe-src="$ctrl.satellites.items">
+                    <thead>
+                    <tr>
+                        <th st-sort="id" uib-tooltip="{{ 'satellite identifier' | translate }}">id</th>
+                        <th st-sort="serial" uib-tooltip="{{ 'serial number' | translate }}">serial</th>
+                        <th st-sort="enabled" uib-tooltip="{{ 'satellite enabled or not?' | translate }}">enabled</th>
+                        <th st-sort="paired" uib-tooltip="{{ 'satellite validated and paired with master' | translate }}">
+                            paired
+                        </th>
+                        <th st-sort="date_paired"
+                            uib-tooltip="{{ 'when satellite has been paired with master' | translate }}">date paired
+                        </th>
+                        <th st-sort="shared_key" uib-tooltip="{{ 'shared used to connect with master' | translate }}">shared
+                            key
+                        </th>
+                        <th st-sort="domain_affinity"
+                            uib-tooltip="{{ 'target domains configuration for this satellite' | translate }}">domain
+                            affinity
+                        </th>
+                        <th uib-tooltip="{{ 'Actions to perform on this satellite' | translate }}">actions</th>
+                    </tr>
+                    </thead>
+                    <tbody>
+                    <tr ng-repeat="satellite in displayedSatellites">
+                        <td>{{ satellite.id }}</td>
+                        <td class="">{{ satellite.serial }}</td>
+                        <td>
+                            <boolean-check value="{{ satellite.enabled }}"></boolean-check>
+                        </td>
+                        <td>
+                            <boolean-check value="{{ satellite.paired }}"></boolean-check>
+                        </td>
+                        <td class="small">
+                            <datetime value="satellite.date_paired"></datetime>
+                        </td>
+                        <td class="">{{ satellite.shared_key }}</td>
+                        <td class="">{{ satellite.domain_affinity }}</td>
+                        <td>
+                            <a class="btn btn-xs btn-danger" href ng-click="delete_satellite(satellite)"
+                               uib-tooltip="dissociate this satellite from master">
+                                <span class="glyphicon glyphicon-remove-sign"></span>
+                            </a>
+                        </td>
+                    </tr>
+                    </tbody>
+                </table>
+            </rd-widget-body>
+        </rd-widget>
+    </div>
+</div>
+<div ng-if="false" class="row">
+    <div class="col-xs-6 col-sm-6">
+        <rd-widget>
+            <rd-widget-header icon="fa-cog" title="{{ 'Add satellite' | translate }}">
+            </rd-widget-header>
+            <rd-widget-body classes="medium no-padding">
+                <div translate>Associate a new satellite to this master.</div>
+                <form class="" role="form" name="tzForm">
+                    <legend translate>New satellite</legend>
+                    <div class="form-group col-xs-6">
+                        <label class="control-label" translate>Serial number</label>
+
+                        <div class="">
+                            <input type="text" ng-model="satellite.serial" class="form-control"
+                                   placeholder="{{ 'satellite serial number...'|translate }}"
+                                   tooltip-placement="bottom"
+                                   uib-tooltip="{{ 'serial number of the new satellite'|translate }}"/>
+                        </div>
+                    </div>
+                    <div class="form-group col-xs-6">
+                        <label class="control-label" translate>Shared key</label>
+
+                        <div class="">
+                            <input type="text" ng-model="satellite.key" class="form-control"
+                                   placeholder="{{ 'shared key...'|translate }}"
+                                   tooltip-placement="bottom"
+                                   uib-tooltip="{{ 'shared key used to authenticate the new satellite'|translate }}"/>
+                        </div>
+                    </div>
+                    <div class="form-group col-xs-12">
+                        <label class="control-label" translate>Domain affinity</label>
+
+                        <div class="">
+							<textarea ng-model="satellite.domain_affinity" class="form-control"
+                                      placeholder="{{ 'target domains configuration...'|translate }}"
+                                      tooltip-placement="bottom"
+                                      uib-tooltip="{{ 'target domains configuration for this satellite'|translate }}"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-horizontal col-xs-6">
+                        <label class="control-label col-sm-3" translate>Enabled?</label>
+
+                        <div class="col-sm-4">
+                            <input type="checkbox" ng-model="satellite.enabled" class="form-control"
+                                   tooltip-placement="bottom"
+                                   uib-tooltip="{{ 'should this satellite be enabled?'|translate }}"/>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                    <div class="form-group">
+                        <div class="col-sm-offset-3 col-sm-3">
+                            <button type="cancel" class="btn btn-default btn-label-left">
+                                <span><i class="fa fa-remove txt-danger"></i></span>
+                                <translate>Cancel</translate>
+                            </button>
+                        </div>
+                        <div class="col-sm-3">
+                            <button type="submit" class="btn btn-primary btn-label-left">
+                                <span><i class="fa fa-plus"></i></span>
+                                <translate>Add</translate>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="clearfix"></div>
+                </form>
+            </rd-widget-body>
+        </rd-widget>
+    </div>
+</div>

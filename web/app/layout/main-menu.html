@@ -1,0 +1,12 @@
+<li class="{{$ctrl.class}} menu-item" ng-repeat="entry in $ctrl.entries">
+    <a ui-sref="{{entry.url}}" ng-class="{active: $ctrl.isActive(entry)}">
+        {{entry.title}} <span class="menu-icon fa {{entry.icon}}"></span>
+    </a>
+    <ul class="menu-subitem" role="menu" ng-if="$ctrl.isOpen(entry)">
+        <li ng-repeat="sub in entry.subitems">
+            <a ui-sref="{{sub.url}}" ng-class="{active: $ctrl.isActive(sub)}">
+                {{sub.title}} <span class="menu-icon fa {{sub.icon}}"></span>
+            </a>
+        </li>
+    </ul>
+</li>

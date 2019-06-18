@@ -32,6 +32,7 @@ from twisted.internet import reactor
 from twisted.python.log import PythonLoggingObserver
 from twisted.web import server
 
+from .admin_pages import make_admin_pages
 from ..common.db_common import Db
 from .db_initialization import init_master_db
 from .api_authentication import AdminChecker
@@ -52,6 +53,7 @@ service_manager = None
 def _dummy():
     # Never executed, just to avoid auto deletion of this import
     dir(colored_log)
+
 
 def get_api_service(application=None, interface='', port=33610, ssl_context_factory=None):
     """
@@ -74,10 +76,9 @@ def get_api_service(application=None, interface='', port=33610, ssl_context_fact
         with open(settings.CONFIG_FILE, 'wt') as f:
             config.write(f)
 
-    home_page = HomePage()
-    home_page.put_child(b'CloudMailing',  CloudMailingRpc(useDateTime=True), True)
-    home_page.put_child(b'api',  make_rest_api(xmlrpc_port=port, xmlrpc_use_ssl=ssl_context_factory is not None, api_key=key))
-    home_page.make_home_page()  # need to be AFTER adding children
+    home_page = make_admin_pages()
+    home_page.putChild(b'CloudMailing',  CloudMailingRpc(useDateTime=True))
+    home_page.putChild(b'api',  make_rest_api(xmlrpc_port=port, xmlrpc_use_ssl=ssl_context_factory is not None, api_key=key))
 
     webServer = AuthenticatedSite( home_page )
     webServer.credentialFactories = [BasicCredentialFactory(b"CloudMailing API"), DigestCredentialFactory(b"md5", b"CloudMailing API")]
@@ -149,6 +150,7 @@ def main(application=None):
     parser.add_argument('--api-interface', default='', help='network interface (IP address) on which API should listen (default: <empty> = all)')
     parser.add_argument('--api-port', type=int, default=33610, help='port number for API (default: 33610)')
     parser.add_argument('--api-dont-use-ssl', action='store_true', default=False, help='ask API to not use secure port (SSL)')
+    parser.add_argument('--dev', action='store_true', default=False, help='Running in development mode. All LS, CSS and HTML files are read from sources')
 
     args = parser.parse_args()
 
@@ -175,14 +177,8 @@ def main(application=None):
             log.info("Connected to database '%s'", settings.MASTER_DATABASE)
         except (pymongo.errors.ConnectionFailure, pymongo.errors.ServerSelectionTimeoutError):
             log.error("Failed to connect to database server!")
-            # special case for MailFountain hardward only
-            if os.path.exists("/data/mongodb/mongod.lock"):
-                os.remove("/data/mongodb/mongod.lock")
-                os.system('su -m mongodb -c "mongod --config /usr/local/etc/mongodb.conf --dbpath /data/mongodb/ --repair"')
-                os.system("service mongod start")
-            else:
-                log.info("   Trying again in 5 seconds...")
-                time.sleep(5)
+            log.info("   Trying again in 5 seconds...")
+            time.sleep(5)
     Db.getInstance(settings.MASTER_DATABASE, pool_size=10, watchdog_timeout=60, uri=settings.MASTER_DATABASE_URI)
 
     # attach the service to its parent application

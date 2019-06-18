@@ -24,7 +24,8 @@ __author__ = 'ricard'
 
 RUNNING_UNITTEST = sys.argv[0].endswith('trial') or os.environ.get('RUNNING_UNITTEST', False) == "True"
 
-PROJECT_ROOT = os.path.normpath(os.getcwd())
+# PROJECT_ROOT = os.path.normpath(os.getcwd())
+PROJECT_ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..', '..'))
 if RUNNING_UNITTEST:
     PROJECT_ROOT = os.path.join(PROJECT_ROOT, 'UT')
     if not os.path.exists(PROJECT_ROOT):
@@ -32,6 +33,7 @@ if RUNNING_UNITTEST:
 CONFIG_PATH = os.path.join(PROJECT_ROOT, "config")
 CONFIG_FILE = os.path.join(CONFIG_PATH, "cloud-mailing.ini")
 LOG_PATH = os.path.join(PROJECT_ROOT, "log")
+STATIC_ROOT = os.path.join(PROJECT_ROOT, 'static')
 
 os.makedirs(CONFIG_PATH, exist_ok=True)
 os.makedirs(LOG_PATH, exist_ok=True)

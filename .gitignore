@@ -71,3 +71,6 @@ local_settings.py
 version.properties
 deployment/acceptance_tests/root_dir
 scripts/collect_reports.ini
+web/.tmp
+web/node_modules/
+static/

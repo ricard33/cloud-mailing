@@ -1,0 +1,86 @@
+<div class="row">
+    <div class="col-lg-6">
+        <rd-widget>
+            <rd-widget-header icon="fa-info" title="{{ 'System information'|translate }}">
+            </rd-widget-header>
+            <rd-widget-body classes=" no-padding">
+                <div class="table-responsive">
+                    <table class="table m-table table-bordered table-hover table-heading table-no-margin-bottom">
+                        <!--<thead>-->
+                        <!--<tr>-->
+                            <!--<th translate>Description</th>-->
+                            <!--<th translate>Status</th>-->
+                            <!--<th translate>Progression</th>-->
+                        <!--</tr>-->
+                        <!--</thead>-->
+                        <tbody>
+                        <tr>
+                            <td class="h3" translate>Version</td>
+                            <td class="value">{{$ctrl.cm.product_version}}</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </rd-widget-body>
+        </rd-widget>
+    </div>
+    <div class="col-lg-6">
+        <rd-widget>
+            <rd-widget-header icon="fa-check" title="Configuration checks">
+                <!--<input type="text" placeholder="Search" class="form-control input-sm"/>-->
+            </rd-widget-header>
+            <rd-widget-body classes="no-padding">
+                <div class="table-responsive">
+                    <table class="table m-table table-bordered table-hover table-heading table-no-margin-bottom">
+                        <!--<thead>-->
+                        <!--<tr>-->
+                            <!--<th translate>Description</th>-->
+                            <!--<th translate>Status</th>-->
+                            <!--<th translate>Progression</th>-->
+                        <!--</tr>-->
+                        <!--</thead>-->
+                        <tbody>
+                        <tr>
+                            <td class="h3" translate>Internet status</td>
+                            <td class="value orange">To be done</td>
+                        </tr>
+                        <tr>
+                            <td class="h3" translate>Public IP address</td>
+                            <td class="value orange">To be done</td>
+                        </tr>
+                        <tr>
+                            <td class="h3" translate>DNS check: MX queries</td>
+                            <td class="value orange">To be done</td>
+                        </tr>
+                        <tr>
+                            <td class="h3" translate>DNS check: SPF/DKIM queries</td>
+                            <td class="value orange">To be done</td>
+                        </tr>
+                        <tr>
+                            <td class="h3" translate>ISP check: outgoing SMTP connection</td>
+                            <td class="value orange">To be done</td>
+                        </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+            </rd-widget-body>
+            <rd-widget>
+    </div>
+</div>
+
+
+<!--<uib-tabset>-->
+  <!--<uib-tab index="0">-->
+      <!--<uib-tab-heading>-->
+        <!--<i class="fa fa-wifi"></i> Network-->
+      <!--</uib-tab-heading>-->
+      <!--<network-settings></network-settings>-->
+  <!--</uib-tab>-->
+  <!--<uib-tab index="1">-->
+      <!--<uib-tab-heading>-->
+        <!--<i class="fa fa-clock-o"></i> Timezone-->
+      <!--</uib-tab-heading>-->
+      <!--<time-settings></time-settings>-->
+  <!--</uib-tab>-->
+<!--</uib-tabset>-->

@@ -1,0 +1,22 @@
+<div class="">
+    <div class="">
+        <nvd3 id="hourly" data="$ctrl.hourlyData" options="$ctrl.hourlyOptions"
+              config="{refreshDataOnly: false, extended: false}"></nvd3>
+    </div>
+    <div class="hourly-nav">
+        <label translate>Navigate:</label>&nbsp;
+        <button type="button" class="btn btn-sm btn-primary" ng-click="$ctrl.prev()" translate>prev</button>
+        <button type="button" class="btn btn-sm btn-primary" ng-click="$ctrl.next()" translate>next</button>
+        &nbsp;
+        <label translate>Slice:</label>&nbsp;
+        <button type="button" class="btn btn-sm" ng-class="{'btn-primary': $ctrl.slice!==24, 'btn-info': $ctrl.slice===24}"
+                ng-click="$ctrl.set_slice(24)" translate>1 day
+        </button>
+        <button type="button" class="btn btn-sm" ng-class="{'btn-primary': $ctrl.slice!==24*7, 'btn-info': $ctrl.slice===24*7}"
+                ng-click="$ctrl.set_slice(24*7)" translate>1 week
+        </button>
+        <button type="button" class="btn btn-sm" ng-class="{'btn-primary': $ctrl.slice!==24*30, 'btn-info': $ctrl.slice===24*30}"
+                ng-click="$ctrl.set_slice(24*30)" translate>1 month
+        </button>
+    </div>
+</div>

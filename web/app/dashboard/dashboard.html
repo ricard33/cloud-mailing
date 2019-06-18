@@ -1,0 +1,82 @@
+<div class="row dashboard">
+    <div class="col-lg-3 col-md-6 col-xs-12">
+        <rd-widget>
+            <rd-widget-body>
+                <a ui-sref="mailings">
+                <div class="widget-icon red pull-left">
+                    <i class="fa fa-tasks"></i>
+                </div>
+                </a>
+                <div class="title"><rd-loading ng-if="!$ctrl.mailings_count.$resolved"></rd-loading>{{ $ctrl.mailings_count.total | number }}</div>
+                <div class="comment">Mailings</div>
+            </rd-widget-body>
+        </rd-widget>
+    </div>
+    <div class="col-lg-3 col-md-6 col-xs-12">
+        <rd-widget>
+            <rd-widget-body>
+                <div class="widget-icon green pull-left">
+                    <i class="fa fa-users"></i>
+                </div>
+                <div class="title"><rd-loading ng-if="$ctrl.recipients_count.$resolved === false"></rd-loading>{{ $ctrl.recipients_count.total | number }}</div>
+                <div class="comment">Recipients</div>
+            </rd-widget-body>
+        </rd-widget>
+    </div>
+    <div class="col-lg-3 col-md-6 col-xs-12">
+        <rd-widget>
+            <rd-widget-body>
+                <div class="widget-icon orange pull-left">
+                    <i class="fa fa-sitemap"></i>
+                </div>
+                <div class="title"><rd-loading ng-if="$ctrl.satellites_count.$resolved === false"></rd-loading>{{ $ctrl.satellites_count.total | number }}</div>
+                <div class="comment">Satellites</div>
+            </rd-widget-body>
+        </rd-widget>
+    </div>
+    <!--<div class="col-lg-3 col-md-6 col-xs-12">-->
+        <!--<rd-widget>-->
+            <!--<rd-widget-body>-->
+                <!--<div class="widget-icon blue pull-left">-->
+                    <!--<i class="fa fa-support"></i>-->
+                <!--</div>-->
+                <!--<div class="title">?</div>-->
+                <!--<div class="comment">Queue</div>-->
+            <!--</rd-widget-body>-->
+        <!--</rd-widget>-->
+    <!--</div>-->
+</div>
+
+<div class="row">
+    <div class="col-lg-6">
+        <rd-widget>
+            <rd-widget-header icon="fa-tasks" title="{{ 'Active mailings'|translate }} ({{$ctrl.mailings.total}})">
+                <a ui-sref="mailings">Manage</a>
+            </rd-widget-header>
+            <rd-widget-body classes="medium no-padding">
+                <active-mailings on-get-mailings="$ctrl.onGetMailings(mailings)"></active-mailings>
+            </rd-widget-body>
+        </rd-widget>
+    </div>
+    <div class="col-lg-6">
+        <rd-widget>
+            <rd-widget-header icon="fa-users" title="Hourly statistics">
+                <!--<input type="text" placeholder="Search" class="form-control input-sm"/>-->
+            </rd-widget-header>
+            <rd-widget-body classes="medium no-padding">
+                <hourly-graphics></hourly-graphics>
+            </rd-widget-body>
+            <rd-widget>
+    </div>
+    <div class="col-lg-6">
+        <rd-widget>
+            <rd-widget-header icon="fa-users" title="System">
+                <!--<input type="text" placeholder="Search" class="form-control input-sm"/>-->
+            </rd-widget-header>
+            <rd-widget-body classes="small no-padding">
+                <system-gauges></system-gauges>
+            </rd-widget-body>
+            <rd-widget>
+    </div>
+</div>
+
