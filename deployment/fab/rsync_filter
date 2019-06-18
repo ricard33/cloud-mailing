@@ -6,7 +6,10 @@
 - /config/config.ini
 + /deployment/
 + /deployment/requirements/
-- /deployment/*
++ /deployment/cm_compile.py
+- /deployment/*/
++ /static/
++ /requirements.txt
 - /log/
 - /temp/
 - /docs/
@@ -14,11 +17,12 @@
 - /ssl/
 - /UT/
 - /.env/
-- /_trial*/
+- _trial*
 - __pycache__/
 - setup.py
 - *.pyc
 - *.pyo
 - .*
 - *.pid
-+ /*/
+- /*/
+- /*

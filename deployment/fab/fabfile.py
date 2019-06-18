@@ -14,11 +14,13 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
+import fnmatch
 import io
 
 import glob
 import os
 import random
+import subprocess
 import tempfile
 from fabric.api import env, cd, run, put, settings, prefix, task, local, get
 from fabric.contrib.project import rsync_project
@@ -37,12 +39,7 @@ except ImportError:
 
 FAB_PATH = os.path.dirname(os.path.abspath(__file__))
 WORKSPACE = os.path.abspath(os.path.join(FAB_PATH, "..", ".."))
-DEFAULT_TARGET_PATH = '/usr/local/cm'
-
-
-def TARGET_PATH():
-    host_conf = local_settings.targets.get(env.host_string, {})
-    return host_conf.get('path', DEFAULT_TARGET_PATH)
+DEFAULT_TARGET_PATH = '/home/cm'
 
 
 def get_host_conf():
@@ -50,8 +47,31 @@ def get_host_conf():
 
 
 @task
+def display_host_conf():
+    print(get_host_conf())
+
+
+def TARGET_PATH():
+    host_conf = get_host_conf()
+    return host_conf.get('path', DEFAULT_TARGET_PATH)
+
+
+@task
 def get_system_name():
     return run("uname")
+
+
+@task
+def get_cm_user() -> str:
+    host_conf = get_host_conf()
+    return host_conf.get('user', 'cm:cm')
+
+
+def update_files_rights(path):
+    user_and_group = get_cm_user()
+    if not user_and_group:
+        return
+    run("chown -R %s %s" % (user_and_group, path))
 
 
 @task
@@ -95,17 +115,45 @@ def test():
 
 
 def clean_compiled_files():
-    # cleanup *.pyc / *.pyo files
-    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH())
+    """cleanup *.pyc / *.pyo files"""
+    run("mkdir -p %s" % (TARGET_PATH() + '/deployment'))
+    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH() + '/deployment')
     with cd(TARGET_PATH()):
-        run("python cm_compile.py -c")
+        run("python3 deployment/cm_compile.py -c")
 
 
 def compile_python_files():
-    # create *.pyc / *.pyo files
-    put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH())
+    """create *.pyc / *.pyo files"""
+    # put(os.path.join(WORKSPACE, 'deployment', "cm_compile.py"), TARGET_PATH() +'/deployment')
     with cd(TARGET_PATH()):
-        run("python -O cm_compile.py")
+        run("python3 -O deployment/cm_compile.py")
+
+
+def get_lastmodified(path, match=('*.*',), excludes=()):
+    lastmodified = 0
+    # print "Walk %s" % path
+    for root, dirs, files in os.walk(path):
+        for filename in files:
+            for pattern in match:
+                if fnmatch.fnmatch(filename, pattern):
+                    t = os.path.getmtime(os.path.join(root, filename))
+                    if t > lastmodified:
+                        lastmodified = t
+                    break
+        for name in excludes:
+            if name in dirs:
+                dirs.remove(name)
+    return lastmodified
+
+@task
+def compile_static_files():
+    source_path = os.path.join(WORKSPACE, 'web')
+    static_path = os.path.join(WORKSPACE, 'static')
+    source_time = get_lastmodified(source_path, excludes=('node_modules', 'report'))
+    static_time = get_lastmodified(static_path, match=('*.js', '*.html', '*.css'))
+    if source_time > static_time:
+        print("Compiling static files...")
+        subprocess.check_output(['npm', 'run', 'gulp', 'build'], cwd=source_path)
 
 
 def sync_sources(test_only=False):
@@ -114,20 +162,29 @@ def sync_sources(test_only=False):
         TARGET_PATH(),
         local_dir=WORKSPACE + "/",
         delete=True,
-        default_opts='-rvz',  # '-pthrvz'
+        # default_opts='-rvz',  # '-pthrvz'
         extra_opts='-ci --filter=". %s"' % os.path.join(FAB_PATH, "rsync_filter") + (test_only and " --dry-run" or ""),
         #extra_opts="-ci --dry-run",
     )
 
 
-@task
-def put_version():
-    import subprocess
-    label = subprocess.check_output(["git", "describe"]).strip()
-    stats = subprocess.check_output(['git', 'diff', '--shortstat'])
+def get_version(repo_path):
+    label = subprocess.check_output(["git", "describe"], cwd=repo_path).strip().decode()
+    stats = subprocess.check_output(['git', 'diff', '--shortstat'], cwd=repo_path)
     dirty = len(stats) > 0 and stats[-1]
-    with cd(TARGET_PATH() + '/cloud_mailing'):
-        put(io.StringIO('VERSION=%s%s\n' % (label, dirty and "-dirty" or "")), 'version.properties')
+    return label + (dirty and "-dirty" or "")
+
+
+@task
+def write_cm_version():
+    version = get_version(WORKSPACE)
+    print("CloudMailing version %s" % version)
+    write_version(version, target_path=os.path.join(WORKSPACE, 'cloud_mailing'))
+
+
+def write_version(version, target_path):
+    with open(os.path.join(target_path, 'version.properties'), 'wt') as f:
+        f.write('VERSION=%s\n' % version)
 
 
 @task
@@ -137,33 +194,45 @@ def inject_copyright():
 
 
 @task
-def _deploy_cm():
+def deploy_sources(compile=True):
     run("mkdir -p %s" % TARGET_PATH())
-    clean_compiled_files()
+    if compile:
+        clean_compiled_files()
+    compile_static_files()
+    write_cm_version()
     sync_sources()
-    put_version()
-    compile_python_files()
+    if compile:
+        compile_python_files()
+    update_files_rights(TARGET_PATH())
 
+
+@task
+def update_venv():
     # put(os.path.join(WORKSPACE, "requirements.txt"), TARGET_PATH())
 
     with cd(TARGET_PATH()):
         with settings(warn_only=True):
-            if run("test -d .env").failed:
-                run("virtualenv .env")
+            if 'Python 3.7' not in run(".env_cm/bin/python -V"):
+                run("rm -r .env_cm")
+            if run("test -d .env_cm").failed:
+                run("python3.7 -m venv .env_cm")
 
-        with prefix('. .env/bin/activate'):
+        with prefix('. .env_cm/bin/activate'):
             run('pip install pip --upgrade')
+            run('pip install incremental --upgrade')
             run('pip install -r requirements.txt --upgrade')
-            # run('pip install -r requirements-testing.txt')
 
-    # with cd(TARGET_PATH()):
-    #     with prefix('. .env/bin/activate'):
-            # run('python manage.py syncdb --noinput')
-            # run('python manage.py migrate')
-            # run('python manage.py clearsessions')
-            # run('python manage.py collectstatic --noinput')
+    update_files_rights(TARGET_PATH())
 
-    run("chown -R cm:cm %s" % TARGET_PATH())
+
+@task
+def install_packages():
+    remote_system = get_system_name()
+    if remote_system == "Linux":
+        # run("apt-get install -y software-properties-common")
+        # run("add-apt-repository -y ppa:fkrull/deadsnakes")
+        run("apt-get update")
+        run("apt-get install -y mongodb supervisor build-essential rsync python3-dev ")
 
 
 # @task
@@ -178,7 +247,7 @@ def create_user():
     create the 'cm' user and group on new system.
     @return:
     """
-    username = "cm"
+    username, group = get_cm_user().split(':')
     if 'uid=' in run("id %s" % username):
         print(("User '%s' already exists" % username))
         return
@@ -189,7 +258,7 @@ def create_user():
     elif remote_system == "FreeBSD":
         run("pw useradd %(username)s -d %(TARGET_PATH)s -m -s /bin/tcsh -w no" % {'TARGET_PATH': TARGET_PATH(), 'username': username})
     else:
-        print(("create_user: Unsupported remote system '%s'" % remote_system))
+        print("create_user: Unsupported remote system '%s'" % remote_system)
 
 
 
@@ -241,7 +310,7 @@ def create_initial_config():
         tmp.flush()
         run("mkdir -p %s/config" % TARGET_PATH())
         put(tmp.name, config_filename)
-    run("chown cm:cm %s" % config_filename)
+    update_files_rights(config_filename)
 
 
 @task
@@ -309,20 +378,6 @@ priority=20
     run("supervisorctl reread")
     run("supervisorctl update")
 
-@task
-def remove_mf_from_startup():
-    remote_system = get_system_name()
-    if remote_system == "FreeBSD":
-        conf_path = "/usr/local/etc/supervisord.d"
-    else:
-        conf_path = "/etc/supervisor/conf.d"
-    run("supervisorctl stop mf_master")
-    run("supervisorctl stop mf_satellite")
-    run("rm %s/mf_master.conf" % conf_path)
-    run("rm %s/mf_satellite.conf" % conf_path)
-    run("supervisorctl reread")
-    run("supervisorctl update")
-
 @task()
 def first_setup():
     host_conf = get_host_conf()
@@ -330,10 +385,12 @@ def first_setup():
     # satellite_only = host_conf.get('remote_master') is not None
 
     # init_db()
+    # install_packages()
     create_user()
     create_initial_config()
     create_supervisord_config()
-    _deploy_cm()
+    deploy_sources()
+    update_venv()
     cm_start()
 
 
@@ -345,8 +402,28 @@ def diff():
 @task(default=True)
 def deploy():
     cm_stop()
-    _deploy_cm()
+    deploy_sources()
+    update_venv()
     cm_start()
+
+
+@task()
+def quick_deploy():
+    """ Only use for minor changes and quick deployment """
+    deploy_sources(compile=False)
+    cm_stop()
+    cm_start()
+
+
+@task
+def make_docker():
+
+    compile_static_files()
+    write_mf_version()
+    write_cm_version()
+    subprocess.check_output(['python', '-O', 'deployment/cm_compile.py'], cwd=os.path.join(WORKSPACE, 'cloud_mailing'))
+
+    # subprocess.check_output("docker", cwd=WORKSPACE)
 
 
 @task
