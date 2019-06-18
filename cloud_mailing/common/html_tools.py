@@ -1,4 +1,4 @@
-# Copyright 2015 Cedric RICARD
+# Copyright 2015-2019 Cedric RICARD
 #
 # This file is part of CloudMailing.
 #

@@ -1,5 +1,5 @@
 #!/usr/bin/python
-# Copyright 2015 Cedric RICARD
+# Copyright 2015-2019 Cedric RICARD
 #
 # This file is part of CloudMailing.
 #
@@ -37,6 +37,7 @@ import re
 import sys
 
 encoding_re = re.compile(r"coding[:=]\s*([-\w.]+)")
+
 
 def writeheader(filename, header, skip=None):
     """

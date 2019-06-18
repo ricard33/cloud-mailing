@@ -1,4 +1,4 @@
-# Copyright 2015 Cedric RICARD
+# Copyright 2015-2019 Cedric RICARD
 #
 # This file is part of CloudMailing.
 #
@@ -27,9 +27,10 @@ def put_version(repo_path, target_path):
     stats = subprocess.check_output(['git', 'diff', '--shortstat'], cwd=repo_path)
     dirty = len(stats) > 0 and stats[-1]
     version = label + (dirty and "-dirty" or "")
-    print version
+    print (version)
     with open(os.path.join(target_path, 'version.properties'), 'wt') as f:
         f.write('VERSION=%s\n' % version)
+
 
 if __name__ == '__main__':
     put_version(sys.argv[1], sys.argv[2])
