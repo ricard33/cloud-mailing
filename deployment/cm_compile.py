@@ -16,6 +16,7 @@
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
 import os, sys, re
+import shutil
 from os.path import getsize, join
 import py_compile
 
@@ -34,6 +35,11 @@ def clean_pyc_files(base_dir):
                 print("Deleting '%s'... " % fullpath, end=' ')
                 os.remove(fullpath)
                 print("Ok")
+        for name in dirs:
+            if name == '__pycache__':
+                fullpath = join(root, name)
+                print("Deleting folder '%s'... " % fullpath, end=' ')
+                shutil.rmtree(fullpath)
         for name in ('.svn', '.git', '.hg', '.env'):
             if name in dirs:
                 dirs.remove(name)  # don't visit .svn, .git and .hg directories
@@ -64,6 +70,7 @@ def compile_python(base_dir):
             if d in dirs:
                 dirs.remove(d)
     return errors
+
 
 if __name__ == "__main__":
     if '-c' in sys.argv:

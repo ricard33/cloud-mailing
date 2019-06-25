@@ -62,14 +62,18 @@ def get_system_name():
     return run("uname")
 
 
-@task
-def get_cm_user() -> str:
+def get_cm_user_and_group() -> str:
     host_conf = get_host_conf()
     return host_conf.get('user', 'cm:cm')
 
 
+def get_cm_username() -> str:
+    username, group = get_cm_user_and_group().split(':')
+    return username
+
+
 def update_files_rights(path):
-    user_and_group = get_cm_user()
+    user_and_group = get_cm_user_and_group()
     if not user_and_group:
         return
     run("chown -R %s %s" % (user_and_group, path))
@@ -115,6 +119,7 @@ def test():
         print('exist:', os.path.exists('/Users'))
 
 
+@task
 def clean_compiled_files():
     """cleanup *.pyc / *.pyo files"""
     run("mkdir -p %s" % (TARGET_PATH() + '/deployment'))
@@ -157,6 +162,7 @@ def compile_static_files():
         subprocess.check_output(['npm', 'run', 'gulp', 'build'], cwd=source_path)
 
 
+@task
 def sync_sources(test_only=False):
 
     rsync_project(
@@ -164,7 +170,7 @@ def sync_sources(test_only=False):
         local_dir=WORKSPACE + "/",
         delete=True,
         # default_opts='-rvz',  # '-pthrvz'
-        extra_opts='-ci --filter=". %s"' % os.path.join(FAB_PATH, "rsync_filter") + (test_only and " --dry-run" or ""),
+        extra_opts='-ci --prune-empty-dirs --filter=". %s"' % os.path.join(FAB_PATH, "rsync_filter") + (test_only and " --dry-run" or ""),
         #extra_opts="-ci --dry-run",
     )
 
@@ -212,13 +218,18 @@ def update_venv():
     # put(os.path.join(WORKSPACE, "requirements.txt"), TARGET_PATH())
 
     with cd(TARGET_PATH()):
-        with settings(warn_only=True):
-            if 'Python 3.7' not in run(".env_cm/bin/python -V"):
-                run("rm -r .env_cm")
-            if run("test -d .env_cm").failed:
-                run("python3.7 -m venv .env_cm")
+        if files.exists(".env_cm"):
+            run("rm -r .env_cm")
+        if files.exists(".env_mf"):
+            run("rm -r .env_mf")
 
-        with prefix('. .env_cm/bin/activate'):
+        with settings(warn_only=True):
+            if 'Python 3.7' not in run(".env/bin/python -V"):
+                run("rm -r .env")
+            if run("test -d .env").failed:
+                run("python3.7 -m venv .env")
+
+        with prefix('. .env/bin/activate'):
             run('pip install pip --upgrade')
             run('pip install incremental --upgrade')
             run('pip install -r requirements.txt --upgrade')
@@ -248,7 +259,7 @@ def create_user():
     create the 'cm' user and group on new system.
     @return:
     """
-    username, group = get_cm_user().split(':')
+    username, group = get_cm_user_and_group().split(':')
     if 'uid=' in run("id %s" % username):
         print(("User '%s' already exists" % username))
         return
@@ -323,6 +334,7 @@ def create_supervisord_config():
     host_conf = get_host_conf()
     satellite_only = host_conf.get('remote_master') is not None
 
+    username, group = get_cm_user_and_group().split(':')
     group_name = host_conf.get("supervisor_group", "cm")
     conf_filename = host_conf.get("supervisor_filename", "cloud_mailing.conf")
 
@@ -341,19 +353,19 @@ numprocs=1
 stdout_logfile=/var/log/supervisor.%(group_name)s_master.log
 autostart=true
 autorestart=true
-user=cm
+user=%(user)s
 priority=10
 
 [program:%(group_name)s_smtpd]
-command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_smtpd.py -u cm -g cm
+command=%(TARGET_PATH)s/.env/bin/python -O bin/cm_smtpd.py -u %(user)s -g %(group)s
 directory=%(TARGET_PATH)s
 numprocs=1
 stdout_logfile=/var/log/cm_smtpd.supervisor.log
 autostart=true
 autorestart=true
-;user=cm
+;user=%(user)s
 priority=30
-""" % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name}
+""" % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name, 'user': username, 'group': group}
 
     config += """
 [program:%(group_name)s_satellite]
@@ -363,9 +375,9 @@ numprocs=1
 stdout_logfile=/var/log/supervisor.%(group_name)s_satellite.log
 autostart=true
 autorestart=true
-user=cm
+user=%(user)s
 priority=20
-""" % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name}
+""" % {'TARGET_PATH': TARGET_PATH(), 'group_name': group_name, 'user': username, 'group': group}
 
     with tempfile.NamedTemporaryFile('w+t') as tmp:
         tmp.write(config)
@@ -420,7 +432,6 @@ def quick_deploy():
 def make_docker():
 
     compile_static_files()
-    write_mf_version()
     write_cm_version()
     subprocess.check_output(['python', '-O', 'deployment/cm_compile.py'], cwd=os.path.join(WORKSPACE, 'cloud_mailing'))
 
