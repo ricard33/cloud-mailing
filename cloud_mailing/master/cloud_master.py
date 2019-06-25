@@ -262,6 +262,13 @@ class MailingManagerView(pb.Viewable):
                     if sender_domain:
                         self.log.debug("Found DKIM configuration for domain '%s'", mailing.domain_name)
                         dkim = sender_domain.dkim
+                if not dkim:
+                    self.log.debug("No DKIM for ≈domain '%s'. Looking for global configuration...", mailing.domain_name)
+                    sender_domain = SenderDomain.find_one({'domain_name': '*'})
+                    if sender_domain:
+                        self.log.debug("Found global DKIM configuration")
+                        dkim = sender_domain.dkim
+                        dkim["domain"] = mailing.domain_name
                 util.StringPager(collector, pickle.dumps({
                     'id': mailing_id,
                     'header': header,
