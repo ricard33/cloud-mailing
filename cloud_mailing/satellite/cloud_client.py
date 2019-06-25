@@ -86,6 +86,7 @@ class CloudClient(pb.Referenceable):
                 self.mailing_queue.delay_if_empty = 10
 
     def remote_set_settings(self, settings):
+        log.debug("Satellite settings updated")
         for key, value in list(settings.items()):
             Settings.set(key, value)
 

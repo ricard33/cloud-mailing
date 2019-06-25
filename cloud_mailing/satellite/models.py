@@ -37,6 +37,7 @@ class RECIPIENT_STATUS:
     WARNING            = 'WARNING'
     IN_PROGRESS        = 'IN PROGRESS'
 
+
 recipient_status = (RECIPIENT_STATUS.UNVERIFIED,
                     RECIPIENT_STATUS.READY,
                     RECIPIENT_STATUS.IN_PROGRESS,
@@ -211,7 +212,6 @@ class HourlyStats(Model):
     @staticmethod
     def add_try():
         HourlyStats.__generic_update({'$inc': {'tries': 1}})
-
 
 
 class DomainStats(Model):
