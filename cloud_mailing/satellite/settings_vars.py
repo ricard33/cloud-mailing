@@ -34,6 +34,7 @@ DEFAULT_MAX_QUEUE_PER_DOMAIN = 'default_max_queue_per_domain'
 ZOMBIE_QUEUE_CHECKING = 'zombie_queue_checking'
 ZOMBIE_QUEUE_AGE_IN_SECONDS = 'zombie_queue_age_in_seconds'
 MAILING_QUEUE_ENDING_DELAY = 'mailing_queue_ending_delay'
+DOMAINS_NOTATION = 'domains_notation'
 
 default = {
     EHLO_STRING: 'mail.cloudmailing.net',
@@ -50,6 +51,7 @@ default = {
     ZOMBIE_QUEUE_CHECKING: True,
     ZOMBIE_QUEUE_AGE_IN_SECONDS: 3600,
     MAILING_QUEUE_ENDING_DELAY: 0,
+    DOMAINS_NOTATION: [(-5, 0), (5, 1), (20, 2), (100, 10)]
 }
 
 # Helpers

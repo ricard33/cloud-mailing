@@ -432,7 +432,7 @@ function startBrowserSync(isDev, specRunner) {
 
     var options = {
         proxy: {
-            target: 'localhost:' + port,
+            target: 'https://localhost:' + port,
             ws: true
         },
         // server: {

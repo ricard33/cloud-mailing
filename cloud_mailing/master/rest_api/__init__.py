@@ -140,7 +140,7 @@ class AuthenticateApi(ApiResource):
         user = request.site.check_authentication(request, credentials=creds)
 
         if user:
-            log_security.info("REST authentication success for user '%s' (%s)" % (username, request.getClientIP()))
+            log_security.info("REST authentication success for user '%s' (%s)" % (username, request.getClientAddress().host))
             result = {
                 'username': 'admin',
                 'is_superuser': True,
@@ -152,7 +152,7 @@ class AuthenticateApi(ApiResource):
         request.getSession().expire()
         request.setResponseCode(http_status.HTTP_401_UNAUTHORIZED)
         self.write_headers(request)
-        log_security.warn("REST authentication failed for user '%s' (%s)" % (username, request.getClientIP()))
+        log_security.warn("REST authentication failed for user '%s' (%s)" % (username, request.getClientAddress().host))
         return json.dumps({'error': "Authorization Failed!"}).encode()
 
 
@@ -171,7 +171,7 @@ class LogoutApi(ApiResource):
         request.getSession().expire()
         request.setResponseCode(http_status.HTTP_200_OK)
         self.write_headers(request)
-        log_security.info("User '%s' logged out (%s)" % (username, request.getClientIP()))
+        log_security.info("User '%s' logged out (%s)" % (username, request.getClientAddress().host))
         return json.dumps({'status': "Logged out"}).encode()
 
 

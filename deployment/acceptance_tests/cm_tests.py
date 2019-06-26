@@ -16,7 +16,9 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
 
+import base64
 import os
+import random
 import ssl
 import sys
 import time
@@ -28,9 +30,6 @@ import xmlrpc.client
 # encoding: utf-8
 from configparser import RawConfigParser
 from subprocess import PIPE, Popen
-
-import base64
-import random
 
 
 class Config(RawConfigParser):
@@ -93,6 +92,7 @@ domains = (
     'my-company.biz',
 )
 
+SATELLITE_GROUP = None
 
 
 class CloudMailingsTestCase(unittest.TestCase):
@@ -108,6 +108,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         self.cloudMailingsRpc("close")()
 
     def _check_domain_sender(self, email_filename):
+        import email.policy
         import email.parser
 
         m_parser = email.parser.BytesParser(policy=email.policy.default)
@@ -231,7 +232,7 @@ class CloudMailingsTestCase(unittest.TestCase):
         mailings = self.cloudMailingsRpc.list_mailings(self.domain_name)
         self.assertEqual(len(mailings), mailing_count + 1)
         self.assertEqual(mailings[-1]['mail_from'], mail_from)
-        recipients_list = [{'email': "cedric.ricard@orange.fr"},
+        recipients_list = [{'email': "ricard_cedric@hotmail.com"},
                            {'email': "ricard@free.fr"},
                            {'email': "ricard33+cm@gmail.com"},
                            {'email': "ricard@calexium.com"},
@@ -245,12 +246,16 @@ class CloudMailingsTestCase(unittest.TestCase):
             self.assertNotIn('error', r2)
         mailing = self.cloudMailingsRpc.list_mailings(self.domain_name)[-1]
         self.assertEqual(mailing['total_recipient'], 7)
-        self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'scheduled_duration': 3, 'testing': False,
-                                                                  'dkim': {
-                                                                      'selector': 'mail',
-                                                                      'domain': self.domain_name,
-                                                                      'privkey': dkim_private_key
-                                                                  }},)
+        # self.cloudMailingsRpc.set_mailing_properties(mailing_id, {'satellite_group': SATELLITE_GROUP})
+        prop = {'scheduled_duration': 3, 'testing': True,
+                'dkim':               {
+                    'selector': 'mail',
+                    'domain':   self.domain_name,
+                    'privkey':  dkim_private_key
+                }}
+        if SATELLITE_GROUP:
+            prop['satellite_group'] = SATELLITE_GROUP
+        self.cloudMailingsRpc.set_mailing_properties(mailing_id, prop)
 
         self.cloudMailingsRpc.start_mailing(mailing_id)
         self.cloudMailingsRpc.mailing_manager_force_check()
@@ -498,12 +503,16 @@ if __name__ == '__main__':
                         help='IP address of the CloudMailing (default: 127.0.0.1)')
     parser.add_argument('--target', dest='target', default=None,
                         help='Target name (used as section name in configuration file)')
+    parser.add_argument('--group', dest='group', default=None,
+                        help='Satellite group name')
 
     args, argv = parser.parse_known_args()
     if args.target:
         CONFIG = load_config(args.target)
     if args.ip:
         CONFIG['ip'] = args.ip
+
+    SATELLITE_GROUP = args.group
 
     argv.insert(0, sys.argv[0])
     unittest.main(argv=argv)

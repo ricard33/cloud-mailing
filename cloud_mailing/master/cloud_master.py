@@ -352,10 +352,10 @@ class MailingManagerView(pb.Viewable):
                     was_in_softbounce = recipient.send_status == RECIPIENT_STATUS.WARNING
                     recipient.try_count = rcpt['try_count']
                     recipient.update_send_status(rcpt['send_status'],
-                                                 rcpt['reply_code'],
-                                                 rcpt['reply_enhanced_code'],
-                                                 rcpt['reply_text'],
-                                                 smtp_log = rcpt['smtp_log'])
+                                                 rcpt.get('reply_code'),
+                                                 rcpt.get('reply_enhanced_code'),
+                                                 rcpt.get('reply_text'),
+                                                 smtp_log=rcpt.get('smtp_log'))
                     ml_stats = mailings_stats.setdefault(recipient.mailing.id, {})
                     if recipient.send_status not in (RECIPIENT_STATUS.FINISHED,
                                                      RECIPIENT_STATUS.ERROR,

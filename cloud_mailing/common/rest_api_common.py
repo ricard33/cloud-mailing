@@ -203,7 +203,7 @@ class ApiResource(Resource):
         request.setResponseCode(http_status.HTTP_403_FORBIDDEN)
         self.write_headers(request)
         self.log.warning(
-            "Access forbidden for resource '%s' (user=%s; ip=%s)" % (force_text(request.path), request.user, request.getClientIP()))
+            "Access forbidden for resource '%s' (user=%s; ip=%s)" % (force_text(request.path), request.user, request.getClientAddress().host))
         return json.dumps({'error': "Forbidden"}).encode()
 
     def render_OPTIONS(self, request):

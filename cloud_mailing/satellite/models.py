@@ -108,7 +108,7 @@ class MailingRecipient(Model):
     sender_name     = Field()
     domain_name     = Field(required=True)   # Recipient's domain name
     first_try       = Field(datetime)
-    next_try        = Field(datetime) # TODO maybe a int from EPOCH would be faster
+    next_try        = Field(datetime)  # TODO maybe a int from EPOCH would be faster
     try_count       = Field(int)
     send_status     = EnumField(recipient_status, default=RECIPIENT_STATUS.READY)
     reply_code      = Field(int)
@@ -233,6 +233,9 @@ class DomainStats(Model):
     failed      = Field(default=0)
     tries       = Field(default=0)  # help_text="Total tentatives count, including sent, failed and temporary failed.")
 
+    consecutive_sent = Field(default=0)
+    consecutive_failed = Field(default=0)  # including softbounce and hardbounce
+
     # at DNS level (+1 for each DNS query)
     dns_tries           = Field(default=0)  # help_text="Total tentatives count, including fatal and temporary failed.")
     dns_temp_errors     = Field(default=0)  # help_text="Errors due to temporal circumstances. Its can be solved later.")
@@ -258,6 +261,7 @@ class DomainStats(Model):
 
     @staticmethod
     def __generic_update(domain, operations):
+        operations.setdefault('$set', {})['modified'] = datetime.utcnow()
         r = DomainStats.update({'domain_name': domain},
                                operations,
                                upsert=True)
@@ -270,15 +274,18 @@ class DomainStats(Model):
 
     @staticmethod
     def add_sent(domain):
-        DomainStats.__generic_update(domain, {'$inc': {'sent': 1, 'tries': 1}})
+        DomainStats.__generic_update(domain, {'$inc': {'sent': 1, 'tries': 1, 'consecutive_sent': 1},
+                                              '$set': {'consecutive_failed': 0}})
 
     @staticmethod
     def add_failed(domain):
-        DomainStats.__generic_update(domain, {'$inc': {'failed': 1, 'tries': 1}})
+        DomainStats.__generic_update(domain, {'$inc': {'failed': 1, 'tries': 1, 'consecutive_failed': 1},
+                                              '$set': {'consecutive_sent': 0}})
 
     @staticmethod
     def add_try(domain):
-        DomainStats.__generic_update(domain, {'$inc': {'tries': 1}})
+        DomainStats.__generic_update(domain, {'$inc': {'tries': 1, 'consecutive_failed': 1},
+                                              '$set': {'consecutive_sent': 0}})
 
     @staticmethod
     def add_dns_success(domain):
@@ -304,6 +311,42 @@ class DomainStats(Model):
                                                        'dns_fatal_errors': 1,
                                                        'dns_cumulative_fatal_errors': 1},
                                               '$set': {'dns_last_error': DomainStats.get_exception_fullname(ex)}})
+
+    @staticmethod
+    def get_domains_notation() -> dict:
+        pipeline = [{
+            "$match": {"$or": [{"consecutive_sent": {"$gte": 0}}, {"consecutive_failed": {"$gte": 0}}]}
+        }, {
+            "$addFields": {
+                "age_hours": {
+                    "$divide": [{
+                        "$subtract": [datetime.utcnow(), "$modified"]
+                    }, 3600000]
+                }
+            }
+        }, {
+            "$project": {
+                "domain_name":        1,
+                "age_hours":          1,
+                "consecutive_sent":   1,
+                "consecutive_failed": 1,
+                "note":               {
+                    "$divide": [{
+                        "$subtract": ["$consecutive_sent", "$consecutive_failed"]
+                    }, {
+                        "$max": [0.1, "$age_hours"]
+                    }]
+                }
+            }
+        }, {
+            "$sort": {
+                "domain_name": 1
+            }
+        }, {
+            "$limit": 100
+        }]
+        results = DomainStats._get_collection().aggregate(pipeline)
+        return {r['domain_name']: r['note'] for r in results}
 
 
 class DomainConfiguration(Model):

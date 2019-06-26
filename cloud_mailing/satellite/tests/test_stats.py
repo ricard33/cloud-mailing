@@ -140,3 +140,8 @@ class TestDomainStats(DatabaseMixin, TestCase):
         self.assertEqual(1, DomainStats.find_one({'domain_name': 'example.org'}).dns_cumulative_fatal_errors)
         self.assertEqual(None, DomainStats.find_one({'domain_name': 'example.org'}).dns_last_error)
 
+    def test_domains_notation(self):
+        DomainStats.add_sent("example.org")
+        self.assertGreater(DomainStats.get_domains_notation()['example.org'], 0)
+        DomainStats.add_try("example.org")
+        self.assertLess(DomainStats.get_domains_notation()['example.org'], 0)

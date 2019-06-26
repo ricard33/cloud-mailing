@@ -163,12 +163,12 @@ class BasicHttpAuthXMLRPC(tx_xmlrpc.XMLRPC):
         """ Overridden 'render_POST' method which takes care of
         HTTP basic authorization """
         
-        if not self._anonymous_allowed and (request.getClientIP() != '127.0.0.1' or self._no_auth_for_local == False):
+        if not self._anonymous_allowed and (request.getClientAddress().host != '127.0.0.1' or self._no_auth_for_local == False):
             user = request.getUser()
             passwd = request.getPassword()
             if user == '' and passwd == '':
                 request.setResponseCode(http.UNAUTHORIZED)
-                log_security.warn('XMLRPC connection refused for anonymous user (%s)' % request.getClientIP())
+                log_security.warn('XMLRPC connection refused for anonymous user (%s)' % request.getClientAddress().host)
                 f = Fault(http.UNAUTHORIZED, 'Authorization required!')
                 self._cbRender(f, request)
                 return server.NOT_DONE_YET
@@ -176,7 +176,7 @@ class BasicHttpAuthXMLRPC(tx_xmlrpc.XMLRPC):
             if remote_ip:
                 remote_ip = remote_ip.split(':')[0].split(',')[0]
             else:
-                remote_ip = request.getClientIP()
+                remote_ip = request.getClientAddress().host
             try:
                 # Warning: self is given as hidden argument, like a member function
                 user = self._authenticate_method(username=request.getUser(), password=request.getPassword(), remote_ip=remote_ip)

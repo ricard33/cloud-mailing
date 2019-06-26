@@ -502,9 +502,17 @@ class MailingSender(pb.Referenceable):
             
     def _get_exchanges_dict(self, queue_filter):
         active_queues_count = self.relay_manager.activeRelayCount()
-        exchanges = {} # dict (Key: domain name; Value: list of recipients)
+        exchanges = {}  # dict (Key: domain name; Value: list of recipients)
         skip_domains = []
-        # TODO load domain config then list domain that has reach their max queues number to filter them from query
+        domains_notation = DomainStats.get_domains_notation()
+        mapping_note_to_queue_size = settings_vars.get(settings_vars.DOMAINS_NOTATION)
+
+        def check_mapping(mapping, note):
+            for check, value in mapping:
+                if note <= check:
+                    return min(value, self.maxMessagesPerConnection)
+            return self.maxMessagesPerConnection
+
         for recipient in MailingRecipient.find(queue_filter).sort('next_try'):
             assert(isinstance(recipient, MailingRecipient))
             to = recipient.email
@@ -514,6 +522,12 @@ class MailingSender(pb.Referenceable):
                 continue
             domain = parts[1].lower()
             if domain in skip_domains:
+                continue
+            notation = domains_notation.get(domain, 0)
+            max_recipients = check_mapping(mapping_note_to_queue_size, notation)
+            if max_recipients == 0:
+                # mark recipient as handled
+                recipient.mark_as_finished()
                 continue
 
             domain_config = DomainConfiguration.search(domain_name=domain).first() or {}
@@ -527,7 +541,7 @@ class MailingSender(pb.Referenceable):
                     skip_domains.append(domain)
                     continue
                 exchanges[domain] = []
-            if len(exchanges[domain]) >= self.maxMessagesPerConnection:
+            if len(exchanges[domain]) >= max_recipients:
                 skip_domains.append(domain)
                 continue # skip this recipient
             exchanges[domain].append(recipient)
