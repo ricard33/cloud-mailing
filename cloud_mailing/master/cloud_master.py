@@ -44,12 +44,14 @@ from ..common.db_common import get_db
 mailing_portal = None
 unit_test_mode = False   # used to make delays shorter
 
-#pylint: disable-msg=W0404
+
+# pylint: disable-msg=W0404
 
 def make_customized_file_name(mailing_id, recipient_id):
     """compose the filename where the customized email is stored."""
     # this name should be the same as in satellite to allow smart optimization with local satellite
     return 'cust_ml_%d_rcpt_%s.rfc822' % (mailing_id, str(recipient_id))
+
 
 def getAllPages(referenceable, methodName, *args, **kw):
     """
@@ -64,6 +66,7 @@ def getAllPages(referenceable, methodName, *args, **kw):
 
 
 __new_recipients_threadpool = None
+
 
 def get_new_recipients_threadpool():
     global __new_recipients_threadpool

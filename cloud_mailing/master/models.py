@@ -328,7 +328,7 @@ class MailingRecipient(Model):
         This implement the mailing specific strategy for retries.
         """
         self.in_progress = False
-        if self.try_count < 3:
+        if not self.try_count or self.try_count < 3:
             self.next_try = datetime.utcnow() + timedelta(minutes=10)
         elif self.try_count < 10:
             self.next_try = datetime.utcnow() + timedelta(minutes=60)
