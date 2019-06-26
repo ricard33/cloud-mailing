@@ -332,7 +332,7 @@ class DomainStats(Model):
                 "consecutive_failed": 1,
                 "note":               {
                     "$divide": [{
-                        "$subtract": ["$consecutive_sent", "$consecutive_failed"]
+                        "$subtract": ["$consecutive_sent", {"$min": ["$consecutive_failed", 20]}]
                     }, {
                         "$max": [0.1, "$age_hours"]
                     }]
