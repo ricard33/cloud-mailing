@@ -51,7 +51,7 @@ default = {
     ZOMBIE_QUEUE_CHECKING: True,
     ZOMBIE_QUEUE_AGE_IN_SECONDS: 3600,
     MAILING_QUEUE_ENDING_DELAY: 0,
-    DOMAINS_NOTATION: [(-5, 0), (5, 1), (20, 2), (100, 10)]
+    DOMAINS_NOTATION: [(-6, 0), (5, 1), (20, 2), (100, 10), (1000, 20)]
 }
 
 # Helpers
