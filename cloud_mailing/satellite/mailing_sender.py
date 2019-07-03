@@ -525,6 +525,7 @@ class MailingSender(pb.Referenceable):
                 continue
             notation = domains_notation.get(domain, 0)
             max_recipients = check_mapping(mapping_note_to_queue_size, notation)
+            self.log.debug("Domain notation for [%s]: %.1f -> %d recipients max", domain, notation, max_recipients)
             if max_recipients == 0:
                 # mark recipient as handled
                 recipient.mark_as_finished()

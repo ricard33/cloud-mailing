@@ -343,8 +343,6 @@ class DomainStats(Model):
             "$sort": {
                 "domain_name": 1
             }
-        }, {
-            "$limit": 100
         }]
         results = DomainStats._get_collection().aggregate(pipeline)
         return {r['domain_name']: r['note'] for r in results}
