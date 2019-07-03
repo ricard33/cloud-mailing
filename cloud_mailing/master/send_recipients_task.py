@@ -218,7 +218,36 @@ class SendRecipientsTask(Singleton):
             if total_recipients_pending:
                 mailings = yield db.mailing.find(mailing_filter, fields=['status', 'start_time', 'total_pending',
                                                                          'mail_from', 'sender_name'])
-                for mailing in mailings:
+                mailings = {x['_id']: x for x in mailings}
+                mailing_ids = list(mailings.keys())
+                filter = SendRecipientsTask.make_recipients_queryset({'$in': mailing_ids}, included, excluded)
+                t1 = time.time()
+                f = txmongo.filter.sort(txmongo.filter.ASCENDING("next_try"))
+                pipeline = [{
+                    "$match": filter
+                }, {
+                    "$sort": {"next_try": 1}
+                }, {
+                    "$group": {
+                        "_id":        "$mailing",
+                        "recipients": {
+                            "$push": "$_id"
+                        }
+                    }
+                }, {
+                    "$project": {
+                        "id":          "$mailing",
+                        "recipients": {
+                            "$slice": ["$recipients", nb_recipients]
+                        }
+                    }
+                }]
+                results = yield db.mailingrecipient.aggregate(pipeline)
+
+                for r in results:
+                    mailing_id = r['_id'].id
+                    mailing = mailings[mailing_id]
+
                     if max_nb_recipients <= len(recipients):
                         self.log.warning("Filling mailing queue: max recipients reached. Skipping others mailings.")
                         # TODO ALERT here
@@ -237,10 +266,8 @@ class SendRecipientsTask(Singleton):
                     # print "nb_max = %d" % nb_max
                     self.log.debug("Filling mailing queue: selecting max %d recipients from mailing [%d]", nb_max,
                                    mailing['_id'])
-                    filter = SendRecipientsTask.make_recipients_queryset(mailing['_id'], included, excluded)
                     t1 = time.time()
-                    f = txmongo.filter.sort(txmongo.filter.ASCENDING("next_try"))
-                    selected_recipients = yield db.mailingrecipient.find(filter, filter=f, limit=nb_max)
+                    selected_recipients = yield db.mailingrecipient.find({'_id': {'$in': r['recipients']}}, filter=f, limit=nb_max)
                     for recipient in selected_recipients:
                         recipient['mail_from'] = mailing['mail_from']
                         recipient['sender_name'] = mailing['sender_name']
@@ -253,7 +280,7 @@ class SendRecipientsTask(Singleton):
             if count:
                 self.log.info("Mailing queue successfully filled %d recipients in %.1f seconds.", count,
                               time.time() - t0)
-        except:
+        except Exception as ex:
             self.log.exception("Exception using Filling Mailing Queue function.")
             defer.returnValue(recipients)
         defer.returnValue(recipients)
