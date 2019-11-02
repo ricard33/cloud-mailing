@@ -92,7 +92,7 @@
     "d3": "^3.5.16",
     "font-awesome": "^4.7.0",
     "jquery": "^2.2.4",
-    "lodash": "^4.17.4",
+    "lodash": "^4.17.13",
     "ng-table": "^3.0.1",
     "nvd3": "^1.8.5",
     "rdash-ui": "git+https://github.com/rdash/rdash-ui.git",
