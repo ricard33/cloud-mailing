@@ -653,10 +653,13 @@ class ActiveQueuesList(object):
         Add a queue into the active queues list then return its id.
         """
         # remove potentially heavy data from recipients
-        recipients = [{'_id': recipient.id, 'mailing': recipient.mailing, 'email': recipient.email} for recipient in queue.recipients]
+        recipients = [{'_id': recipient.id, 'mailing': {
+            '_id': recipient.mailing.id,
+            'domain_name': recipient.mailing.domain_name,
+        }, 'email': recipient.email, 'mail_from': recipient.mail_from} for recipient in queue.recipients]
         active_queue = ActiveQueue.create(domain_name=queue.domain, recipients=recipients)
         self.managed[active_queue.id] = queue
-        self.log.debug("add_queue(%s)", active_queue.id)
+        self.log.debug("add_queue(%s) for [%s] with %d recipients", active_queue.id, queue.domain, len(recipients))
         return active_queue.id
 
     def activeRelayCount(self):
