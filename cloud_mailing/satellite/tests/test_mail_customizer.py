@@ -723,7 +723,7 @@ I=92m happy! Nothing else to say...
         self.assertTrue(d.verify(0, dnsfunc=self._get_txt))
         self.assertTrue(d.verify(1, dnsfunc=self._get_txt))
 
-    def _get_txt(self, name):
+    def _get_txt(self, name, timeout=5):
         self.assertEqual(b"mail._domainkey.unittest.cloud-mailing.net.", name)
         return "v=DKIM1; h=sha256; k=rsa; p=MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQDQKTyffdhVj+Z7xke+b3/ns2u9ls3pVdI0tgCYKe8Fi6mXbF+Bri6rBadih/etMNOZ1BO/meLF8wfVgbizxAXjeinKH23HXjqTipJXoWWiwFLIijmSG/2Q+9vseAPGlVpgormOVj67gJRhjJw50i9COiHIq6ChpE969i2LGIfXpQIDAQAB"
 
