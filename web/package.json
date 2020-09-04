@@ -55,7 +55,7 @@
     "karma-jasmine": "^1.1.0",
     "karma-phantomjs-launcher": "^1.0.4",
     "karma-phantomjs2-launcher": "^0.5.0",
-    "node-sass": "^3.13.1",
+    "node-sass": "^4.13.1",
     "phantomjs-prebuilt": "^2.1.14",
     "plato": "^1.7.0",
     "yargs": "^4.8.1"
