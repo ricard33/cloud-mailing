@@ -23,20 +23,36 @@ import codecs
 import os
 import sys
 
-import cloud_mailing
-
 here = os.path.normpath(os.path.dirname(__file__))
+
+
+def read_version_from_properties_file():
+    import os
+    filename = os.path.join(here, 'cloud_mailing', 'version.properties')
+    if os.path.exists(filename):
+        with open(filename, 'rt') as f:
+            for line in f:
+                try:
+                    name, value = line.split('=')
+                    if name == 'VERSION':
+                        return value.strip()
+                except:
+                    pass
+    return "0.3.0"
+
 
 def read(*filenames, **kwargs):
     encoding = kwargs.get('encoding', 'utf-8')
     sep = kwargs.get('sep', '\n')
     buf = []
     for filename in filenames:
-        with io.open(filename, encoding=encoding) as f:
+        with io.open(os.path.join(here, filename), encoding=encoding) as f:
             buf.append(f.read())
     return sep.join(buf)
 
+
 long_description = read('README.md', 'CHANGES.md')
+
 
 class PyTest(TestCommand):
     def finalize_options(self):
@@ -49,9 +65,10 @@ class PyTest(TestCommand):
         errcode = pytest.main(self.test_args)
         sys.exit(errcode)
 
+
 setup(
     name='cloud_mailing',
-    version=cloud_mailing.__version__,
+    version=read_version_from_properties_file(),
     url='http://github.com/ricard33/cloud_mailing/',
     license='GNU Affero General Public License',
     author='Cedric RICARD',

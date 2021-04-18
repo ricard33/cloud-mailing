@@ -22,7 +22,7 @@ from ..models import Mailing, MailingRecipient
 
 __author__ = 'ricard'
 
-class MailingFactory(factory.MogoFactory):
+class MailingFactory(factory.mogo.MogoFactory):
     class Meta:
         model = Mailing
 
@@ -36,7 +36,7 @@ class MailingFactory(factory.MogoFactory):
     type = 'REGULAR'
 
 
-class RecipientFactory(factory.MogoFactory):
+class RecipientFactory(factory.mogo.MogoFactory):
     class Meta:
         model = MailingRecipient
 

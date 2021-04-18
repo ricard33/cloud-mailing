@@ -14,7 +14,7 @@
 #
 # You should have received a copy of the GNU Affero General Public License
 # along with CloudMailing.  If not, see <http://www.gnu.org/licenses/>.
-
+import hashlib
 import pickle as pickle
 import email
 import email.message
@@ -165,7 +165,7 @@ class CloudClientFactory(pb.PBClientFactory):
         # self.resetDelay()
         pb.PBClientFactory.clientConnectionMade(self, broker)
         def1 = self.login(credentials.UsernamePassword(settings.SERIAL,
-                                                       force_bytes(hmac.HMAC(b"UT_SHARED_KEY").hexdigest())),
+                                                       force_bytes(hmac.HMAC(b"UT_SHARED_KEY", digestmod=hashlib.md5).hexdigest())),
                           client=self.cloud_client)
         def1.addCallback(self.cloud_client.connected)
 

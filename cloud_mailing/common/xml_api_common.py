@@ -168,7 +168,7 @@ class BasicHttpAuthXMLRPC(tx_xmlrpc.XMLRPC):
             passwd = request.getPassword()
             if user == '' and passwd == '':
                 request.setResponseCode(http.UNAUTHORIZED)
-                log_security.warn('XMLRPC connection refused for anonymous user (%s)' % request.getClientAddress().host)
+                log_security.warning('XMLRPC connection refused for anonymous user (%s)' % request.getClientAddress().host)
                 f = Fault(http.UNAUTHORIZED, 'Authorization required!')
                 self._cbRender(f, request)
                 return server.NOT_DONE_YET

@@ -540,7 +540,7 @@ class CloudRealm:
                     avatar = self.avatars[serial]
                     d = avatar.check_recipients(recipients)
                 else:
-                    self.log.warn("Found %d recipients handled by disconnected client [%s].", len(recipients), serial)
+                    self.log.warning("Found %d recipients handled by disconnected client [%s].", len(recipients), serial)
                     d = defer.succeed({_id: None for _id in recipients})
                 d.addCallback(self._check_recipients_cb, serial, recipients)\
                     .addErrback(self._check_recipients_eb, serial)
@@ -564,7 +564,7 @@ class CloudRealm:
         assert(isinstance(results, dict))
         unhandled = [ObjectId(id) for id, rcpt in list(results.items()) if not rcpt]
         if unhandled:
-            self.log.warn("Found [%d] orphan recipients from client [%s]. Removing them...", len(unhandled), serial)
+            self.log.warning("Found [%d] orphan recipients from client [%s]. Removing them...", len(unhandled), serial)
             yield get_db().mailingrecipient.update_many({'_id': {'$in': unhandled}},
                                                         {'$set': {'in_progress': False}})
         else:

@@ -56,7 +56,7 @@ class MXCalculator:
         """
         #noinspection PyUnresolvedReferences
         self.badMXs[str(mx)] = self.clock.seconds() + self.timeOutBadMX
-        self.log.warn("MX '%s' marked as bad", str(mx))
+        self.log.warning("MX '%s' marked as bad", str(mx))
 
     def markGood(self, mx):
         """Indicate a given mx host is back online.
@@ -151,7 +151,7 @@ class MXCalculator:
                     # Make sure it isn't a loop contained entirely within the
                     # results we have here.
                     if canonicalName in seenAliases:
-                        self.log.warn("Infinite loop detected for '%s' (querying MX for domain '%s')", canonicalName, domain)
+                        self.log.warning("Infinite loop detected for '%s' (querying MX for domain '%s')", canonicalName, domain)
                         return Failure(CanonicalNameLoop(record))
 
                     pertinentRecords = answers[canonicalName]
@@ -163,7 +163,7 @@ class MXCalculator:
                         return self.getMX(canonicalName, cnamesLeft - 1)
                     else:
                         # Give up.
-                        self.log.warn("Canonical name chain is too long for '%s' (querying MX for domain '%s')", canonicalName, domain)
+                        self.log.warning("Canonical name chain is too long for '%s' (querying MX for domain '%s')", canonicalName, domain)
                         return Failure(CanonicalNameChainTooLong(record))
 
             # If it's an MX, collect it.

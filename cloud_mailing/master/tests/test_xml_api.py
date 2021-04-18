@@ -314,7 +314,8 @@ class XmlRpcMailingTestCase(DatabaseMixin, TestCase):
         """
         Test mailings creation using rfc822 form
         """
-        content = open(os.path.join(os.path.dirname(__file__), 'data', 'crash_due_to_us-ascii_charset.rfc822'), 'rt').read()
+        with open(os.path.join(os.path.dirname(__file__), 'data', 'crash_due_to_us-ascii_charset.rfc822'), 'rt') as f:
+            content = f.read()
         content_b64 = base64.b64encode(content.encode())
         d = self.proxy().callRemote("list_mailings", "my-domain.com")
         d.addCallback(lambda x: self.assertEqual(len(x), 0) and x)

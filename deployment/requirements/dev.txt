@@ -6,3 +6,5 @@ pytest_twisted
 # doc only
 sphinx
 sphinx-autobuild
+tox
+tox-pyenv

@@ -65,7 +65,8 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
         self.assertTrue(os.path.exists(fullpath))
         # print open(fullpath, 'rt').read()
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertFalse(message.is_multipart())
         self.assertTrue('Date' in message)
@@ -100,7 +101,8 @@ class MailCustomizerTestCase(DatabaseMixin, TestCase):
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
         # print
@@ -162,7 +164,8 @@ Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
         # print
@@ -227,7 +230,8 @@ Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
@@ -302,7 +306,8 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
@@ -389,7 +394,8 @@ AAAAjAAAANAAAABIAAAAAQAAAEgAAAABUGFpbnQuTkVUIHYzLjUuMTAAMjAxMjoxMjoxMSAx
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
@@ -493,7 +499,8 @@ Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         # print
         # print message.as_string()
@@ -592,7 +599,8 @@ I'm happy! Nothing else to say...
 
         self.assertTrue(os.path.exists(fullpath))
         parser = email.parser.Parser(policy=email.policy.default)
-        message = parser.parse(open(fullpath, 'rt'), headersonly = False)
+        with open(fullpath, 'rt') as f:
+            message = parser.parse(f, headersonly = False)
         assert(isinstance(message, email.message.Message))
         self.assertTrue(message.is_multipart())
         self.assertEqual("multipart/alternative", message.get_content_type())
@@ -736,12 +744,14 @@ I=92m happy! Nothing else to say...
         customizer._run_customizer()
         self.assertTrue(os.path.exists(fullpath))
         # print open(fullpath, 'rt').read()
-        message_str = open(fullpath, 'rt').read()
+        with open(fullpath, 'rt') as f:
+            message_str = f.read()
         return message_str
 
     def _get_dkim_privkey(self):
-        return open(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deployment', 'acceptance_tests', 'data',
-                                 'unittest.cloud-mailing.net', 'mail.private'), 'rt').read()
+        with open(os.path.join(os.path.dirname(__file__), '..', '..', '..', 'deployment', 'acceptance_tests', 'data',
+                                 'unittest.cloud-mailing.net', 'mail.private'), 'rt') as f:
+            return f.read()
 
     def test_rotate_encryption_in_tracking_links(self):
         mailing = factories.MailingFactory(tracking_url='http://tracking.net/')

@@ -22,7 +22,7 @@ import factory
 from ..models import Mailing, MailingRecipient, CloudClient, RECIPIENT_STATUS
 
 
-class CloudClientFactory(factory.MogoFactory):
+class CloudClientFactory(factory.mogo.MogoFactory):
     class Meta:
         model = CloudClient
 
@@ -31,7 +31,7 @@ class CloudClientFactory(factory.MogoFactory):
     enabled = True
 
 
-class MailingFactory(factory.MogoFactory):
+class MailingFactory(factory.mogo.MogoFactory):
     class Meta:
         model = Mailing
 
@@ -41,7 +41,7 @@ class MailingFactory(factory.MogoFactory):
     body = b"This is a mailing body."
 
 
-class RecipientFactory(factory.MogoFactory):
+class RecipientFactory(factory.mogo.MogoFactory):
     class Meta:
         model = MailingRecipient
 

@@ -2,7 +2,7 @@ git+https://github.com/ricard33/twisted.git@py3_for_cm#egg=twisted
 pyOpenSSL
 pymongo>=3.0,<3.6
 txmongo
-mogo>=0.3.1
+mogo>=0.4,<0.5
 dnspython==1.16.0
 Jinja2
 watchdog

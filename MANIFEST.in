@@ -1,0 +1,3 @@
+include CHANGES.md
+graft deployment
+global-exclude *.py[cod]
