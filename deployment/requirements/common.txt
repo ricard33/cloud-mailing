@@ -1,4 +1,4 @@
-git+https://github.com/ricard33/twisted.git@py3_for_cm#egg=twisted
+twisted>=21.2.0
 pyOpenSSL
 pymongo>=3.0,<3.6
 txmongo
