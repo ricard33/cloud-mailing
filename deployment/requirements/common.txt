@@ -3,7 +3,7 @@ pyOpenSSL
 pymongo>=3.0,<3.6
 txmongo
 mogo>=0.4,<0.5
-dnspython==1.16.0
+dnspython==2.1.0
 Jinja2
 watchdog
 psutil
